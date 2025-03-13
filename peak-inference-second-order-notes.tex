@@ -126,7 +126,7 @@
 	\end{assumption}
 	\begin{assumption}
 		\label{asmp:noise-non-degenerate}
-		The matrix $\Var[\nabla Y_t] := \Lambda_t$ is uniformly lower bounded over $t \in \mc{T}$: there exists a constant $c > 0$ such that $\inf_{t \in \mc{T}} u_{\min}(\Lambda_t) \geq c$ for all $n \in \mathbb{N}$.
+		The matrix $\Var[\nabla Y_t] := \Lambda_t$ is uniformly lower bounded over $t \in \mc{T}$: there exists a constant $c > 0$ such that $\inf_{t \in \mc{T}} \lambda_{\min}(\Lambda_t) \geq c$ for all $n \in \mathbb{N}$.
 	\end{assumption}
 	Assumption~\ref{asmp:noise-stationary-c2} implies that $\epsilon$ is almost surely twice-differentiable \ag{Need to check this}, while Assumption~\ref{asmp:noise-non-degenerate} rules out degeneracies in the distribution of $\nabla \epsilon_t$. 
 	
@@ -154,7 +154,7 @@
 	In words $H_t(v)$ is simply the expectation of the negative Hessian $-\nabla^2 Y_t$ conditional on $Y_t = v$ and $\nabla Y_t = 0$. Later, we will show later that at peaks $\hat{t} \in \wh{T}_u$ for which $\hat{t} \overset{P}{\to} t^* \in T^*$, the observed negative Hessian $-\nabla^2 Y_{\hat{t}}$ concentrates (after appropriate rescaling) around $H_{t^*}(u_{t^*}^{+})$ where $u_{t^*}^{+} := \max\{\mu_{t^*},u\}$. Thus the following assumption, which asserts that the minimum eigenvalue of $H_{t^*}(u_{t^*}^{+})$ is growing, corresponds to placing a high-curvature assumption on $Y$.
 	\begin{assumption}
 		\label{asmp:curvature-asymptotics}
-		Define $\delta_{t}(v) := \{u_{\min}(H_{t}(v))\}^{-1}$. Assume
+		Define $\delta_{t}(v) := \{\lambda_{\min}(H_{t}(v))\}^{-1}$. Assume
 		\begin{equation}
 			\label{eqn:high-curvature-asymptotics}
 			\inf_{t^* \in T^*} \delta_{t^*}(u_{t^*}^{+}) \to 0, \quad \sup_{t^* \in T^*} \sup_{t \in B(t^*,\delta_0)}\|\mu_{t}^{(k)}\| \cdot \delta_{t^*}(u_{t^*}^{+}) = O(1) \;{\rm for}\; k = 3,4.
@@ -162,7 +162,7 @@
 	\end{assumption}
 
 	\section{Asymptotic distribution after selection}
-	We begin with inference without randomization, based on uncertainty quantification of points $\hat{t} \in \wh{T}_u$.
+	We begin with inference without randomization, based on the distributional limit of points $\hat{t} \in \wh{T}_u$.
 	
 	\subsection{Kac-Rice}
 	Consider the following point process associated to $Y_t$: for a scalar $v \in \R$ and a given $A \subseteq \mc{T}$,
@@ -177,15 +177,16 @@
 	Here $p_{Y_t,\nabla Y_t}(y,0)$ is the Gaussian density of $(Y_{t},\nabla Y_t)$ evaluated at $(y,0)$. Recall that the constant variance assumption implies $\Cov[Y_t,\nabla Y_t] = 0$, and thus $Y_t$ and $\nabla Y_t$ are independent, so $p_{Y_t,\nabla Y_t}(y,0) = p_{Y_t}(y) \cdot p_{\nabla Y_t}(0)$. 
 	
 	\subsection{Asymptotic expansion of intensity}
-	We'll start by computing an approximation to the intensity function $\rho$ defined in~\eqref{eqn:kac-rice}, that is highly accurate under the high-curvature asymptotics of Assumption~\ref{asmp:curvature-asymptotics} at points $t = t^{\ast} + h$ such that $h = o(1)$. We will use this to develop approximations to the marginal distribution of $Y_{\hat{t}}$, and the conditional distribution of $\hat{t}$ given $Y_{\hat{t}}$. 
+	We'll start by computing an approximation to the intensity function $\rho$ defined in~\eqref{eqn:kac-rice}, that is highly accurate under the high-curvature asymptotics of Assumption~\ref{asmp:curvature-asymptotics} at points $t = t^{\ast} + h$ such that $h = o(1)$. We will use this to develop approximations to the joint distribution of $(\hat{t},Y_{\hat{t}})$, the marginal distribution of $Y_{\hat{t}}$, and the conditional distribution of $\hat{t}$ given $Y_{\hat{t}}$. 
 	
-	The expectation of the determinant of a Gaussian random matrix, multiplied by the indicator that the matrix is positive semi-definite, is in general difficult to compute. However, in our high-curvature asymptotic setup, the probability that $\nabla^2 Y_t$ is positive definite is exponentially small. We are thus left with the conditional expectation of a determinant of a Gaussian matrix, which can be effectively approximated near peaks $t^*$; this is the content of the following Lemma.
+	\paragraph{Determinant term.}
+	The expectation of the determinant of a Gaussian random matrix, multiplied by the indicator that the matrix is positive semi-definite, is in general difficult to compute. However, in our high-curvature asymptotic setup, the probability that $\nabla^2 Y_t$ is negative definite is exponentially close to $1$. We are thus left with the conditional expectation of a determinant of a Gaussian matrix which can be effectively approximated near peaks $t^*$, as detailed by the following Lemma.
 	\begin{lemma}
 		\label{lem:approximation-peak-intensity}
 		Under Assumptions~\ref{asmp:noise-stationary-c2}-\ref{asmp:curvature-asymptotics}, at points $t,y$ such that $t - t^* := h = o(1)$ and $y \geq \mu_{t^*} - o(\delta_{t^*}^{-1})$,
 		\begin{equation}
 			\label{eqn:approximate-intensity-1}
-			\E[\det(-\nabla^2 Y_t) \cdot \1(\nabla^2 Y_t \preceq 0)|Y_t = y,\nabla Y_t = 0] =  \det(H_{t^*}(y))\cdot\big(1 + d_{t^*}(y,h) + O(h^2 \vee \{\delta_{t^*}(y)\}^2)\big),
+			\E[\det(-\nabla^2 Y_t) \cdot \1(\nabla^2 Y_t \preceq 0)|Y_t = y,\nabla Y_t = 0] =  \Big(1 + O\big(h^2 \vee \{\delta_{t^*}(y)\}^2 \vee \exp(-c_1 \{\delta_{t^*}(y)\}^{-2})\big)\Big)\det(H_{t^*}(y))\cdot\big(1 + d_{t^*}(y,h)\big),
 		\end{equation}
 		where $d_{t^*}(y,h) := \tr\big(\{H_{t^*}(y)\}^{-1} \dot{H}_{t^*}(y)(h)\big)$ and
 		\begin{equation}
@@ -194,9 +195,12 @@
 		\end{equation}
 		Moreover, $d_{t^*}(y,h)$ is linear in $h$ and $d_{t^*}(y,h) = O(h)$.
 	\end{lemma}
-	The proof of Lemma~\ref{lem:approximation-peak-intensity} is given in Section~\ref{subsec:pf-approximation-peak-intensity}. Standard asymptotic analysis (carried out for completeness in Section~\ref{subsec:asymptotic-analysis-density}) shows that under the same assumptions of Lemma~\ref{lem:approximation-peak-intensity}, the log-density of both $Y_t$ and $\nabla Y_t$ are asymptotically locally quadratic: if $h^2 \delta_{t^*}^{-1} \to 0, \Delta \delta_{t^*}^{-1}h^3 \to 0$ then
+	The proof of Lemma~\ref{lem:approximation-peak-intensity} is given in Section~\ref{subsec:pf-approximation-peak-intensity}. The restriction that $y \geq \mu_{t^*} - o(\delta_{t^*}^{-1})$ is made so that $\nabla^2 Y_t$ is negative definite with very high probability,  conditional on $Y_t = y$.
+	
+	\paragraph{Density term.}
+	Standard asymptotic analysis (carried out in Section~\ref{subsec:asymptotic-analysis-density}) shows that under the assumptions of Lemma~\ref{lem:approximation-peak-intensity}, the log-density of both $Y_t$ and $\nabla Y_t$ are locally well-approximated by quadratics: if $h^2 \delta_{t^*}^{-1} \to 0, |y - \mu_{t^*}| \delta_{t^*}^{-1}h^3 \to 0$ then
 	\begin{align}
-		p_{Y_t}(y) & = \frac{1}{\sqrt{2\pi}} \cdot \exp\Big(-\frac{1}{2}\Big\{(y - \mu_{t^*})^2 - (y - \mu_{t^*}) \cdot h'\nabla^2 \mu_{t^*} h\Big\} \Big) \cdot (1 + O(\Delta \delta_{t^*}^{-1} h^3) + O(\delta_{t^*}^{-2}h^4)) \label{eqn:asymptotic-density-height}\\
+		p_{Y_t}(y) & = \frac{1}{\sqrt{2\pi}} \cdot \exp\Big(-\frac{1}{2}\Big\{(y - \mu_{t^*})^2 - (y - \mu_{t^*}) \cdot h'\nabla^2 \mu_{t^*} h\Big\} \Big) \cdot (1 + O(|y - \mu_{t^*}| \delta_{t^*}^{-1} h^3) + O(\delta_{t^*}^{-2}h^4)) \label{eqn:asymptotic-density-height}\\
 		p_{\nabla Y_t}(0) & = \frac{(1 - R(h)/2 - d(h)/2)}{\sqrt{(2\pi)^d\det(\Lambda_{t^*})}}\exp\bigg(-\frac{1}{2}h' \nabla^2 \mu_{t^*} \Lambda_{t^*}^{-1}  \nabla^2 \mu_{t^*} h \bigg) \cdot (1 + O(\delta_{t^*}^{-2}h^4) + O(h^2)), \label{eqn:asymptotic-density-gradient}
 	\end{align}
 	where 
@@ -204,62 +208,60 @@
 		d(h) & = \tr(\Lambda_{t^*}^{-1} \dot{\Lambda}_{t^*}(h)), \label{eqn:asymptotic-intensity-linear-term}\\
 		R(h) & = h' \nabla^2 \mu_{t^*} \Lambda_{t^*}^{-1} \{\nabla^3\mu_{t^*}(h^2)\} +  h'\nabla^2 \mu_{t^*} \Lambda_{t^*}^{-1}\{\dot{\Lambda}_{t^*}(\Lambda_{t^*}^{-1}h)\} h \label{eqn:asymptotic-intensity-cubic-term}
 	\end{align}
-	are linear and cubic in $h$ respectively, of order $d(h) = O(h), R(h) = O(\delta^{-2}h^3)$. Combining~\eqref{eqn:approximate-intensity-1}-\eqref{eqn:asymptotic-density-gradient} yields our first main result, an approximation to the intensity $\rho(y,t)$.
+	are linear and cubic in $h$ respectively, of order $d(h) = O(h), R(h) = O(\delta_{t^*}^{-2}h^3)$. 
+	
+	Combining~\eqref{eqn:approximate-intensity-1}-\eqref{eqn:asymptotic-density-gradient} yields our first main result, an approximation to the intensity $\rho(y,t)$.
 	\begin{theorem}
 		\label{thm:approximate-joint-intensity}
-		Under Assumptions~\ref{asmp:noise-stationary-c2}-\ref{asmp:curvature-asymptotics}, at points $t = t^{\ast} + h, y = \mu_{t^*} + \Delta$ such that $h^2 \delta_{t^*}^{-1} \to 0, \Delta \delta_{t^*}^{-1}h^3 \to 0$ and $y = \mu_{t^*} - o(\delta_{t^*}^{-1})$,
+		Under Assumptions~\ref{asmp:noise-stationary-c2}-\ref{asmp:curvature-asymptotics}, at points $t = t^{\ast} + h, y = \mu_{t^*} + \Delta$ such that $h^2 \delta_{t^*}^{-1} \to 0, \Delta \delta_{t^*}^{-1}h^3 \to 0$ and $y \geq \mu_{t^*} - o(\delta_{t^*}^{-1})$,
 		\begin{align*}
 			\rho(y,t) & = \Big(1 + O(h^2) + O(\delta_{t^*}^2) + O(\Delta h^2) + O(\Delta\delta_{t^*}^2)\Big)\cdot\bar{\rho}(y,t),
 		\end{align*}
 		where
 		\begin{equation}
 			\label{eqn:approximate-joint-intensity}
-			\bar{\rho}(y,t) := \cdot\frac{\det(H_y)\Big(1 + d_{t^*}(y,h) - R(h)/2 - d(h)/2\Big)}{\sqrt{(2\pi)^{d + 1}\det(\Lambda_{t^*})}}\cdot\exp\Big(-\frac{(y - \mu_{t^*})^2}{2}\Big) \cdot \exp\bigg(-\frac{h' G_{t^*}(y)h}{2}\bigg),
+			\bar{\rho}(y,t) := \frac{\det(H_{t^*}(y))\Big(1 + d_{t^*}(y,h) - R(h)/2 - d(h)/2\Big)}{\sqrt{(2\pi)^{d + 1}\det(\Lambda_{t^*})}}\cdot\exp\Big(-\frac{(y - \mu_{t^*})^2}{2}\Big) \cdot \exp\bigg(-\frac{h' G_{t^*}(y)h}{2}\bigg),
 		\end{equation}
 		and $G_{t^*}(y)$ is defined in~\eqref{eqn:goldilocks}.
 	\end{theorem}
-	At ``typical'' values of $y = u_{t^*}^{+} + O(1)$ and $h = O(\delta_{t^*})$, we see that the relative error of $\bar{\rho}(y,t)$ is $O(\delta_{t^*}^2 + |u_{t^*}^{+} - \mu_{t^*}| \delta_{t^*}^2)$. In this sense Theorem~\ref{thm:approximate-joint-intensity} gives a \emph{second-order} accurate approximation to the joint intensity.
+	To get a sense of the accuracy of the approximation, consider $y = u_{t^*}^{+} + O(1)$ and $h = O(\delta_{t^*}(y))$; these are ``typical'' values of $Y_{\hat{t}},\hat{t} - t^*$ under selection. For such choices, the relative error in approximating $\rho(y,t)$ by $\bar{\rho}(y,t)$ is $O(\delta_{t^*}^2 + |u_{t^*}^{+} - \mu_{t^*}| \delta_{t^*}^2)$. When there is negligible or moderate selection pressure (think $u = \mu_{t^*} + O(1))$ the relative error is $O(\delta_{t^*}^2)$, and Theorem~\ref{thm:approximate-joint-intensity} gives a \emph{second-order} accurate approximation to the joint intensity. But even under severe selection pressure (think $u = 2\cdot \mu_{t^*}$, say, where $2$ can be replaced by any constant greater than $1$) the relative error is $O(\delta_{t^*})$ and so the approximation is still accurate.
 	
-	\ag{Compare Theorem~\ref{thm:approximate-joint-intensity} to what's known in the literature, for the null case.}
+	% \ag{Compare Theorem~\ref{thm:approximate-joint-intensity} to what's known in the literature, for the null case.}
 	
-	The exponentiated quadratic functional form of the limiting intensity~\eqref{eqn:approximate-joint-intensity} suggests that, in some sense, observed thresholded peaks are asymptotically Normally distributed around signal peaks $t^{\ast}$, with the height of observed peaks following a truncated Gaussian distribution. In order to make proper sense of this statement, by computing a conditional \emph{density} of observed peak location and height near true peaks, we will need to show that each signal peak ``generates'' either zero or one nearby thresholded process peaks with high probability. That is the content of the next section.
+	The exponentiated quadratic functional form of the limiting intensity~\eqref{eqn:approximate-joint-intensity} suggests that, in some sense, observed thresholded peaks are asymptotically Normally distributed around signal peaks $t^{\ast}$, with the height of observed peaks following a truncated Gaussian distribution. In order to make proper sense of this statement, by computing a conditional \emph{density} of observed peak location and height near true peaks, we will need to show that each signal peak ``generates'' either zero or one nearby thresholded process peaks with high probability. That is the subject of the next section.
 	
-	\subsection{Expected number of process peaks near signal peaks}
+	\subsection{Peak uniqueness}
 	\label{subsec:expected-number-process-peaks}
 	
-	It can be shown that under the conditions of the previous section, the field $Y_{t}$ will be approximately locally quadratic close to thresholded local maxima. \ag{Make reference to something more concrete to this effect in the stationary case.} Hence, it should not be surprising that if there is a thresholded local maximum near a given $t^{\ast} \in T_0^{\ast}$, it will be the only one. In other words, with very high probability there will either be zero or one process peaks near each $t^{\ast} \in T_0^{\ast}$. Our notion of nearness will be based on $\delta$, as well as a sequence $D_n$ that is allowed to go to $\infty$ sufficiently slowly in $n$. For conciseness we shorten $B_{t^*} = B(t^{\ast},D_n \cdot \delta_{t^*})$. 
+	It can be shown that under the conditions of the previous section, the field $Y$ will be approximately locally quadratic around $\hat{t} \in \hat{T}_u$\ag{Make reference to something more concrete to this effect in the stationary case.}, and consequently any thresholded peak $\hat{t} \in \wh{T}_u$ ``near'' $t^{\ast} \in T_0^{\ast}$ will be unique with high probability. The following theorem makes this precise, by relating the probability of observing a single peak near $t^*$ to the expected number of peaks near $t^*$ . Nearness here corresponds to membership in a ball centered at $t^*$, of radius $D_{t^*} := C_0 \log(1/\delta_{t^*}) \delta_{t^*}$, where $C_0$ is a global constant to be specified later. We abbreviate $B_{t^*} = B(t^{\ast},D_{t^*})$. 
 	
 	\begin{theorem}
 		\label{thm:no-more-than-one-process-peak-per-signal-peak}
-		Suppose $D_n \to \infty, D_n^2 \delta_{t^*} \to 0$. Under Assumptions~\ref{asmp:noise-stationary-c2}-\ref{asmp:curvature-asymptotics}, there exists a constant $c_2 > 0$ such that for any $t_n^{\ast} \in T_0^{\ast}$ and any $A \subseteq B$:
+		Under Assumptions~\ref{asmp:noise-stationary-c2}-\ref{asmp:curvature-asymptotics}, there exists a constant $c_2 > 0$ such that for any $t_n^{\ast} \in T_0^{\ast}$, any $A \subseteq B_{t^*}$ and any $v \geq u$:
 		\begin{equation}
 			\label{eqn:no-more-than-one-peak-1}
 			\begin{aligned}
-				\P\big(N_{u}(B) = 1, N_{u}(A) = 1\big) = \P(N_{u}(A) = 1)\big(1 - o(\exp(-c_2 \delta_{t^*}^{-2}))\big)
+				\P\big(N_{v}(A) = 1, N_{u}(B_{t^*}) = 1\big) = \big(1 - o(\exp(-c_2 \delta_{t^*}^{-2}))\big) \cdot \E[N_{v}(A)]
 			\end{aligned}
-		\end{equation}
-		and
-		\begin{equation}
-			\label{eqn:no-more-than-one-peak-2}
-			\E\big[N_{u}(A)\big] = \P\big(N_{u}(A) = 1\big) \big(1 - o(\exp(-c_2\delta_{t^*}^{-2})\big).
 		\end{equation}
 	\end{theorem}
 	The proof of Theorem~\ref{thm:no-more-than-one-process-peak-per-signal-peak} is given in Section~\ref{subsec:pf-no-more-than-one-process-peak-per-signal-peak}.
 	
-	\subsection{Joint distribution of peak height and location}
-	Suppose we are told that there is in fact exactly one peak of height at least $u$ in the neighborhood of a given signal peak $t_n^{\ast}$, in the sense that $N_{u}(B_{t_n^{\ast}}) = 1$. Denote this unique point by $\hat{t}_n$.\footnote{This means $\hat{t}_n$ is only defined on the event $N_{u}(B) = 1$.} The results of the previous two sections can be used to derive an approximation to the conditional distribution of $\hat{t}_n, Y_{\hat{t}_n}$, defined as
+	\subsection{Distribution of height and location after selection}
+	Suppose we are told that there is in fact exactly one peak of height at least $u$ in the neighborhood of a given signal peak $t^{\ast}$, in the sense that $N_{u}(B_{t^{\ast}}) = 1$. Denote this unique point by $\hat{t}$.\footnote{This means $\hat{t}$ is only defined on the event $N_{u}(B) = 1$.} The results of the previous two sections can be used to derive an approximation to the joint distribution of $\hat{t}, Y_{\hat{t}}$ conditional on $N_u(B_{t^*}) = 1$. To see how, notice that this joint distribution is characterized by
 	\begin{equation}
-		\label{eqn:conditional-density}
+		\label{eqn:distribution-after-selection}
 		\Q_{B,u}(A,v) := \P(\hat{t} \in A, Y_{\hat{t}} \geq v|N_{u}(B) = 1) = \frac{\P(N_{v}(A) = 1, N_{u}(B) = 1)}{\P(N_{v}(B) = 1)}, \quad A \subseteq B, v \geq u.
 	\end{equation}
 	Let $p(t,v)$ denote the joint density of $\hat{t},Y_{\hat{t}}$ under the law $\Q_{B,u}$. If the conditions of Theorem~\ref{thm:no-more-than-one-process-peak-per-signal-peak} are satisfied, then by that theorem \ag{Need to be careful about rigorously justifying limits}
-	\begin{equation*}
+	\begin{equation}
+	\label{eqn:approximate-distribution-after-selection-1}
 		\begin{aligned}
 			p(t,y)
-			& = \lim_{\epsilon \to 0}\frac{1}{|\epsilon|^{d + 1} \nu_d}\big(1 - o(\exp(-c_2\delta^{-2})\big) \cdot \frac{\int_{y}^{y + \epsilon} \int_{B_{\epsilon}}  \rho(t,y') \,dy' \,dt}{\int_{B} \int_{u}^{\infty} \rho(t,y') \,dy' \,dt} = \big(1 - o(\exp(-c_2\delta_{t^*}^{-2})\big) \cdot \frac{\rho(t,y)}{\E[N_u(B)]}.
+			& = \lim_{\epsilon \to 0}\frac{1}{|\epsilon|^{d + 1} \nu_d}\big(1 - o(\exp(-c_2\delta^{-2})\big) \cdot \frac{\int_{y}^{y + \epsilon} \int_{B_{\epsilon}}  \rho(t',y') \,dt' \,dy'}{\int_{u}^{\infty} \int_{B} \rho(t',y') \,dy' \,dt'} = \big(1 - o(\exp(-c_2\delta_{t^*}^{-2})\big) \cdot \frac{\rho(t,y)}{\E[N_u(B)]}.
 		\end{aligned}
-	\end{equation*}
-	Substituting $\bar{\rho}$ and computing $\E[N_u(B)]$ by marginalizing  $\bar{\rho}(t,y)$ over $t,y$ leads to an approximation to the joint density $p(t,y)$. Integrating this approximation over $B$ in turn gives an expression for the marginal density of $Y_{\hat{t}}$, and using the definition of conditional probability, we can then work out an approximation to the conditional density of $\hat{t}$ given $Y_{\hat{t}}$. 
+	\end{equation}
+	Substituting $\bar{\rho}$ for $\rho$ and computing an approximation to $\E[N_u(B)]$ by marginalizing over $t,y$ leads to an approximation to the joint density $p(t,y)$. Furthermore, integrating this approximation over $B$ gives an approximation to the marginal density of $Y_{\hat{t}}$. From there an approximation to the conditional density of $\hat{t}$ given $Y_{\hat{t}}$ follows from the definition of conditional probability. To ease notation, in the statement of the following theorem we drop all subscripts in $t$.
 	\begin{theorem}
 		\label{thm:approximate-joint-distribution}
 		Under the conditions of Theorem~\ref{thm:no-more-than-one-process-peak-per-signal-peak}, for any $t \in B$ and $y \geq u$, the joint density of $\hat{t},Y_{\hat{t}}$ at $t = t^* + h,y = \mu_{t^*} + \Delta$ is
@@ -267,21 +269,21 @@
 			\label{eqn:approximate-joint-density}
 			\begin{aligned}
 				p(t,y) & = \Big(1 + O(h^2) + O(\delta^2) + O(\Delta h^2) + O(\Delta\delta^2)\Big) \cdot \bar{p}(t,y), \quad {\rm where} \\
-				\bar{p}(t,y) & := c_u\Big(1 + d_y(h) - d(h)/2 - R(h)/2\sigma^2\Big) \cdot \sqrt{\frac{\det(H_{y})}{\det(H_u)}} \cdot \sqrt{\det(G_y)} \cdot \exp\Big(-\frac{\Delta^2}{2\sigma^2}\Big) \cdot \exp\bigg(-\frac{h' G_{y}h}{2\sigma^2}\bigg),
+				\bar{p}(t,y) & := c(u) \cdot\Big(1 + d(y,h) - R(h)/2 - d(h)/2\Big) \cdot \det(H(y)) \cdot \exp\Big(-\frac{(y - \mu)^2}{2}\Big) \cdot \exp\bigg(-\frac{h' G(y)h}{2}\bigg),
 			\end{aligned}
 		\end{equation}
 		and the constant of proportionality is
 		\begin{equation}
 			\label{eqn:approximate-joint-density-constant-of-proportionality}
-			c_u = 
-			(2\pi)^{-(d + 1)/2} \sigma^{-(d + 1)/2} \exp\{-\Delta_u \tr(H_u^{-1}\Lambda)/2\} \cdot {\Psi(\sigma^{-1}(\Delta_u - \frac{1}{2}\tr(H_u^{-1}\Lambda)))}.
+			c(u) = \frac{1}{\sqrt{(2\pi)^{d + 1}}} \exp\bigg(\frac{(u^+ - \mu)\tr(\{H(u^{+})\}^{-1}\Lambda)}{2}\bigg)
+			\frac{1}{\Psi(u - \mu - \frac{1}{2}\tr(\{H(u^{+})\}^{-1}\Lambda))}.
 		\end{equation}
 		Moreover, the marginal density of $Y_{\hat{t}}$ is 
 		\begin{equation}
 			\label{eqn:approximate-marginal-density-height}
 			\begin{aligned}
 				p(y) & = \big(1 + O(\delta^2) + O(\Delta \delta^2) + O(|y - u|^2 \delta^2)\big) \cdot \bar{p}(y), \quad {\rm where} \\ 
-				\bar{p}(y) & := (2\pi)^{-1}\sigma^{-1/2}\frac{ \exp\Big(-\frac{1}{2\sigma^2}\{\Delta - \frac{1}{2}\tr(H_u^{-1}\Lambda)\}^2\Big) }{\Psi(\sigma^{-1}\{\Delta_u - \frac{1}{2}\tr(H_u^{-1}\Lambda)\})}.
+				\bar{p}(y) & := \frac{1}{\sqrt{2\pi}}\frac{\exp\Big(-(y - \mu - \frac{1}{2}\tr(\{H(u)\}^{-1}\Lambda))^2/2\Big) }{\Psi(y - \mu - \frac{1}{2}\tr(\{H(u)\}^{-1}\Lambda))}.
 			\end{aligned}
 		\end{equation}
 		Finally, the conditional density of $\hat{t}$ given $Y_{\hat{t}} = y$ is 
@@ -346,8 +348,7 @@
 	
 	\subsection{Asymptotics of deterministic Hessian}
 	\label{subsec:hessian-asymptotics}
-	
-		We will make use of the following projection/residual decomposition of the Hessian $\nabla^2 Y_t$:
+	We will make use of the following projection/residual decomposition of the Hessian $\nabla^2 Y_t$:
 	\begin{equation}
 		\begin{aligned}
 			-\nabla^2 Y_t 
@@ -367,7 +368,7 @@
 		\label{eqn:hessian-decomposition-residual-variance}
 		\Var[R(\nabla^2 \epsilon_t; (\epsilon_t, \nabla \epsilon_t))] := \sigma^2 \kappa_t.
 	\end{equation} 
-	The decomposition in~\eqref{eqn:hessian-decomposition} clearly shows that $H_t(y) = E[-\nabla^2 Y_t|Y_t = y,\nabla Y_t = 0]$, as claimed.
+	The decomposition in~\eqref{eqn:hessian-decomposition} clearly shows that $H_t(y) = \E[-\nabla^2 Y_t|Y_t = y,\nabla Y_t = 0]$, as claimed.
 	
 	Under Assumptions~\ref{asmp:noise-stationary-c2} and~\ref{asmp:signal-holder} we have that $H_t(y)$ -- viewed as a function of $t$ with $y$ fixed -- is twice continuously differentiable in $B_{t^*}$. If additionally Assumption~\ref{asmp:curvature-asymptotics} then $H_t(y)$ further satisfies the following Lipschitz-like property:
 	\begin{align}
@@ -380,10 +381,9 @@
 	Under the additional assumption that $y \geq \mu_{t^*} - o(\delta_{t^*}^{-1})$, the minimum eigenvalue of the deterministic equivalent is bounded below:
 	\begin{equation}
 	\label{eqn:deterministic-hessian-min-eigenvalue}
-	\{\delta_{t^*}(y)\}^{-1} \geq (1 - o(1)) \cdot \max\{\delta_{t^*}^{-1}, |y - \mu_{t^*}|\}.
+	\{\delta_{t^*}(y)\}^{-1} \geq (1 - o(1)) \cdot \max\{\delta_{t^*}^{-1}, |y - \mu_{t^*}|\},
 	\end{equation}
-	
-	We therefore additionally have the relative error bounds
+	and we therefore additionally have the relative error bounds
 	\begin{equation}
 		\label{eqn:deterministic-hessian-norm}
 		\frac{\|H_t(y) - H_{t^*}(y)\|}{\|H_{t^*}(y)\|} = O(h), \quad \|H_t(y)\| = \|H_{t^*}(y)\| (1 + O(h)), \quad \delta_{t}(y) = \delta_{t^*}(y) (1 + O(h)).
@@ -393,7 +393,7 @@
 		\label{eqn:deterministic-hessian-pointwise}
 		\max_{i,j} |(H_t(y))_{ij}| = O(\{\delta_{t^*}(y)\}^{-1}).
 	\end{equation}
-	Finally, under all previous assumptions $\sup_{t \in B_{t^*}} \|\ddot{H}_{t'}(y)\| = O(\{\delta_{{t^*}}(y)\}^{-1})$. In that case a first-order Taylor expansion yields
+	Finally, under all previous assumptions $\sup_{t \in B_{t^*}} \|\ddot{H}_{t}(y)\| = O(\{\delta_{{t^*}}(y)\}^{-1})$. In that case a first-order Taylor expansion yields
 	\begin{equation}
 		\label{eqn:taylor-expansion-det}
 		\det(H_{t'}(y)) = \det(H_{t}(y)) \Big(1 + \tr\big(\{H_{t}(y)\}^{-1} \dot{H}_{t}(y)(\eta)\big) + O(\eta^2)\Big).
@@ -405,7 +405,11 @@
 		\label{eqn:deterministic-hessian-determinant-moments}
 		\E\big[|\det(-\nabla^2 Y_t)|^p|Y_t = y,\nabla Y_t = 0\big] = O\big(\|H_t(y)\|^{pd} \vee 1\big) = O\big(\|H_{t^*}(y)\|^{pd} \vee 1 \vee h^{d}(\delta_{t^*}^{-p} \vee |y - \mu_{t^*}|^p)) = O\big(\delta_{t^*}^{-pd} \vee |y - \mu_{t^*}|^{pd}),
 	\end{equation}
-	with the first implication following by Lemma~\ref{lem:determinant-moments}, the second by~\eqref{eqn:deterministic-hessian-continuity}, and the third since $\|H_{t^*}(y)\| = O(\delta_{t^*}^{-1} \vee |y - \mu_{t^*}|)$.
+	with the first implication following by Lemma~\ref{lem:determinant-moments}, the second by~\eqref{eqn:deterministic-hessian-continuity}, and the third since $\|H_{t^*}(y)\| = O(\delta_{t^*}^{-1} \vee |y - \mu_{t^*}|)$. If $y \geq \mu_{t^*} - o(\delta_{t^*}^{-1})$, then we may use~\eqref{eqn:deterministic-hessian-min-eigenvalue}, which lower bounds the minimum eigenvalue~$\{\delta_{t^*}(y)\}^{-1}$, to further deduce
+	\begin{equation*}
+		\label{eqn:deterministic-hessian-determinant-moments-2}
+		\E\big[|\det(-\nabla^2 Y_t)|^p|Y_t = y,\nabla Y_t = 0\big] = O(\{\delta_{t^*}(y)\}^{-p}).
+	\end{equation*}
 	As for the tail behavior, specifically we will use that if $y \geq \mu_{t^*} - o(\delta_{t^*}^{-1})$, then there exists some $c_0 > 0$ for which
 	\begin{equation}
 		\label{eqn:deterministic-hessian-negative-definite}
@@ -615,11 +619,13 @@
 		\begin{aligned}
 			& \bigg|\E\Big[\det(-\nabla^2 Y_t) \cdot \1(\nabla Y_t \preceq 0)|Y_t = y,\nabla Y_t = 0\Big] - \E\Big[\det(-\nabla^2 Y_t)|Y_t = y,\nabla Y_t = 0\Big]\bigg| \\
 			& \quad = \bigg|\E\Big[\det(-\nabla^2 Y_t) \cdot \1(\nabla Y_t \preceq 0)|Y_t = y,\nabla Y_t = 0\Big]\bigg| \\
-			& \quad \leq \Big\{\E\Big[|\det(\nabla^2 Y_t)|^{p}|Y_t = y,\nabla Y_t = 0\Big]\Big\}^{1/p} \cdot \Big\{\P\Big(\nabla Y_t \preceq 0|Y_t = y,\nabla Y_t = 0\Big)\Big\}^{1/q} \\
-			& \quad = O\Big(\{\delta_{t^*}(y)\}^{-d} \exp(-c_1 \{\delta_{t^*}(y)\}^{-2})\Big),
+			& \quad \leq \Big\{\E\Big[|\det(\nabla^2 Y_t)|^{p}|Y_t = y,\nabla Y_t = 0\Big]\Big\}^{1/p} \cdot \Big\{\P\Big(\nabla^2 Y_t \preceq 0|Y_t = y,\nabla Y_t = 0\Big)\Big\}^{1/q} \\
+			& \quad = O\Big(\{\delta_{t^*}(y)\}^{-d} \exp(-c_1 \{\delta_{t^*}(y)\}^{-2})\Big).
 		\end{aligned}
 	\end{equation}
-	with the inequality following from H\"{o}lder's inequality and holding for any conjugate exponents $p,q$, and the final implication from~\eqref{eqn:deterministic-hessian-min-eigenvalue},~\eqref{eqn:deterministic-hessian-determinant-moments},~and \eqref{eqn:deterministic-hessian-negative-definite}, with $c_1 = c_0/q$. We now use the decomposition in~\eqref{eqn:hessian-decomposition} to write
+	The inequality above is H\"{o}lder's, and holds for any conjugate exponents $1/p + 1/q = 1$. The final implication combines the upper bound on the moments of $\det(\nabla^2 Y_t)$ from~\eqref{eqn:deterministic-hessian-determinant-moments-2}, and the lower bound on the probability that $\nabla^2 Y_t$ is negative definite from~\eqref{eqn:deterministic-hessian-negative-definite}; in this statement $c_1 = c_0/q$. 
+	
+	Next we use the decomposition in~\eqref{eqn:hessian-decomposition} to write
 	\begin{equation*}
 		\E\Big[\det(-\nabla^2 Y_t)|Y_t = y,\nabla Y_t = 0\Big] = \E\Big[\det(H_t(y) + R_t)\Big],
 	\end{equation*}
@@ -634,7 +640,7 @@
 	\end{equation*}
 	Finally, Taylor expansion of $H_t(y)$ around $t = t^*$ as in~\eqref{eqn:taylor-expansion-det} yields
 	\begin{equation*}
-		\det(H_t(y)) = \det(H_{t^*}(y))\big(1 + \tr(\{H_t(y)\}^{-1} \dot{H}_t(y)(h)) + O(h^2)\big),
+		\det(H_t(y)) = \det(H_{t^*}(y))\big(1 + \tr(\{H_t(y)\}^{-1} \dot{H}_t(y)(h)) + O(h^2)\big).
 	\end{equation*}
 	which completes the proof of the Lemma.
 	
@@ -765,7 +771,7 @@
 	$$
 	\P\Big(Y_t \geq u, \sup_{t' \in B, s \in \mathbb{S}^{d}} s' \nabla^2 Y_{t'} s \geq 0|\nabla Y_t = 0\Big) \leq \P\Big(Y_t \geq u, \sup_{t' \in B, s \in \mathbb{S}^{d}} X_{s,t'}^{\perp} + (\max(u,\mu_t) - Y_{t}) \cdot s' A_{t,t'} s \geq (1 - \varepsilon) s'\mc{G}_{t^{\ast}} s \Big)
 	$$
-	We now reason separately about the case where $u \leq \mu_t$ and $u > \mu_t$. In the first case, we have that $X_{s,t'}^{\perp} + (\max(u,\mu_t) - Y_{t}) \cdot s' A_{t,t'} s$ has mean-zero and variance at most $u_4 + u_{\max}(A_{t,t'})$. It therefore follows that 
+	We now reason separately about the case where $u \leq \mu_t$ and $u > \mu_t$. In the first case, we have that $X_{s,t'}^{\perp} + (\max(u,\mu_t) - Y_{t}) \cdot s' A_{t,t'} s$ has mean-zero and variance at most $u_4 + \lambda_{\max}(A_{t,t'})$. It therefore follows that 
 	\begin{align*}
 		& \P\Big(Y_t \geq u, \sup_{t' \in B, s \in \mathbb{S}^{d}} X_{s,t'}^{\perp} + (\max(u,\mu_t) - Y_{t}) \cdot s' A_{t,t'} s \geq (1 - \varepsilon) s'\mc{G}_{t^{\ast}} s\Big) \\
 		& \leq \P\Big(\sup_{t' \in B, s \in \mathbb{S}^{d}} X_{s,t'}^{\perp} + (\max(u,\mu_t) - Y_{t}) \cdot s' A_{t,t'} s \geq (1 - \varepsilon) s'\mc{G}_{t^{\ast}} s\Big) \\
@@ -781,6 +787,70 @@
 	\end{align*}
 	with the last line again following by~\eqref{eqn:borell-tis}. In either case, we have the desired bound~\eqref{pf:no-more-than-one-process-peak-per-signal-peak-2}.
 	\fi
+	
+	\subsection{Proof of Theorem~\ref{thm:approximate-joint-distribution}}
+	As in the statement of Theorem~\ref{thm:approximate-joint-distribution}, in the proof we will drop all notational dependency on $t^*$. We begin by proving that $\bar{p}(t,y)$ is an accurate approximation of $p(t,y)$, to the level of error specified in~\eqref{eqn:approximate-joint-density}. It follows from Theorems~\ref{thm:approximate-joint-intensity} and~\ref{thm:no-more-than-one-process-peak-per-signal-peak} that 
+	\begin{equation*}
+		\bar{p}(t,y) = \big(1 + o(\exp(-c_2\delta_{t^*}^{-2}) + O(h^2) + O(\delta_{t^*}^2) + O(\Delta h^2) + O(\Delta\delta_{t^*}^2)\big) \cdot \frac{\bar{\rho}(t,y)}{\E[N_u(B)]},
+	\end{equation*}
+	so that what is left is to compute an approximation to $\E[N_u(B)]$. In fact we will compute an approximation to $\E[N_v(B)]$ for $v \geq u$, since that will be what is necessary to also derive~\eqref{eqn:approximate-marginal-density-height} and~\eqref{eqn:approximate-conditional-density-location}. 
+	
+	To compute $\E[N_v(B)]$, we will truncate to a range of integration where the conditions of Theorem~\ref{thm:approximate-joint-intensity} are met. To that end, we introduce the truncation limits $\lambda^{-} = \max(\mu - C\delta^{-1/2}, u), \lambda^{+} = \max(\mu,u) + C\delta_{t^*}^{-1/2}$, and decompose
+	\begin{equation*}
+		\E[N_v(B)] = \E[N_{[v,\lambda^{-} \vee v)}(B)] + \E[N_{[\lambda^{-} \vee v, \lambda^{+})}(B)] + \E[N_{[\lambda^{+},\infty)}(B)].
+	\end{equation*}
+	We call these terms the ``lower truncation'', ``main'', and ``upper truncation'' terms, and approximate each separately. As the names suggest, the final approximation of $\E[N_v(B)]$ will come from the main term, with the lower and upper truncation terms being negligible.
+	
+	\paragraph{Lower truncation term.}
+	\ag{TO COME}
+	
+	\paragraph{Main term.}
+	Notice that all $t,y$ for which $t \in B, y \in [\lambda^{-} \vee v, \lambda^{+})$ satisfy the conditions of Theorem~\ref{thm:approximate-joint-intensity}.  Therefore, by that theorem,
+	\begin{equation*}
+		\begin{aligned}
+			\E[N_{[\lambda^{-} \vee v, \lambda^{+})}(B)] & =  \int_{\lambda^{-} \vee v}^{\lambda^{+}} \int_{B} \Big(1 + O\big(\Delta h^2\big) + O(h^2) + O\big(\Delta\delta^2\big) + O(\delta^2)\Big) \cdot \bar{\rho}(y,t) \,dt \,dy.
+		\end{aligned}
+	\end{equation*}
+	\ag{Pick back up...}
+	We next use some standard properties of Gaussian integrals (noted in Section~\ref{subsec:gaussian-integrals}) to simplify. In particular, recall that $d_y(h),d(h)$ are linear in $h$ and $O(h)$, while $R(h)$ is cubic in $h$ and $O(\delta^{-2}h^3)$. As these are odd functions of $h$, after integrating over $B$ the leading order terms vanish, i.e.
+	\begin{equation*}
+		\int_{B} d_y(h) \exp\Big(-\frac{h'G_yh}{2\sigma^2}\Big) = 0,
+	\end{equation*}
+	with the same holding for $d(h)$ and $R(h)$. Properly accounting for the remainder terms leaves us with
+	\begin{equation*}
+		\begin{aligned}	
+			\int_{v}^{\infty} \int_{B}  \frac{\det(H_y)}{\sqrt{\det(\Lambda_{t^*})}}\cdot\exp\Big(-\frac{\Delta^2}{2\sigma^2}\Big) \cdot \exp\bigg(-\frac{h' G_{y}h}{2\sigma^2}\bigg) \Big(1 + O\big((\Delta \vee 1)(h^2 \vee \delta^{-2}h^5)\big) + O\big((\Delta \vee 1)\delta^2\big)(1 \vee \delta^{-2}h^3)\Big)\Big) \,dy \,dt
+		\end{aligned}
+	\end{equation*}
+	We now marginalize, first over $t$ and then over $y$. Marginalizing over $t$ leaves
+	\begin{equation}
+		\label{pf:approximate-joint-distribution-2}
+		\begin{aligned}
+			& \frac{(2\pi)^{d/2}\sigma^{d/2}}{\sqrt{\det(\Lambda)}}\int_{v}^{\infty} \frac{\det(H_y)}{\sqrt{\det(G_y)}} \cdot \exp\Big(-\frac{\Delta^2}{2\sigma^2}\Big) \Big(1 + O\big((\Delta \vee 1)\delta^2\Big) \,dy \\
+			& \quad = \frac{(2\pi)^{d/2}\sigma^{d/2}}{\sqrt{\det(I)}}\int_{v}^{\infty} \sqrt{\det(H_y)} \cdot \exp\Big(-\frac{\Delta^2}{2\sigma^2}\Big) \Big(1 + O\big((\Delta \vee 1)\delta^2\Big) \,dy
+		\end{aligned}
+	\end{equation}
+	where in the first line we have used~\eqref{pf:approximate-joint-distribution-1} to control the size of the error -- keeping in mind that $\lambda_{\min}(G_y)^{-1} = O(\delta_y \delta) = O(\delta^2)$ -- and the second line follows by definition of $H_y, G_y$, and $I = -\nabla^2 \mu_{t^*}$. A first-order Taylor expansion of $\det(H_y)$ around $y = u$ then gives
+	\begin{equation*}
+		\det(H_y) = \det(H_u + (y - u)\Lambda) = \det(H_u)\Big(1 + \tr(H_u^{-1}\Lambda) (y - u) + O((y - u)^2\delta^2)\Big),
+	\end{equation*}
+	and plugging this in to~\eqref{pf:approximate-joint-distribution-2} gives $(2\pi)^{d/2}\sigma^{d/2}$ times
+	\begin{align*}
+		& \frac{\sqrt{\det(H_u)}}{\sqrt{\det(I)}}\int_{v}^{\infty} \exp\Big(-\frac{\Delta^2}{2\sigma^2} + \frac{(y - u)}{2}\tr(H_u^{-1}\Lambda)\Big) \Big(1 + O\big((\Delta \vee 1)\delta^2 + O((y - u)^2\delta^2)\Big) \,dy \\
+		& \quad = \frac{\sqrt{\det(H_u)}}{\sqrt{\det(I)}} \exp\bigg(\frac{\Delta_u \tr(H_u^{-1}\Lambda)}{2}\bigg) \int_{v}^{\infty} \exp\Big(-\frac{\Delta^2}{2\sigma^2} + \frac{\Delta}{2}\tr(H_u^{-1}\Lambda)\Big) \Big(1 + O\big((\Delta \vee 1)\delta^2 + O((y - u)^2\delta^2)\Big) \,dy \\
+		& \quad = \frac{\sqrt{\det(H_u)}}{\sqrt{\det(I)}} \exp\bigg(\frac{\Delta_u \tr(H_u^{-1}\Lambda) + \frac{1}{4}\{\tr(H_u^{-1}\Lambda)\}^2}{2}\bigg) \int_{v}^{\infty} \exp\Big(-\frac{1}{2\sigma^2}\{\Delta - \frac{1}{2}\tr(H_u^{-1}\Lambda)\}^2\Big)  \Big(1 + O\big((\Delta \vee 1)\delta^2 + O((y - u)^2\delta^2)\Big)) \,dy \\
+		& \quad = \sqrt{2\pi \sigma} \frac{\sqrt{\det(H_u)}}{\sqrt{\det(I)}} \exp\bigg(\frac{\Delta_u \tr(H_u^{-1}\Lambda) + \frac{1}{4}\{\tr(H_u^{-1}\Lambda)\}^2}{2}\bigg) \Psi\bigg(\frac{v - \mu_{t^*} - \frac{1}{2}\tr(H_u^{-1}\Lambda)}{\sigma}\bigg) \cdot (1 + O(\delta^2) + O(\Delta_v\delta^2) + O(|v - u|^2 \delta^2)) \\
+		& \quad = \sqrt{2\pi\sigma} \frac{\sqrt{\det(H_u)}}{\sqrt{\det(I)}} \exp\bigg(\frac{\Delta_u \tr(H_u^{-1}\Lambda)}{2}\bigg) \Psi\bigg(\frac{v - \mu_{t^*} - \frac{1}{2}\tr(H_u^{-1}\Lambda)}{\sigma}\bigg) \cdot (1 + O(\delta^2) + O(\Delta_v\delta^2) + O(|v - u|^2 \delta^2)),
+	\end{align*}
+	with the second-to-last equality following from~\eqref{pf:approximate-joint-distribution-1.5}, and the last equality upon recognizing that $\{\tr(H_u^{-1}\Lambda)\}^2 = O(\delta_u^2) = O(\delta^2)$. This gives a second-order accurate approximation to $\E[N_v(B)]$ for all $v \geq u$:
+	\begin{equation*}
+		\E[N_v(B)] = \sqrt{2\pi\sigma} \frac{\sqrt{\det(H_u)}}{\sqrt{\det(I)}} \exp\bigg(\frac{\Delta_u \tr(H_u^{-1}\Lambda)}{2}\bigg) \Psi\bigg(\frac{\Delta_u - \frac{1}{2}\tr(H_u^{-1}\Lambda)}{\sigma}\bigg) \cdot (1 + O(\delta^2) + O(\Delta_u\delta^2)).
+	\end{equation*}
+	The first claim~\eqref{eqn:approximate-joint-density} of Theorem~\ref{thm:approximate-joint-distribution} follows by taking our approximation $\bar{\rho}(t,y)$ to $\rho(t,y)$ and dividing by our approximation to $\E[N_u(B)]$, keeping in mind that the resulting determinant terms can be rearranged to
+	\begin{equation*}
+		\frac{\det(H_y) \sqrt{\det(I)}}{\sqrt{\det(\Lambda)}\sqrt{\det(H_u)}} = \sqrt{\frac{\det(H_y)}{\det(H_u)}} \cdot \sqrt{\det(G_y)}.
+	\end{equation*}
+	The second claim~\eqref{eqn:approximate-marginal-density-height} follows by taking our approximation to $\E[N_v(B)]$ and dividing by our approximation to $\E[N_u(B)]$. The third claim~\eqref{eqn:approximate-conditional-density-location} follows by taking our approximation $\bar{p}(t,y)$ to $p(t,y)$ and dividing by our approximation $\bar{p}(t)$ to $p(y)$. 
 	
 	\section{Technical Results}
 	
@@ -829,7 +899,7 @@
 	
 	\subsection{Gaussian integrals}
 	\label{subsec:gaussian-integrals}
-	Let $B$ be a ball centered at $t^*$, and let $G$ be a positive definite matrix $G$ with eigenvalues $\{u_{\min}(G)\}^{-1} = O(\delta^2)$. We have the following:
+	Let $B$ be a ball centered at $t^*$, and let $G$ be a positive definite matrix $G$ with eigenvalues $\{\lambda_{\min}(G)\}^{-1} = O(\delta^2)$. We have the following:
 	\begin{equation}
 		\label{pf:approximate-joint-distribution-1}
 		\begin{aligned}
