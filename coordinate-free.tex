@@ -1,0 +1,143 @@
+\documentclass{article}
+
+\input{../preamble.sty}
+\usepackage{lmodern}
+
+\newcommand{\ag}[1]{{\bf{{\red{[{AG: #1}]}}}}}
+\newcommand{\InnerProduct}[2]{\langle #1,#2 \rangle}
+\newcommand{\Norm}[1]{\|#1\|}
+\newcommand{\bP}{\mathbb{P}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\M}{\mathbb{M}}
+\newcommand{\V}{\mathbb{V}}
+\newcommand{\br}{{\bf r}}
+\newcommand{\bs}{{\bf s}}
+\newcommand{\bt}{{\boldsymbol t}}
+\newcommand{\bH}{{\boldsymbol H}}
+\newcommand{\Newton}{\mathrm{Newton}}
+\newcommand{\DummyField}{{\tt f}}
+\newcommand{\DummyGradient}{{\bf g}}
+\newcommand{\InformationMatrix}{{\boldsymbol J}}
+\newcommand{\lin}{\mathrm{lin}}
+\newcommand{\ind}{\perp\!\!\!\!\perp} 
+\newcommand{\Exp}{\mathrm{Exp}}
+
+\newcommand{\RandomField}{Y}
+\newcommand{\bLambda}{{\boldsymbol \Lambda}}
+\newcommand{\bGamma}{{\boldsymbol \Gamma}}
+\newcommand{\Err}{\mathrm{Err}}
+\newcommand{\bQ}{{\boldsymbol Q}}
+\newcommand{\bJ}{{\boldsymbol J}}
+\newcommand{\bV}{{\boldsymbol V}}
+\newcommand{\bI}{{\boldsymbol I}}
+\newcommand{\bC}{{\boldsymbol C}}
+\newcommand{\convweak}{\overset{d}{\to}}
+
+\newcommand{\appropto}{\mathrel{\vcenter{
+			\offinterlineskip\halign{\hfil$##$\cr
+				\propto\cr\noalign{\kern2pt}\sim\cr\noalign{\kern-2pt}}}}}
+
+\renewcommand{\thealgorithm}{\arabic{algorithm}}
+
+\title{ {\bf Inference for Local Maxima of a Gaussian Random Field} \\ Coordinate free intensity}
+
+\begin{document}
+	
+	\maketitle
+	\RaggedRight
+	
+	Consider a generic signal-plus-noise random field
+	\begin{equation}
+		\label{eqn:signal-plus-noise}
+		Y_t = \mu_t + \epsilon_t, \quad {\rm for} ~ t \in \mc{T}.
+	\end{equation}
+
+        We're going to consider $\mc{T}$ an abstract manifold for the moment, meaning that any {\em local calculations}
+        must be done in a chart $\varphi: U \rightarrow \R^d$ with $U \subset \mc{T}$.
+        It is also a Riemannian manifold with metric: given two vector fields $X, W$:
+\begin{equation}
+        g(X,W)_t = \E[X_t\epsilon * W_t\epsilon].
+\end{equation}
+
+For open $A \subset \mc{T}$ and $B \subset \R$ we are interested in the random variable
+\begin{equation}
+  \# \left\{(t,y): t \in A, dY_t = 0, Y_t \in B, \text{$t$ is a local maximum of $Y$}  \right\}.
+  \end{equation}
+Note that this random variable is independent of a chart: it is coordinate-free. The extra condition
+about the local maximum may seem coordinate based as it would seem to depend on the Hessian
+in that coordinate. However, the property of being a local maximum of a $C^2$ function is independent of any chart.
+
+Hence, the expected measure  is also coordinate-free.
+$$
+(A, B) \mapsto \nu(A \times B) \overset{def}{=} \E \left[\# \left\{(t,y): t \in A, dY_t = 0, Y_t \in B, \text{$t$ is a local maximum of $Y$}  \right\}\right] 
+$$
+The Kac-Rice formula gives a formula for the intensity of this measure in any coordinate system. Under enough assumptions,
+$\nu$ will have a Radon-Nikodym density with respect to the product measure on $\mc{T} \times \R$ equipped with the natural product metric.
+This Radon-Nikodym density will of course also be coordinate-free. Let's compute it.
+
+The computation relies first on the proper definition of the Hessian. For any $f \in C^2(\mc{T})$ and any smooth vector fields $X, W$, the
+Hessian $\nabla^2 f(X, W): \mc{T} \rightarrow \R$ can be defined through 
+\begin{equation}
+\begin{aligned}
+\nabla^2 f(X, W)_t = 
+X_t(Wf) - g(\nabla_XW, \nabla f) = X_t(Wf) -  \sum_{i,j} \Cov(X_t(W\epsilon), V_{i,t}\epsilon) g^{ij}_{V,t} V_{j,t}f
+\end{aligned}
+  \end{equation}
+with $Wf_t = W_tf$ and $V=(V_1, \dots, V_d)$ any set of frames with $g_{ij,V}(t) = g(V_i, V_j)_t$ and $g^{ij}_V =(g_{V})^{-1}$. We could
+take the elements of $V$ to be coordinate vector fields in some chart if we wanted a local formula for the Hessian.
+The Hessian is symmetric (expected) and it behaves tensorially (formally it's a module over smooth functions on $\mc{T}$). Let $M_t: T_t\mc{T} \rightarrow T_t\mc{T}$ be a section of linear maps on $T(\mc{T})$, i.e.
+a set change of basis matrices, one for each $t$. Then, with a little abuse of notation:
+\begin{equation}
+\nabla^2 (MX,W) = M \nabla^2 (X, W).
+  \end{equation}
+In fact, this even tells us that the vector fields $X$ and $W$ don't really need to be smooth!
+
+As in Theorem 12.4.1 of ``Random fields and geometry'', let's now fix a set of orthonormal frames $(E_1, \dots, E_d)$. The measure $\nu$
+can be written as
+\begin{equation}
+\begin{aligned}
+\nu(A \times B) &= \int_A \E \left[\det(-\nabla^2 Y(E_i,E_j)_t) 1_{{\cal N}}(\nabla^2 Y(E_i,E_j)_t) 1_B(Y_t) \biggl \vert \nabla Y^E_t=0\right] \phi_{\nabla Y^E_t}(0) \text{Vol}_g(dt) \\
+ &= \int_A \int_B \underbrace{ \E \left[\det(-\nabla^2 Y(E_i,E_j)_t) 1_{{\cal N}}(\nabla^2 Y(E_i,E_j)_t) \biggl \vert \nabla Y^E_t=0, Y_t=y\right] \phi_{Y_t|\nabla Y^E_t=0}(y) \; \phi_{\nabla Y^E_t}(0)}_{\rho(t,y)} \; dy \; \text{Vol}_g(dt) \\
+\end{aligned}
+  \end{equation}
+with $\text{Vol}_g$ the Riemannian measure. Above, $\nabla Y^E_t = (E_{1,t}Y, \dots, E_{d,t}Y)$ is the gradient of $Y$ at $t$ read off in the frame $E$, with
+$\nabla^2 Y(E_i,E_j)_t$ defined similarly. This expression $\rho(t,y)$ is coordinate-free: it does not even depend on our choice of orthonormal frames.
+
+How does this relate to what we would get if we worked in a coordinate chart $\varphi(A)$ and worked with the coordinate $\partial/\partial t_i$ vector fields? In local coordinates $t=\varphi(u)$ for some chart
+$\varphi:U \to \R^d$, we will
+typically write
+\begin{equation}
+\Lambda_{ij,t} = g\left(\frac{\partial}{\partial t_i}, \frac{\partial}{\partial t_j}\right)_t.
+  \end{equation}
+Let's pick a square root $\Lambda_t^{1/2}$ such that $\Lambda_t^{-1/2} \Lambda_t (\Lambda_t^{-1/2})'=I_{d \times d}$. Then, we can find a specific set of orthonormal vector fields by
+$$
+E_{i,t} = \sum_j \Lambda^{-1/2}_{ij,t} \frac{\partial}{\partial t_j} \biggl|_t.
+$$
+With this frame, we see\footnote{A small note here: generally speaking
+\begin{equation}
+\nabla^2 Y(\partial/\partial t_i, \partial/\partial t_j)_t \neq \frac{\partial^2 Y}{\partial t_i \partial t_j}\biggl|_t
+  \end{equation}
+as the RHS is missing the part related to the connection, which makes the RHS non-tensorial. This relation is true
+when $t$ is a critical point of $Y$. Therefore under the conditioning
+$\nabla Y^E_t=0$ the conditional expectation of LHS is the same as the RHS.}
+$$
+\nabla^2 Y(E_i,E_j)_t = \Lambda^{-1/2}_t \nabla^2 Y(\partial/\partial t_i, \partial/\partial t_j)_t (\Lambda^{-1/2}_t)'
+$$
+
+Further, setting
+$$
+\partial Y_t = \left(\frac{\partial Y}{\partial t_1}\biggl|_t, \dots, \frac{\partial Y}{\partial t_d}\biggl|_t \right)
+$$
+we see that
+$$
+\phi_{\nabla Y_t^E}(0) = \det(\Lambda_t^{1/2}) \phi_{\partial Y_t}(0).
+$$
+
+Putting these these facts together, we see that the following expression is coordinate-free (and even valid with non-constant variance) and computable in any coordinate system we like:
+$$
+\begin{aligned}
+\rho(t,y) = \det(\Lambda_t)^{-1/2} \E \left[\det\left(-\frac{\partial^2 Y}{\partial t_i \partial t_j} \biggl|_t\right) 1_{{\cal N}}\left(-\frac{\partial^2 Y}{\partial t_i \partial t_j} \biggl|_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] \phi_{Y_t|\partial Y_t=0}(y) \; \phi_{\partial Y_t}(0).
+\end{aligned}
+$$
+
+\end{document}
