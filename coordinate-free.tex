@@ -143,14 +143,14 @@ $$
 Alternatively, we could write
 $$
 \begin{aligned}
-\rho(t,y) = \det(\Lambda_t)^{-1/2} \E \left[\det\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] \phi_{Y_t|\partial Y_t=0}(y) \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)}
+\rho(t,y) = (2\pi)^{-d/2} \det(\Lambda_t)^{-1/2} \E \left[\det\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] \phi_{Y_t|\partial Y_t=0}(y) \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)}
 \end{aligned}
 $$
 
 In the constant variance case (with variance 1), this simplifies to
 $$
 \begin{aligned}
-\rho(t,y) = \det(\Lambda_t)^{-1/2} \E \left[\det\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] e^{-\frac{1}{2}(y-\mu_t)^2 \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)}
+\rho(t,y) = (2\pi)^{-(d+1)/2} \det(\Lambda_t)^{-1/2} \E \left[\det\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] e^{-\frac{1}{2}(y-\mu_t)^2} \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)}
 \end{aligned}
 $$
 
@@ -218,7 +218,28 @@ $$
 $$
 Above, we have used a common abuse of notation, failing to distinguish $f:\mc{T} \rightarrow \R$ with the
 composition $f \circ \varphi^{-1}$ with $(\varphi, U)$ a chart on $\mc{T}$. Recall in this case that the
-chart is special as $h=h(t)$ are normal coordinates based on an orthnormal basis for $T_{t^*}\mc{T}$.
+chart is special as $h=h(t)$ are normal coordinates based on an orthnormal basis for $T_{t^*}\mc{T}$. This relationship also implies that the covariant derivatives of a function are symmetric, which is not surprising but not necessarily obvious.
+
+Covariant derivatives of a tensor field are similary defined. Suppose $A$ is a $k$-th order (covariant) tensor field
+$$
+A_t:\otimes^k T_t\mc{T} \to \R
+$$
+then 
+$$
+\begin{aligned}
+  \nabla^1 A(X_{k+1}, X_k, \dots, X_1)_t &= X_{k+1,t}(A(X_k, \dots, X_1)) - A(\nabla_{X_{k+1}}X_k, \dots, X_1)  \\
+  &  \qquad  A(X_{k}, \nabla_{X_{k+1}}X_{k-1}, \dots, X_1)_t - \\
+  & \qquad A(X_{k}, \dots, \nabla_{X_{k+1}}X_1)_t.
+\end{aligned}
+$$
+
+We again see that working in normal coordinates yields
+$$
+\nabla^1 A(\partial h_{i_{k+1}}, \partial h_{i_k}, \dots, \partial h_{i_1})_{t^*} =
+\frac{\partial}{\partial h_{i_{k+1}}} A(\partial h_{i_k}, \dots, \partial h_{i_1}) \biggl|_{h=0}.
+$$
+
+We also see that the tensor field $\nabla^k f$ is simply (and naturally) $\nabla^1(\nabla^{k-1} f)$.
 
 \subsection{Handling the remainders}
 
@@ -261,5 +282,45 @@ $$
 
 In a normal coordinate system $\log_{t^*}(\varphi^{-1}(h))=h$ and this takes the form of a usual Taylor series expansion. While these functions are not linear in typical coordinate systems, the covariant expansion is enough for
 us to see which terms disappear under assumptions about certain $\nabla^k f_{t^*}$ terms vanishing.
+
+\section{Coordinate-free versions of (10),(11),(14),(15)}
+
+In a given coordinate system, $H_t(v)$ is a (coordinate-dependent) matrix but it can similarly
+be thought of as a tensor field. With variance constant and equal to 1, it is
+$$
+\begin{aligned}
+  H(v)(X, W)_t &= \E[-\nabla^2 Y(X, W)_t | \partial Y_t=0, Y_t=v] \\
+  &= \E[\nabla^2 Y(X, W)_t | \partial Y_t=0] \\
+  &=- \nabla^2 \mu(X, W)_t + (v-\mu_t)g(X, W)_t
+\end{aligned}
+$$
+
+In the general case, it is given by (correcting the error of the display between (12.2.11) and (12.2.12) in RFG along with non-zero mean):
+$$
+\begin{aligned}
+  H(v)(X, W)_t &= \E[-\nabla^2 Y(X, W)_t | \partial Y_t=0, Y_t=v] \\
+  &= -\nabla^2 \mu(X, W)_t - \frac{(v-\bar{\mu}_t)}{\text{\Var}(\epsilon_t|\partial \epsilon_t)} \Cov(\nabla^2 \epsilon(X, W)_t, \epsilon_t).
+\end{aligned}
+$$
+with
+$$
+\bar{\mu}_t = \E[Y_t|\partial Y_t=0] = \mu_t - \Cov(\epsilon_t,\partial \epsilon_t) \Cov(\partial \epsilon_t)^{-1} \partial \mu_t.
+$$
+In the general case, note that $\nabla^2 \epsilon(X, W)_t$ is independent of $\partial \epsilon_t$ hence
+$$
+\Cov(\nabla^2 \epsilon(X, W)_t, \epsilon_t | \partial \epsilon_t) = \Cov(\nabla^2 \epsilon(X, W)_t, \epsilon_t).
+$$
+
+In either case, we can define
+$$
+\delta(t,v) = \inf_{X_t: g_t(X_t,X_t)=1} H(v)_t(X_t,X_t)
+$$
+as a coordinate-free measure of curvature.
+
+{\bf Let's stick with the variance constant and equal to 1 moving forward.}
+
+Lemma 1 is essentially unchanged though relevant bounds could be made coordinate free if desired.
+The $D_k$ terms actually can be computed in terms of the Riemannian curvature tensor using
+(12.2.13) and Lemma 12.3.1 of RFG.
 
 \end{document}
