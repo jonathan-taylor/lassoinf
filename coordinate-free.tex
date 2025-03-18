@@ -86,9 +86,9 @@ X_t(Wf) - g(\nabla_XW, \nabla f) = X_t(Wf) -  \sum_{i,j} \Cov(X_t(W\epsilon), V_
 with $Wf_t = W_tf$ and $V=(V_1, \dots, V_d)$ any set of frames with $g_{ij,V}(t) = g(V_i, V_j)_t$ and $g^{ij}_V =(g_{V})^{-1}$. We could
 take the elements of $V$ to be coordinate vector fields in some chart if we wanted a local formula for the Hessian.
 The Hessian is symmetric (expected) and it behaves tensorially (formally it's a module over smooth functions on $\mc{T}$). Let $M_t: T_t\mc{T} \rightarrow T_t\mc{T}$ be a section of linear maps on $T(\mc{T})$, i.e.
-a set change of basis matrices, one for each $t$. Then, with a little abuse of notation:
+a set change of basis matrices, one for each $t$. Then
 \begin{equation}
-\nabla^2 (MX,W) = M \nabla^2 (X, W).
+\nabla^2 (a \cdot X + b \cdot \bar{X},W) = a \cdot \nabla^2 (X, W) + b \cdot \nabla^2 (\bar{X}, W).
   \end{equation}
 In fact, this even tells us that the vector fields $X$ and $W$ don't really need to be smooth!
 
@@ -103,7 +103,7 @@ can be written as
 with $\text{Vol}_g$ the Riemannian measure. Above, $\nabla Y^E_t = (E_{1,t}Y, \dots, E_{d,t}Y)$ is the gradient of $Y$ at $t$ read off in the frame $E$, with
 $\nabla^2 Y(E_i,E_j)_t$ defined similarly. This expression $\rho(t,y)$ is coordinate-free: it does not even depend on our choice of orthonormal frames.
 
-How does this relate to what we would get if we worked in a coordinate chart $\varphi(A)$ and worked with the coordinate $\partial/\partial t_i$ vector fields? In local coordinates $t=\varphi(u)$ for some chart
+How does this relate to what we would get if we worked in a coordinate chart $\varphi(A)$ and worked with the coordinate $\partial t_i$ vector fields? In local coordinates $t=\varphi(u)$ for some chart
 $\varphi:U \to \R^d$, we will
 typically write
 \begin{equation}
@@ -115,7 +115,7 @@ E_{i,t} = \sum_j \Lambda^{-1/2}_{ij,t} \frac{\partial}{\partial t_j} \biggl|_t.
 $$
 With this frame, we see\footnote{A small note here: generally speaking
 \begin{equation}
-\nabla^2 Y(\partial/\partial t_i, \partial/\partial t_j)_t \neq \frac{\partial^2 Y}{\partial t_i \partial t_j}\biggl|_t
+\nabla^2 Y(\partial t_i, \partial t_j)_t \neq \frac{\partial^2 Y}{\partial t_i \partial t_j}\biggl|_t
   \end{equation}
 as the RHS is missing the part related to the connection, which makes the RHS non-tensorial. This relation is true
 when $t$ is a critical point of $Y$. Therefore under the conditioning
@@ -139,5 +139,127 @@ $$
 \rho(t,y) = \det(\Lambda_t)^{-1/2} \E \left[\det\left(-\frac{\partial^2 Y}{\partial t_i \partial t_j} \biggl|_t\right) 1_{{\cal N}}\left(-\frac{\partial^2 Y}{\partial t_i \partial t_j} \biggl|_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] \phi_{Y_t|\partial Y_t=0}(y) \; \phi_{\partial Y_t}(0).
 \end{aligned}
 $$
+
+Alternatively, we could write
+$$
+\begin{aligned}
+\rho(t,y) = \det(\Lambda_t)^{-1/2} \E \left[\det\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] \phi_{Y_t|\partial Y_t=0}(y) \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)}
+\end{aligned}
+$$
+
+In the constant variance case (with variance 1), this simplifies to
+$$
+\begin{aligned}
+\rho(t,y) = \det(\Lambda_t)^{-1/2} \E \left[\det\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] e^{-\frac{1}{2}(y-\mu_t)^2 \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)}
+\end{aligned}
+$$
+
+\section{Taylor series}
+
+We will want to expand $\rho(y,t)$ in some form of Taylor expansion. On a manifold, using a Taylor expansion
+in a given coordinate system can obscure things in different coordinate systems. On a Riemannian manifold,
+one can use normal coordinate systems to get a somewhat cleaner picture. {\sc I wish I knew a ``better'' reference for this, but geometers don't seem to use Taylor expansions too much...}
+
+\subsection{Normal coordinates}
+
+Without loss of generality, we can inspect assuming that $h$ constitute a normal coordinate system at $t^*$ determined by a fixed orthonormal basis $E_{t^*} = \{E_{1,t^*}, \dots, E_{d,t^*}\}$ of $T_{t^*}\mc{T}$. In this case,
+$h=h(t)$ is  the inverse of the exponential
+map restricted to $T_{t^*} \mc{T}$:
+$$
+h = (h_1, \dots, h_d) \mapsto \exp_{\mc{T}}\left(t^*, \sum_{j=1}^d h_j E_{j,t^*} \right).
+$$
+
+Using normal coordinates determined by such a basis has a few advantages, namely that the matrix
+$$
+\Lambda_h = \left(g(\partial h_i, \partial h_j)_h \right)_{1 \leq i,j \leq d}
+$$
+satisfies
+$$
+\frac{\partial \Lambda}{\partial h} \biggl|_{h=0}=0.
+$$
+Further, the Christoffel symbols of these coordinates vanish at 0, hence
+$$
+(\nabla_{\partial h_i}\partial h_j)_0 = 0 \qquad \forall i,j.
+$$
+
+This vanishing of the Christoffel symbols has implications for Taylor expansions in $h$. Namely,
+for any function $f$, the usual partial derivatives in $h$, when evaluated at $t^*$, agree with
+the covariant derivatives of $f$:
+$$
+\nabla^k f(\partial h_{i_1}, \dots, \partial h_{i_k})_{t^*} = \frac{\partial^k f}{\partial h_{i_1} \dots \partial h_{i_k}} \biggl|_{h=0}.
+$$
+
+In turn, this means that Taylor expansions at $t^*$ can, up to remainders, be viewed as functions on $T_{t^*}\mc{T}$, i.e. they will be coordinate free.
+
+\subsection{Covariant derivatives}
+
+The covariant derivatives of a function $f$ are tensor fields on $\mc{T}$, which means they behave nicely
+as functions of $t$\footnote{Specifically multilinearly as a module over smooth functions on $\mc{T}$. This,
+in turn means they are easy to relate between different coordinate systems at any $t$.}
+
+Let $X_i$ denote vector fields, however many as needed, with $\nabla_XY$ denoting
+the covariant derivative of the vector field $Y$ with respect to $X$. The covariant
+derivatives of a function are defined recursively:
+$$
+\begin{aligned}
+  \nabla^1 f(X_1)_t &= g(\nabla f, X_1)_t \\
+  &= X_{1,t}f \\
+  \nabla^2 f(X_2, X_1)_t &= X_{2,t}(\nabla^1 f(X_1)) - \nabla^1 f(\nabla_{X_2}X_1)_t \\
+  \nabla^k f(X_k, X_{k-1}, \dots, X_1) &= X_{k,t}(\nabla^{k-1} f(X_{k-1}, \dots, X_1)) -
+  \nabla^{k-1} f(\nabla_{X_k}X_{k-1}, X_{k-2}, \dots, X_1) - \\
+&  \qquad   \nabla^{k-1} f(X_{k-1}, \nabla_{X_k}X_{k-2}, \dots, X_1) - \\
+  & \qquad \nabla^{k-1} f(X_{k-1}, \dots, \nabla_{X_k}X_1)
+  \end{aligned}
+$$
+
+The fact that these are tensors, combined with the vanishing Christoffel symbols at 0 imply that
+$$
+\nabla^k f(\partial h_{i_1}, \dots, \partial h_{i_k})_{t^*} = \frac{\partial^k f}{\partial h_{i_1}, \dots, \partial h_{i_k}} \biggl|_{h=0}.
+$$
+Above, we have used a common abuse of notation, failing to distinguish $f:\mc{T} \rightarrow \R$ with the
+composition $f \circ \varphi^{-1}$ with $(\varphi, U)$ a chart on $\mc{T}$. Recall in this case that the
+chart is special as $h=h(t)$ are normal coordinates based on an orthnormal basis for $T_{t^*}\mc{T}$.
+
+\subsection{Handling the remainders}
+
+Away from $h=0$, the difference between the $k$-th order derivatives of $f$
+and the corresponding covariant term will involve 
+the vector fields $\nabla_{\partial h_i} \partial h_j, 1 \leq i,j \leq d$ for $h$ in a ball around 0 as well as the lower order covariant derivatives of $f$. Terms like this can be bounded (for suitable norms):
+$$
+\left|\sum_{(i_1,\dots,i_k)} \nabla^{k-1} f(\nabla_{\partial h_{i_k}}\partial h_{i_{k-1}}, \partial h_{i_{k-2}}, \dots)_{t=\exp_{\mc{T}}(t^*, h)} \prod_{l=1}^k h_{i_l}\right|
+\leq \|h\|^{k+1} \|\nabla^{k-1}f\|_h \max_{i,j} (\|h\|^{-1}\|(\nabla_{\partial h_i}\partial h_j)_h\|)
+$$
+and then maximized over $h$ in some ball around 0. This bound depends (weakly) on the choice of basis $E_{t^*}$ through the terms $\|(\nabla_{\partial h_i}\partial h_j)_h\|/\|h\|$ (which will be $O(1)$ due to
+the vanishing Christoffel symbols at $h=0$). Maximizing
+over the set of orthonormal bases, parameterized by $O(d)$, would yield a bound independent of the choice of
+basis determining our normal
+coordinate system. That is, for any $O \in O(d)$ we can find another orthonormal basis
+$$
+E^O_{t^*} = \left\{\sum_{j=1}^d O_{1j}E_{j,t^*}, \dots, \sum_{j=1}^d O_{dj}E_{j,t^*} \}
+$$
+with corresponding normal coordinates $h^O$.
+
+The usual Taylor remainder will similarly depend on lower order covariant derivatives, though these will be at order $\|h\|^{k+2}$ while $\nabla^{k+1} f_{h^*(h)}$ will pair with a $\|h\|^{k+1}$.
+
+\subsection{Putting the pieces together}
+
+So what does a Taylor expansion finally look like? We now have an answer. Let $\log_{t^*}:\mc{T} \rightarrow
+T_{t^*}\mc{T}$ denote the inverse of the map
+$$
+X_{t^*} \to \exp_{\mc{T}}(t^*, X_{t^*})
+$$
+Then, we can write, for $t$ in some ball $B(t^*,r)$
+$$
+f(t) = f(t^*) + \nabla^1 f_t(\log_{t^*}(t)) + \frac{1}{2} \nabla^2 f_t(\log_{t^*}(t), \log_{t^*}(t))
++ \dots + \frac{1}{k!} \nabla^k f_t(\log_{t^*}(t), \dots, \log_{t^*}(t)) + R(t,t^*)
+$$
+with
+$$
+|R(t,t^*)| \leq \|\log_{t^*}(t)\|^{k+1} \left(\sup_{t \in B(t^*,r)} \max_{k-1 \leq j \leq k+1} \|\nabla^j f_t\|\right)
+\sup_{t \in B(t^*,r)} \sup_{O \in O(d)} (\|(\nabla_{\partial h_i^O}\partial h_j^O)_t\| / \|\log_{t^*}(t)\|).
+$$
+
+In a normal coordinate system $\log_{t^*}(\varphi^{-1}(h))=h$ and this takes the form of a usual Taylor series expansion. While these functions are not linear in typical coordinate systems, the covariant expansion is enough for
+us to see which terms disappear under assumptions about certain $\nabla^k f_{t^*}$ terms vanishing.
 
 \end{document}
