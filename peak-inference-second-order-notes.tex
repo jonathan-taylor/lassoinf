@@ -4,6 +4,7 @@
 \usepackage{lmodern}
 
 \newcommand{\ag}[1]{{\bf{{\red{[{AG: #1}]}}}}}
+\newcommand{\jt}[1]{{\bf{{\blue{[{JT: #1}]}}}}}
 \newcommand{\InnerProduct}[2]{\langle #1,#2 \rangle}
 \newcommand{\Norm}[1]{\|#1\|}
 \newcommand{\bP}{\mathbb{P}}
@@ -198,7 +199,12 @@
 		Moreover, $d_{t^*}(y,h)$ is linear in $h$ and $d_{t^*}(y,h) = O(h)$.
 	\end{lemma}
 	The proof of Lemma~\ref{lem:approximation-peak-intensity} is given in Section~\ref{subsec:pf-approximation-peak-intensity}. The restriction that $y \geq \mu_{t^*} - o(\delta_{t^*}^{-1})$ is made so that $\nabla^2 Y_t$ is negative definite with very high probability,  conditional on $Y_t = y$.
-	
+
+        \jt{Is \eqref{eqn:hessian-deterministic-equivalent-derivative} correct? I don't see why there is a $(y-\mu_{t^*})$ in front of the term $\dot{\Lambda}_{t^*}\Lambda_{t^*}^{-1} \mu_{t^*}h$. Shouldn't this come from differentiating
+          $\Gamma_t(\nabla \mu_t)$? In Riemannian notation, this would come from differentiating the Riemannian Hessian of $\mu$ and would have no $(y-\mu_{t^*})$ term...}
+
+        \jt{What argument do you want to have to $\delta_{t^*}$ above? I am presuming you mean $\delta_{t^*}(u_{t^*})$.}
+        
 	\paragraph{Density term.}
 	Standard asymptotic analysis (carried out in Section~\ref{subsec:asymptotic-analysis-density}) shows that under the assumptions of Lemma~\ref{lem:approximation-peak-intensity}, the log-density of both $Y_t$ and $\nabla Y_t$ are locally well-approximated by quadratics: if $h^2 \delta_{t^*}^{-1} \to 0, |y - \mu_{t^*}| \delta_{t^*}^{-1}h^3 \to 0$ then
 	\begin{align}
