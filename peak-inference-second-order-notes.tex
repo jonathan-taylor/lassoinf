@@ -316,7 +316,12 @@
 	\subsection{Pivots}
 	\ag{TO COME}
 	
+	\subsection{Confidence regions and error guarantees}
+	\ag{TO COME}
+	
 	\section{Asymptotic distribution after randomized selection}
+	\label{sec:asymptotic-distribution-after-randomized-selection}
+	
 	\ag{This section is still wip. In particular I'm quite confident the conclusion of Theorem~\ref{thm:approximate-randomized-joint-intensity} is correct, but need to figure out what the right error term is.}
 	
 	\subsection{Randomized peak inference using one-step estimators}
@@ -346,7 +351,7 @@
 	\begin{equation*}
 		N_{v,u}(A,B) = N\{{\tt t} \in A \times B: V_{{\tt t}} = 0, JV_{{\tt t}} \preceq 0, U_{{\tt t}} \geq (v,u)\},
 	\end{equation*}
-	where $JV_{{\tt t}}$ is the Jacobian of $V_{{\tt t}}$, a block diagonal matrix with blocks $\nabla^2 Y_t$ and $\nabla^2 Y_{t'}$. Under \ag{appropriate smoothness and non-degeneracy conditions}, the \emph{Kac-Rice theorem} gives a formula for $\E[N_{(u,v)}(A,B)]$:
+	where $JV_{{\tt t}}$ is the Jacobian of $V_{{\tt t}}$, a block diagonal matrix with blocks $\nabla^2 Y_t$ and $\nabla^2 Y_{t'}$. Under \ag{appropriate smoothness and non-degeneracy conditions}, the \emph{Kac-Rice theorem} gives a formula for $\E[N_{v,u}(A,B)]$:
 	\begin{equation}
 		\begin{aligned}
 			\label{eqn:kac-rice-pairs}
@@ -998,7 +1003,7 @@
 	\end{equation*}
 	Plugging in our approximations of $\rho(t,y)$, $\int_{B} \rho(t,y) \,dy$ and $\E[N_u(B)]$ -- given in~\eqref{eqn:approximate-joint-intensity},~\eqref{pf:approximate-joint-distribution-1} and~\eqref{eqn:expectation-counting-process}, respectively -- yields the claims of Theorem~\ref{thm:approximate-joint-distribution}.
 	
-	\section{Proof of Theorem~\ref{thm:approximate-randomized-joint-intensity}}
+	\section{Proofs for Section~\ref{sec:asymptotic-distribution-randomized}}
 	
 	\ag{Again, this is still wip.}
 	Recall that we are considering a sequence of $t_n = t_n^* + h_n$ for $h_n = o(1)$, and $y_n \geq \mu_{t_n^*} - o(\delta_{t_n^*}^{-1})$; hereafter we drop the dependence on $n$ as usual. For convenience, we copy the intensity function of Kac-Rice for randomized peaks here:
@@ -1106,7 +1111,7 @@
 		& p_{Y_{t'}^s, \nabla Y_{t'}^s|Y_t,\nabla Y_t}(y',0|y,0) 
 		= 
 		\Big(1 + O\big(\psi_0(h,\eta,y,y')\big)\Big) \cdot \tilde{p}_{Y_{t'}^s}(y'|y,0) \cdot \tilde{p}_{\nabla Y_{t'}^s}(0|y,0) \\
-		& \tilde{p}_{Y_{t'}^s}(y|y,0) 
+		& \tilde{p}_{Y_{t'}^s}(y'|y,0) 
 		:= 
 		\frac{1}{\sqrt{2 \pi \gamma}} \exp\Big(-\frac{1}{2\gamma}\big(y' - y + \frac{1}{2}\eta'H_t(y)\eta\big)^2\Big) \\
 		& \tilde{p}_{\nabla Y_{t'}^s}(0|y,0) 
