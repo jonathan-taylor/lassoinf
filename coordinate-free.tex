@@ -154,49 +154,40 @@ $$
 \end{aligned}
 $$
 
-\section{Taylor series}
+\section{Taylor series on a Riemannian manifold}
 
-We will want to expand $\rho(y,t)$ in some form of Taylor expansion. On a manifold, using a Taylor expansion
-in a given coordinate system can obscure things in different coordinate systems. On a Riemannian manifold,
-one can use normal coordinate systems to get a somewhat cleaner picture. {\sc I wish I knew a ``better'' reference for this, but geometers don't seem to use Taylor expansions too much...}
+%\\\\\\\ protect merge
 
-\subsection{Normal coordinates}
+We will want to expand $\rho(y,t)$ in some form of Taylor
+expansion. On a manifold, using a Taylor expansion in a given
+coordinate system can obscure things in different coordinate
+systems. On a Riemannian manifold, it is simplest to derive a Taylor expansion
+at $t$ in some small ball $B(t^*,r)$ by considering the geodesic connecting them.
 
-Without loss of generality, we can inspect assuming that $h$ constitute a normal coordinate system at $t^*$ determined by a fixed orthonormal basis $E_{t^*} = \{E_{1,t^*}, \dots, E_{d,t^*}\}$ of $T_{t^*}\mc{T}$. In this case,
-$h=h(t)$ is  the inverse of the exponential
-map restricted to $T_{t^*} \mc{T}$:
+Define $\log_{t^*}(t)$ to be the inverse of the exponential map's restriction to $T_{t^*}\mc{T}$:
 $$
-h = (h_1, \dots, h_d) \mapsto \exp_{\mc{T}}\left(t^*, \sum_{j=1}^d h_j E_{j,t^*} \right).
+\exp_{\mc{T}}(t^*, \log_{t^*}(t)) = t
 $$
+and let $\gamma = \gamma_t:[0, \|\log_{t^*}(t)\|]$ be the geodesic connecting $t^*$ to $t$. The map $\log_{t^*}(t)$ will be well defined
+on small balls around $t^*$.
 
-Using normal coordinates determined by such a basis has a few advantages, namely that the matrix
+For a smooth function $f:\mc{T} \rightarrow \R$ consider the map $\bar{f} = f \circ \gamma: [0, \|\log_{t^*}(t)\|] \rightarrow \R$.
+The value $\bar{f}$ can be expressed using the usual one-dimensional Taylor's theorem. Up to order $k$ with a Taylor remainder it would be
 $$
-\Lambda_h = \left(g(\partial h_i, \partial h_j)_h \right)_{1 \leq i,j \leq d}
+ \left|\bar{f}(r) - \sum_{j=0}^k \frac{r^j}{j!} \frac{d^j\bar{f}}{dr^j}(0) \right| \leq  \frac{r^{k+1}}{(k+1)!}\frac{d^{k+1}f}{dr^{k+1}} (\bar{r}(r))
 $$
-satisfies
+where $\bar{r} \in [0, r]$. For a H\"older type remainder for $f \in C^{k+\alpha}$ we would have
 $$
-\frac{\partial \Lambda}{\partial h} \biggl|_{h=0}=0.
-$$
-Further, the Christoffel symbols of these coordinates vanish at 0, hence
-$$
-(\nabla_{\partial h_i}\partial h_j)_0 = 0 \qquad \forall i,j.
-$$
-
-This vanishing of the Christoffel symbols has implications for Taylor expansions in $h$. Namely,
-for any function $f$, the usual partial derivatives in $h$, when evaluated at $t^*$, agree with
-the covariant derivatives of $f$:
-$$
-\nabla^k f(\partial h_{i_1}, \dots, \partial h_{i_k})_{t^*} = \frac{\partial^k f}{\partial h_{i_1} \dots \partial h_{i_k}} \biggl|_{h=0}.
+ \left|\bar{f}(r) - \sum_{j=0}^k \frac{r^j}{j!} \frac{d^j\bar{f}}{dr^j}(0) \right| \leq  C_{\alpha}(\gamma) r^{\alpha}.
 $$
 
-In turn, this means that Taylor expansions at $t^*$ can, up to remainders, be viewed as functions on $T_{t^*}\mc{T}$, i.e. they will be coordinate free.
-
-\subsection{Covariant derivatives}
+ The key to extend this argument based on a geodesic to a more familiar form of Taylor series (and a natural one for Riemannian manifolds)
+ is to note that along a geodesic, the derivatives implicated above will be expressible in terms of the $k$-th order covariant
+ derivatives of $f$.
 
 The covariant derivatives of a function $f$ are tensor fields on $\mc{T}$, which means they behave nicely
-as functions of $t$\footnote{Specifically multilinearly as a module over smooth functions on $\mc{T}$. This,
+as functions of $t$.\footnote{Specifically multilinearly as a module over smooth functions on $\mc{T}$. This,
 in turn means they are easy to relate between different coordinate systems at any $t$.}
-
 Let $X_i$ denote vector fields, however many as needed, with $\nabla_XY$ denoting
 the covariant derivative of the vector field $Y$ with respect to $X$. The covariant
 derivatives of a function are defined recursively:
@@ -208,17 +199,54 @@ $$
   \nabla^k f(X_k, X_{k-1}, \dots, X_1)_t &= X_{k,t}(\nabla^{k-1} f(X_{k-1}, \dots, X_1)) -
   \nabla^{k-1} f(\nabla_{X_k}X_{k-1}, X_{k-2}, \dots, X_1)_t - \\
 &  \qquad   \nabla^{k-1} f(X_{k-1}, \nabla_{X_k}X_{k-2}, \dots, X_1)_t - \\
-  & \qquad \nabla^{k-1} f(X_{k-1}, \dots, \nabla_{X_k}X_1)_t
+  & \qquad \nabla^{k-1} f(X_{k-1}, \dots, \nabla_{X_k}X_1)_t.
   \end{aligned}
 $$
 
-The fact that these are tensors, combined with the vanishing Christoffel symbols at 0 imply that
+In terms of symmetry, we note that beyond second order, covariant derivatives of a function are not symmetric. We can however project these derivatives
+(or any tensor) 
+onto the symmetric tensors. We denote this projection with a superscript
 $$
-\nabla^k f(\partial h_{i_1}, \dots, \partial h_{i_k})_{t^*} = \frac{\partial^k f}{\partial h_{i_1}, \dots, \partial h_{i_k}} \biggl|_{h=0}.
+A^{\mathrm{Sym}}(X_1, \dots, X_k) = \frac{1}{k!} \sum_{\sigma \in S_k} A(X_{\sigma(1)}, \dots, X_{\sigma(k)}).
 $$
-Above, we have used a common abuse of notation, failing to distinguish $f:\mc{T} \rightarrow \R$ with the
-composition $f \circ \varphi^{-1}$ with $(\varphi, U)$ a chart on $\mc{T}$. Recall in this case that the
-chart is special as $h=h(t)$ are normal coordinates based on an orthnormal basis for $T_{t^*}\mc{T}$. This relationship also implies that the covariant derivatives of a function are symmetric, which is not surprising but not necessarily obvious.
+
+\begin{lemma}
+\label{lem:geodesic}
+  For $r \in [0, \|\log_{t^*}(t)\|]$ the following holds:
+  $$
+\frac{d^j\bar{f}}{dr^j}(r) = \nabla^j f_{\gamma(r)}(\dot{\gamma}(r), \dots, \dot{\gamma}(r)) =  \nabla^j f_{\gamma(r)}^{\mathrm{Sym}}(\dot{\gamma}(r), \dots, \dot{\gamma}(r))
+  $$
+  \end{lemma}
+The proof of this is by induction starting at $j=2$ combined with the fact that $(\nabla_{\dot{\gamma}}\dot{\gamma})_{\gamma(r)}=0$ for $r \in [0, \|\log_{t^*}(t)\|]$.
+
+We can now state a coordinate-free version of Taylor's theorem.
+\begin{theorem}[Taylor's theorem]
+\label{thm:taylor}
+  Suppose $f \in C^{k+\alpha}(\mc{T})$ for $\alpha \in (0, 1]$ then, for $t \in B_{t^*}(r)$ with $r$ sufficiently small such that $\log_{t^*}$ is well-defined
+    over $B_{t^*}(r)$. Then,
+  \begin{equation}
+    \label{eq:taylor:theorem}
+\begin{aligned}
+  \lefteqn{    \left|f(t) - \sum_{j=0}^k \frac{1}{j!} \nabla^j f^{\mathrm{Sym}}_{t^*}(\log_{t^*}(t), \dots, \log_{t^*}(t)) \right| } \\
+  & \qquad =     \left|f(t) - \sum_{j=0}^k \frac{1}{j!} \nabla^j f_{t^*}(\log_{t^*}(t), \dots, \log_{t^*}(t)) \right| \\
+  & \qquad \leq C(f,r) \|\log_{t^*}(t)\|^{k+\alpha}.
+\end{aligned}
+    \end{equation}
+The constant $C(f, r)$ can be taken to be (up to universal constants)
+\begin{equation}
+  C(f,r) = \begin{cases} \frac{1}{(k+1)!}\sup_{t \in B(t^*,r)} \|\nabla^{k+1} f^{\mathrm{Sym}}_t\| & \alpha=1 \\
+    \inf_{E_{t^*}}  C_{\alpha,E_{t^*}}(\bar{f}^{E_{t^*}}, r) & \alpha \in (0, 1)
+\end{cases}
+\end{equation}
+  with $E_{t^*}$ denoting a choice of orthonormal basis for $T_{t^*}\mc{T}$ with corresponding
+  normal coordinates $\varphi^{E_{t^*}}:\mc{T} \rightarrow \R^d$ at $t^*$. The quantity $C_{\alpha,E_{t^*}}(\bar{f}^{E_{t^*}}, r)$ is a coordinate-based H\"older constant.
+  That is, if we define $\bar{f}^{E_{t^*}} = f\circ (\varphi^{E_{t^*}})^{-1}: \R^d \rightarrow \R$, then for each choice $E_{t^*}$ we can pick a H\"older constant:
+  $$
+\left| \bar{f}^{E_{t^*}}(h) - \sum_{j=0}^k \frac{1}{j!} \nabla^j \bar{f}^{E_{t^*}}_0(h, \dots, h) \right| \leq \|h\|^{\alpha} C_{\alpha, E_{t^*}}(\bar{f}^{E_{t^*}}, r) \ \forall \; h \in \varphi^{E_{t^*}}(B(t^*,r)).
+  $$
+  \end{theorem}
+
+\subsection{Taylor's theorem for tensor fields}
 
 Covariant derivatives of a tensor field are similary defined. Suppose $A$ is a $k$-th order (covariant) tensor field
 $$
@@ -232,56 +260,80 @@ $$
   & \qquad A(X_{k}, \dots, \nabla_{X_{k+1}}X_1)_t.
 \end{aligned}
 $$
+Viewing $\nabla^{k} f$ as a tensor field, we see that $\nabla ( \nabla^k f)(X)$, to be read as the covariant derivative of the tensor $\nabla^k f$ in the direction
+$X$, would be a tensor field of order $k$ satisfying
+$$
+\nabla(\nabla^k f)(Y)(X_1, \dots, X_k) = (\nabla^{k+1} f)(Y, X_1, \dots, X_k).
+$$
+In other words $\nabla (\nabla^k f) = \nabla^{k+1} f$.
 
-We again see that working in normal coordinates yields
+We conclude by writing out a corresponding version of Taylor's theorem for tensor fields. For functions, we simply applied
+the usual Taylor theorem on a curve. Repeated differentiation of a function is the same
+as repeated application of the connection on functions. That is,
 $$
-\nabla^1 A(\partial h_{i_{k+1}}, \partial h_{i_k}, \dots, \partial h_{i_1})_{t^*} =
-\frac{\partial}{\partial h_{i_{k+1}}} A(\partial h_{i_k}, \dots, \partial h_{i_1}) \biggl|_{h=0}.
+\frac{d^k \bar{f}}{dr^k}\biggl|_r = \bar{\nabla}_{\dot{\gamma}} \left(\bar{\nabla}_{\dot{\gamma}}\left(\dots \left(\bar{\nabla}_{\dot{\gamma}}f\right) \right)\right)
+$$
+where $(\bar{\nabla}_{X}f)$ is  the function $t \mapsto \nabla f(X)_t$. We will write repeated applications of the connection\footnote{We will not use this notion
+of repeated application of the connection elsewhere. It is used here to differentiate it from covariant differentiation.}as
+$$
+\bar{\nabla}^k_{(X_k, \dots, X_1)} f = \bar{\nabla}_{X_k}\left(\bar{\nabla}_{X_{k-q}} \left( \dots \left(\bar{\nabla}_{X_1}f\right)\right)\right).
+$$
+Importantly, the above expression is not tensorial in the $X_i$'s.
+
+This repeated application of the connection is the most
+natural way to differentiate a tensor of the form
+$$
+\sum_{s \in S} A_s \otimes_{j \in s} U_j
+$$
+for some subsets $s$ of fixed size, say $k$ for some set of vector fields ${\cal U} = \{U_1, \dots\}$. Indeed, this is how one would proceed in the Euclidean case. In the Euclidean case, of course one can express the tensor in some fixed basis, which is
+not possible in general for a Riemmanian manifold.
+
+Let's consider the simplest case, a 2-tensor of the form
+$$
+A = \sum_{i,j} a_{ij} U_i \otimes U_j.
+$$
+Now, consider directions we might want to differentiate this tensor. Even in the Euclidean case, the set of vector fields ${\cal U}$ may not be the standard
+coordinate vector fields.
+
+In the Euclidean case, we would likely look to differentiate $a_{ij}$ as well as $U_i$ and $U_j$ in the standard coordinate vector fields.
+This differentiation corresponds exactly to repeated applications of the (Euclidean) connection to the terms $a_{ij}, U_i, U_j$.
+After having
+differentiated sufficiently we would expect to have some form of Taylor's theorem to evaluate the remainder.
+
+Hence, for a tensor $A$, let's consider, for $r \in [0, \|\log_{t^*}(t)\|]$ the term
+$$
+A(r) - \sum_{j=0}^k \bar{\nabla}^k_{(\dot{\gamma}(r), \dots, \dot{\gamma}(r))}A(r).
+$$
+The following is a straightforward generalization of Lemma \cite{lem:geodesic}.
+\begin{lemma}
+$$
+\bar{\nabla}^k_{(\dot{\gamma}(r), \dots, \dot{\gamma}(r))}A= \nabla^k A_{\gamma(r)}\left(\dot{\gamma}(r), \dots, \dot{\gamma}(r)\right).
+$$
+Or, repeated applications of the connection to a tensor along the geodesic computes covariant derivatives of the tensor. 
+\end{lemma}
+The proof is again inductive, starting with the identity $\nabla^2 A(X, Y) = (\nabla_X \nabla_Y - \nabla_{\nabla_XY})A$ and applying the geodesic condition.
+
+In order to state our version of Taylor's thereom, it is useful to define a partial symmetrization of a $k$-tensor. For $q \leq k$, define the first $q$ symmetrization
+$$
+A^{\mathrm{Sym,q}}(X_k,\dots, X_1) = \sum_{\sigma \in S(q)} A(X_{k+1-\sigma(1)}, \dots, A_{k+1-\sigma(q)}, X_{k-q}, \dots, X_1).
 $$
 
-We also see that the tensor field $\nabla^k f$ is simply (and naturally) $\nabla^1(\nabla^{k-1} f)$.
+\begin{theorem}[Taylor's theorem for tensors]
+\label{thm:taylor:tensor}
+  Suppose $A \in C^{k+\alpha}(\mc{T})$ is a tensor for $\alpha \in (0, 1]$ then, for $t \in B_{t^*}(r)$ with $r$ sufficiently small such that $\log_{t^*}$ is well-defined
+    over $B_{t^*}(r)$. Then,
+  \begin{equation}
+    \label{eq:taylor:theorem}
+\begin{aligned}
+  \lefteqn{    \left|A(t) - \sum_{j=0}^k \frac{1}{j!} \nabla^j A^{\mathrm{Sym},j}_{t^*}(\log_{t^*}(t), \dots, \log_{t^*}(t)) \right| } \\
+  & \qquad =     \left|A(t) - \sum_{j=0}^k \frac{1}{j!} \nabla^j A_{t^*}(\log_{t^*}(t), \dots, \log_{t^*}(t)) \right| \\
+  & \qquad \leq C(f,r) \|\log_{t^*}(t)\|^{k+\alpha}.
+\end{aligned}
+    \end{equation}
+The constant $C(f, r)$ is similarly defined to Theorem \ref{thm:taylor}.
+  \end{theorem}
 
-\subsection{Handling the remainders}
-
-Away from $h=0$, the difference between the $k$-th order derivatives of $f$
-and the corresponding covariant term will involve 
-the vector fields $\nabla_{\partial h_i} \partial h_j, 1 \leq i,j \leq d$ for $h$ in a ball around 0 as well as the lower order covariant derivatives of $f$. Terms like this can be bounded (for suitable norms):
-$$
-\left|\sum_{(i_1,\dots,i_k)} \nabla^{k-1} f(\nabla_{\partial h_{i_k}}\partial h_{i_{k-1}}, \partial h_{i_{k-2}}, \dots)_{t=\exp_{\mc{T}}(t^*, h)} \prod_{l=1}^k h_{i_l}\right|
-\leq \|h\|^{k+1} \|\nabla^{k-1}f\|_h \max_{i,j} (\|h\|^{-1}\|(\nabla_{\partial h_i}\partial h_j)_h\|)
-$$
-and then maximized over $h$ in some ball around 0. This bound depends (weakly) on the choice of basis $E_{t^*}$ through the terms $\|(\nabla_{\partial h_i}\partial h_j)_h\|/\|h\|$ (which will be $O(1)$ due to
-the vanishing Christoffel symbols at $h=0$). Maximizing
-over the set of orthonormal bases, parameterized by $O(d)$, would yield a bound independent of the choice of
-basis determining our normal
-coordinate system. That is, for any $O \in O(d)$ we can find another orthonormal basis
-$$
-E^O_{t^*} = \left\{\sum_{j=1}^d O_{1j}E_{j,t^*}, \dots, \sum_{j=1}^d O_{dj}E_{j,t^*} \}
-$$
-with corresponding normal coordinates $h^O$.
-
-The usual Taylor remainder will similarly depend on lower order covariant derivatives, though these will be at order $\|h\|^{k+2}$ while $\nabla^{k+1} f_{h^*(h)}$ will pair with a $\|h\|^{k+1}$.
-
-\subsection{Putting the pieces together}
-
-So what does a Taylor expansion finally look like? We now have an answer. Let $\log_{t^*}:\mc{T} \rightarrow
-T_{t^*}\mc{T}$ denote the inverse of the map
-$$
-X_{t^*} \to \exp_{\mc{T}}(t^*, X_{t^*})
-$$
-Then, we can write, for $t$ in some ball $B(t^*,r)$
-$$
-f(t) = f(t^*) + \nabla^1 f_t(\log_{t^*}(t)) + \frac{1}{2} \nabla^2 f_t(\log_{t^*}(t), \log_{t^*}(t))
-+ \dots + \frac{1}{k!} \nabla^k f_t(\log_{t^*}(t), \dots, \log_{t^*}(t)) + R(t,t^*)
-$$
-with
-$$
-|R(t,t^*)| \leq \|\log_{t^*}(t)\|^{k+1} \left(\sup_{t \in B(t^*,r)} \max_{k-1 \leq j \leq k+1} \|\nabla^j f_t\|\right)
-\sup_{t \in B(t^*,r)} \sup_{O \in O(d)} (\|(\nabla_{\partial h_i^O}\partial h_j^O)_t\| / \|\log_{t^*}(t)\|).
-$$
-
-In a normal coordinate system $\log_{t^*}(\varphi^{-1}(h))=h$ and this takes the form of a usual Taylor series expansion. While these functions are not linear in typical coordinate systems, the covariant expansion is enough for
-us to see which terms disappear under assumptions about certain $\nabla^k f_{t^*}$ terms vanishing.
+%\\\\\\\\\\\\\\\
 
 \section{Coordinate-free versions of (10),(11),(14),(15)}
 
