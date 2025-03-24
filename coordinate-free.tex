@@ -222,7 +222,7 @@ $$
 \frac{d^j\bar{f}}{dr^j}(r) = \nabla^j f_{\gamma(r)}(\dot{\gamma}(r), \dots, \dot{\gamma}(r)) =  \nabla^j f_{\gamma(r)}^{\mathrm{Sym}}(\dot{\gamma}(r), \dots, \dot{\gamma}(r))
   $$
   \end{lemma}
-The proof of this is by induction starting at $j=2$ combined with the fact that $(\nabla_{\dot{\gamma}}\dot{\gamma})_{\gamma(r)}=0$ for $r \in [0, d(t^*,t)\|]$.
+The proof of this is by induction starting at $j=2$ combined with the fact that $(\nabla_{\dot{\gamma}}\dot{\gamma})_{\gamma(r)}=0$ for $r \in [0, d(t^*,t)]$.
 
 We can now state a coordinate-free version of Taylor's theorem.
 \begin{theorem}[Taylor's theorem]
@@ -382,14 +382,14 @@ Summarizing, we can state the following lemma.
 & \qquad  \frac{1}{2}\sum_{i=1}^d \biggl[ (\nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*}))^2 + \\
     & \qquad \qquad 
       \nabla^3 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t), E_{i,t^*}) \nabla^2 \mu_{t^*}(E_{i,t^*}, \log_{t^*}(t)) \biggr] \biggr| \\
-& \qquad \leq \kappa^2 \cdot \bar{C} d(t^*,t)^{3+\alpha} \delta_{t^*}(-\log(\delta_{t^*})) +
-\kappa^2 \cdot \bar{C}' d(t^*,t)^4 \delta_{t^*}^{-2}
+& \qquad \leq \kappa^2 \cdot \bar{C} \cdot d(t^*,t)^{3+\alpha} \delta^{-1}_{t^*}(-\log(\delta_{t^*})) +
+\kappa^2 \cdot \bar{C}' \cdot d(t^*,t)^4 \delta_{t^*}^{-2}
 \end{aligned}
     \end{equation}
 The Taylor expansion does not depend on the choice of orthonormal basis.
   \end{lemma}
 The two terms in the bound appear  based on analyzing terms of $\nabla^3 \mathfrak{g}$ with $\nabla^4 \mu(\cdot) \nabla \mu(\cdot)$ separately from
-terms with $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$. As we have only assumed $\mu \in C^{4+\alpha}$ we will have to consider these terms separately. Fortunately $\nabla \mu$ can only grow to size $\delta_{t^*}(-\log (\delta_{t^*}))$ on our ball.
+terms with $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$. As we have only assumed $\mu \in C^{4+\alpha}$ we will have to consider these terms separately. On the other hand, $\nabla \mu$ can only grow to size $\delta^{-1}_{t^*}(-\log (\delta_{t^*}))$ on our ball.
 
 
 
