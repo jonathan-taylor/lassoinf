@@ -280,7 +280,8 @@ we now make the following assumptions on $\mu \in C^{4+\alpha}$, with asymptotic
 $$
 \inf_{t \in B_{t^*}(-\log(\delta(t^*)) \delta(t^*))} \inf_{X_t \in T_t\mc{T}: g_t(X_t,X_t)=1} (-\nabla^2 \mu_{t^*})(X_t, X_t) \geq C (\delta_{t^*})^{-1}
 $$
-for some fixed $C$
+for some fixed $C$. That is, we'll be applying our Taylor theorem $r=\delta_{t^*}(-\log(\delta_{t^*}))$.
+
   We also make a well-conditioned assumption 
   $$
 \sup_{t \in B_{t^*}(-\log(\delta(t^*)))} \|\nabla^2 \mu_t\| + \|\nabla^3 \mu_t\| + \|\nabla^4 \mu_t\| \leq \kappa C \delta_{t^*}^{-1}
@@ -381,21 +382,18 @@ Summarizing, we can state the following lemma.
 & \qquad  \frac{1}{2}\sum_{i=1}^d \biggl[ (\nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*}))^2 + \\
     & \qquad \qquad 
       \nabla^3 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t), E_{i,t^*}) \nabla^2 \mu_{t^*}(E_{i,t^*}, \log_{t^*}(t)) \biggr] \biggr| \\
-& \qquad \leq \kappa \cdot \bar{C} d(t^*,t)^{3+\alpha} \delta_{t^*}^{-1} +
+& \qquad \leq \kappa \cdot \bar{C} d(t^*,t)^{3+\alpha} \delta_{t^*}(-\log(\delta_{t^*})) +
 \kappa^2 \cdot \bar{C}' d(t^*,t)^4 \delta_{t^*}^{-2}
 \end{aligned}
     \end{equation}
 The Taylor expansion does not depend on the choice of orthonormal basis.
   \end{lemma}
 The two terms in the bound appear  based on analyzing terms of $\nabla^3 \mathfrak{g}$ with $\nabla^4 \mu(\cdot) \nabla \mu(\cdot)$ separately from
-terms with $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$. As we have only assumed $\mu \in C^{4+\alpha}$ we will have to consider these terms separately. Fortunately $\nabla \mu$ will not be large, hence the overall size of such constants
-is bounded by $\delta_{t^*}^{-1}$.
-
+terms with $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$. As we have only assumed $\mu \in C^{4+\alpha}$ we will have to consider these terms separately. Fortunately $\nabla \mu$ can only grow to size $\delta_{t^*}(-\log (\delta_{t^*}))$ on our ball.
 
 
 
 \section{Coordinate-free versions of (10),(11),(14),(15)}
-
 
 \subsection{Determinant term (11)}
 
