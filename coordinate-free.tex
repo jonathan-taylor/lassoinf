@@ -208,7 +208,7 @@ $$
   \end{aligned}
 $$
 
-In terms of symmetry, we note that beyond second order, covariant derivatives of a function are not symmetric. We can however project these derivatives
+In terms of symmetry, we note that beyond second order, covariant derivatives of a function are not generally symmetric. We can however project these derivatives
 (or any tensor) 
 onto the symmetric tensors. We denote this projection with a superscript
 $$
@@ -273,12 +273,31 @@ $$
 $$
 In other words $\nabla (\nabla^k f) = \nabla^{k+1} f$.
 
+\subsection{Assumptions on $\mu$}
+
+Having defined the form of Taylor's theorem on Riemannian manifolds, 
+we now make the following assumptions on $\mu \in C^{4+\alpha}$, with asymptotic parameter $\delta_{t^*}$:
+$$
+\inf_{t \in B_{t^*}(-\log(\delta(t^*)) \delta(t^*))} \inf_{X_t \in T_t\mc{T}: g_t(X_t,X_t)=1} (-\nabla^2 \mu_{t^*})(X_t, X_t) \geq C (\delta_{t^*})^{-1}
+$$
+for some fixed $C$
+  We also make a well-conditioned assumption 
+  $$
+\sup_{t \in B_{t^*}(-\log(\delta(t^*)))} \|\nabla^2 \mu_t\| + \|\nabla^3 \mu_t\| + \|\nabla^4 \mu_t\| \leq \kappa C \delta_{t^*}^{-1}
+  $$
+for some fixed $\kappa$. As for the H\"older coefficient, we assume
+$$\inf_{E_{t^*}} C_{\alpha, E_{t^*}}(\bar{f}^{E_{t^*}}, r) \leq \kappa \cdot C \cdot \delta_{t^*}^{-1}.$$
+
+
+\subsection{Taylor's theorem for evaluations of tensors}
+
 Rather than providing a version of Taylor's theorem for tensor fields, we focus on Taylor's theorem for functions of
 the form
 $$
 t \mapsto A(X,W)_t \overset{def}{=} \mathfrak{a}_t
 $$
-for 2-tensors $A$ and fixed vector fields $X, W$.
+for 2-tensors $A$ and fixed vector fields $X, W$. The canonical example here being the coordinates
+of a tensor read out in an orthonormal frame, or perhaps in normal coordinates.
 
 We see the gradient is computed as
 $$
@@ -298,17 +317,17 @@ to choose them to be normal coordinate vector fields.
 
 \begin{lemma}
 \label{lem:normal:taylor:tensor}
-  Let $\partial h_i, 1 \leq i \leq d$ denote normal coordinate vector fields for
+  Let $\partial v_i, 1 \leq i \leq d$ denote normal coordinate vector fields for
   a fixed orthonormal basis $E_{t^*}=\{E_{1,t^*},\dots, E_{d,t^*}\}$ of $T_{t^*}\mc{T}$ and let
-  $$\mathfrak{a}=\nabla^2 \mu(\partial h_i, \partial h_j) + (y - \mu_t) \cdot g(\partial h_i, \partial h_j)_t$$
+  $$\mathfrak{a}=\nabla^2 \mu(\partial v_i, \partial v_j) + (y - \mu_t) \cdot g(\partial v_i, \partial v_j)_t$$
   for some $\mu \in C^{4+\alpha}(\mc{T},\R)$ with $\nabla \mu_{t^*}=0$. Then,
   \begin{equation}
-\partial h_k(\nabla \mathfrak{a})_{t^*} = \nabla^3 \mu(\partial h_k, \partial h_i, \partial h_j)_{t^*}
+\partial v_k(\nabla \mathfrak{a})_{t^*} = \nabla^3 \mu(\partial v_k, \partial v_i, \partial v_j)_{t^*}
     \end{equation}
   Further, up to a universal constant $\bar{C}$
   \begin{equation}
-    \left|\mathfrak{a}_t - \mathfrak{a}_{t^*} - \nabla^3 \mu(\log_{t^*}(t), \partial h_i, \partial h_j)_{t^*}
-    \right| \leq \bar{C} \cdot d(t^*,t)^2 \inf_{E_{t^*}} \sup_{t \in B_{t^*}(r)} \| \nabla^2 \mathfrak{a}^{E_{t^*}}_t\|.
+    \left|\mathfrak{a}_t - \mathfrak{a}_{t^*} - \nabla^3 \mu(\log_{t^*}(t), \partial v_i, \partial v_j)_{t^*}
+    \right| \leq \kappa \cdot \bar{C} \cdot d(t^*,t)^2 \delta_{t^*}^{-1}
     \end{equation}
   The quantity $\|\nabla^2 \mathfrak{a}^{E_{t^*}}_t\|$ depends on the choice of basis, and can be bounded in terms of
   derivatives the Christoffel symbols in the basis $E_{t^*}$ and various norms of $A_t$, $\nabla A_t$ and $\nabla^2 A_t$. Maximizing over $t \in B_{t^*}(r)$ followed by minimizing over $E_{t^*}$ yields a coordinate-free bound.
@@ -359,21 +378,24 @@ Summarizing, we can state the following lemma.
   \begin{equation}
 \begin{aligned}
 \lefteqn{    \biggl| \frac{1}{2} g(\nabla \mu, \nabla \mu)_t -  } \\
-& \qquad  \frac{1}{2}\sum_{i=1}^d \biggl[ (\nabla^2 \mu(\log_{t^*}(t), E_{i,t^*}))^2 + \\
+& \qquad  \frac{1}{2}\sum_{i=1}^d \biggl[ (\nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*}))^2 + \\
     & \qquad \qquad 
       \nabla^3 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t), E_{i,t^*}) \nabla^2 \mu_{t^*}(E_{i,t^*}, \log_{t^*}(t)) \biggr] \biggr| \\
-    & \qquad \leq \bar{C} d(t^*,t)^{3+\alpha} \inf_{E_{t^*}}\sup_{t \in B_{t^*}(r)} C_{\alpha,E_{t^*}}(\bar{\mu}^{E_{t^*}}, r)
+& \qquad \leq \kappa \cdot \bar{C} d(t^*,t)^{3+\alpha} \delta_{t^*}^{-1} +
+\kappa^2 \cdot \bar{C}' d(t^*,t)^4 \delta_{t^*}^{-2}
 \end{aligned}
     \end{equation}
 The Taylor expansion does not depend on the choice of orthonormal basis.
   \end{lemma}
-
-\jt{Not sure of the exponent in the H\"older..., I think it should $3+\alpha$ because we only went up to order 3, as the function $\mathfrak{g}$ should only have 3 derivatives.}
+The two terms in the bound appear  based on analyzing terms of $\nabla^3 \mathfrak{g}$ with $\nabla^4 \mu(\cdot) \nabla \mu(\cdot)$ separately from
+terms with $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$. As we have only assumed $\mu \in C^{4+\alpha}$ we will have to consider these terms separately. Fortunately $\nabla \mu$ will not be large, hence the overall size of such constants
+is bounded by $\delta_{t^*}^{-1}$.
 
 
 
 
 \section{Coordinate-free versions of (10),(11),(14),(15)}
+
 
 \subsection{Determinant term (11)}
 
@@ -385,16 +407,16 @@ $$
 $$
 Recall that this can be evaluated in any basis without changing its value. More precisely, the eigenvalues
 of the matrix above do not depend on our choice of basis.
-We might as well use normal coordinates $(\partial u_i)_{1 \leq i \leq d}$ at $t^*$ with basis $E_{t^*}=\{E_{1,t^*}, \dots, E_{d,t^*}\}$.
-%% Above, when the variance is constant and equal to 1, the entries of the matrix\footnote{Strictly speaking, this is a matrix valued function whose $\det$ agrees with $\det(A_t(y))$ at every $(t,y)$} can be taken to be
-%% $$
-%% \begin{aligned}
-%% A_{t,ij}(y) &= \E \left[-\nabla^2 Y(E_i, E_j)_t | Y_h=y, \partial Y_h=0\right] \\
-%% &= \E \left[-\nabla^2 Y(E_i, E_j)_h | Y_h=y\right] \\
-%% &= - \nabla^2 \mu(E_i, E_j)_t + (y - \mu_t) I \\
-%% \end{aligned}
-%% $$
-%% For non-constant variance the matrix $\Lambda_h$ above is replaced by something different, but not terrible and we defer this to paper \# 2.
+We might as well use normal coordinates $(\partial v_i)_{1 \leq i \leq d}$ at $t^*$ with basis $E_{t^*}=\{E_{1,t^*}, \dots, E_{d,t^*}\}$.
+Above, when the variance is constant and equal to 1, the entries of the matrix\footnote{Strictly speaking, this is a matrix valued function whose $\det$ agrees with $\det(A_t(y))$ at every $(t,y)$} can be taken to be
+$$
+\begin{aligned}
+A_{t,ij}(y) &= \E \left[-\nabla^2 Y(E_i, E_j)_t | Y_h=y, \partial Y_h=0\right] \\
+&= \E \left[-\nabla^2 Y(E_i, E_j)_h | Y_h=y\right] \\
+&= - \nabla^2 \mu(E_i, E_j)_t + (y - \mu_t) I \\
+\end{aligned}
+$$
+For non-constant variance the matrix $\Lambda_h$ above is replaced by something different, but not terrible and we defer this to paper \# 2.
 
 For a matrix valued function $M$ in local coordinates $x$ we can write
 $$
@@ -407,8 +429,8 @@ $$
 Differentiating in our normal coordinate system, and applying Lemma \ref{lem:normal:taylor:tensor} yields
 $$
 \begin{aligned}
-  \nabla (\det A)(\partial u_k)_{t^*} &= \det(A_{t}) \cdot \text{Tr}\left(\left(\frac{\partial \log \det}{\partial M}\biggl|_{M=H_t}\right) \nabla H(\partial u_k)_t - \left(\frac{\partial \log \det}{\partial M}\biggl|_{M=\Lambda_t}\right) \nabla \Lambda(\partial u_k)_t\right) \\
-  &= \det(H_{t^*}) \cdot \left(\sum_{i,j} \nabla^3 \mu(\partial u_k, \partial u_i, \partial u_j)_{t^*} (H_{t^*}^{-1})_{ji} \right)
+  \nabla (\det A)(\partial v_k)_{t^*} &= \det(A_{t}) \cdot \text{Tr}\left(\left(\frac{\partial \log \det}{\partial M}\biggl|_{M=H_t}\right) \nabla H(\partial v_k)_t - \left(\frac{\partial \log \det}{\partial M}\biggl|_{M=\Lambda_t}\right) \nabla \Lambda(\partial v_k)_t\right) \\
+  &= \det(H_{t^*}) \cdot \left(\sum_{i,j} \nabla^3 \mu(\partial v_k, \partial v_i, \partial v_j)_{t^*} (H_{t^*}^{-1})_{ji} \right)
 \end{aligned}
 $$
 
@@ -420,12 +442,12 @@ $$
   & \qquad \qquad \text{Tr}(A^{-1}\nabla^2 A(X, Y))_t \biggr) \\
 \end{aligned}
  $$
-Assuming that $\|\nabla^3 \mu\|$ and $\|\nabla^4 \mu\|$ grow no faster than $\nabla^2 \mu$ the terms in the
-Hessian, after dividing through by  $\det(A_t)$  will remain bounded.
+Our well-conditioned assumption will imply that all terms in the parentheses are bounded even as $\delta_{t^*} \downarrow 0$.
 We can conclude that
 $$
-\left|\det( A_t) - \det (A_{t^*}) - \det(A_{t^*}) \left( \sum_{i,j} \nabla^3 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*}, \partial E_{j,t^*}) (H_{t^*}^{-1})_{ji}\right) \right| \leq \det(H_{t^*}) d(t^*,t)^2 C(\mu).
+\left|\det( A_t) - \det (A_{t^*}) \left(1 + \sum_{i,j} \nabla^3 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*}, E_{j,t^*}) (H_{t^*}^{-1})_{ji}\right) \right| \leq \bar{C}(\kappa) \det(H_{t^*}) d(t^*,t)^2.
 $$
+That is, the relative error's size does not grow as $\delta_{t^*} \downarrow 0$.
 
 \subsection{Density term: gradient}
 
@@ -438,7 +460,7 @@ That is, for $r$ sufficiently small, and assuming that neither $\mu^3$ nor $\mu^
 \begin{aligned}
 \lefteqn{  \biggl|\exp\left(-\frac{1}{2}g(\nabla \mu, \nabla \mu)_t\right) - \exp\left(-\frac{1}{2} \sum_{i=1}^d \nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*})^2\right) \times} \\
 & \qquad   \left(1 + \frac{1}{2} \sum_{i=1}^d \nabla^3 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t), E_{i,t^*}) \nabla^2 \mu_{t^*}(E_{i,t^*}, \log_{t^*}(t)) \right) \biggr|  \\
-&  \leq \qquad (1 + d(t^*,t)^{3+\alpha} C(\mu)) \cdot \exp\left(-\frac{1}{2} \sum_{i=1}^d \nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*})^2\right) .
+&  \leq \qquad (1 + \kappa \cdot \bar{C} d(t^*,t)^{3+\alpha} \delta_{t^*}^{-1} + \kappa^2 \cdot \bar{C}' d(t^*,t)^4 \delta_{t^*}^{-2}) \cdot \exp\left(-\frac{1}{2} \sum_{i=1}^d \nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*})^2\right) .
 \end{aligned}
 \end{equation}
 The actual relative error can be bounded by the square of the  remainder from the 2nd order Taylor expansion
@@ -446,6 +468,64 @@ times the exponential of the absolute value of the remainder, i.e. it is bounded
 $$
 e^{|R(t,t^*)|} R(t,t^*)^2 < 3 R(t,t^*)^2, \qquad |R(t,t^*)|<1.
 $$
+
+\subsection{Value of the field term}
+
+The final term to apply our version Taylor's theorem to is (with variance constant and equal to 1)
+$$
+\exp\left(-\frac{1}{2}(y-\mu_t)^2\right) \overset{def}{=} e^{a_t}.
+$$
+It is by now straightforward to verify
+$$
+\begin{aligned}
+\nabla a(Z) &= (y-\mu) \nabla \mu(Z)\\
+\nabla a^2(Y, Z) &= -\nabla \mu(Y) \nabla \mu(Z) + (y-\mu) \nabla^2 \mu(Y, Z)\\
+\nabla a^3(X, Y, Z) &= -\nabla^2 \mu(X, Y) \nabla \mu(Z)\\
+& \qquad -\nabla \mu(Y) \nabla^2 \mu(X, Z) \\
+& \qquad -\nabla \mu(Z) \nabla^2 \mu(X, Y) \\
+& \qquad + (y - \mu) \nabla^3 \mu(X, Y, Z). \\
+\end{aligned}
+$$
+Evaluating at $t^*$ yields
+$$
+\begin{aligned}
+\nabla a(Z)_{t^*} &= 0 \\
+\nabla a^2(Y, Z)_{t^*} &=  (y-\mu_{t^*}) \nabla^2 \mu(Y, Z)_{t^*}\\
+\nabla a^3(X, Y, Z)_{t^*} &=   (y - \mu_{t^*}) \nabla^3 \mu(X, Y, Z)_{t^*}. \\
+\end{aligned}
+$$
+
+We could carry on to the 4th derivative but the only interesting thing about it is its dependence on $\mu$ (and hence $\delta_{t^*}$. We see that $\|\nabla^4 a\| \leq \kappa^2 \cdot \bar{C} \delta_{t^*}^{-2}$.
+Similar to the gradient term, we see
+$$
+\begin{aligned}
+  \lefteqn{\biggl|\exp(a(t)) - \exp\left(\frac{1}{2}(y-\mu_{t^*}) \nabla^2 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t))\right) \times} \\
+  & \qquad \left(1 + (y - \mu_{t^*})( \nabla^3 \mu(\log_{t^*}(t), \log_{t^*}(t) ,\log_{t^*}(t))) \right)\biggr|
+  \leq \exp\left(\frac{1}{2}(y-\mu_{t^*}) \nabla^2 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t))\right) \kappa^2 \bar{C} d(t,t^*)^4 \delta_{t^*}^{-2}.
+\end{aligned}
+$$
+Moving the first order term in to the relative error yields a different bound
+$$
+\begin{aligned}
+  \lefteqn{\biggl|\exp(a(t)) - \exp\left(\frac{1}{2}(y-\mu_{t^*}) \nabla^2 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t))\right)\biggr|} \\
+  & \qquad 
+  \leq \exp\left(\frac{1}{2}(y-\mu_{t^*}) \nabla^2 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t))\right) \left(\kappa^2 \cdot \bar{C} \cdot d(t,t^*)^4 \delta_{t^*}^{-2} +  \kappa \cdot \bar{C}' \cdot d(t,t^*)^3 |y - \mu_{t^*}| \delta_{t^*}^{-1} \right)
+\end{aligned}
+$$
+
+\section{Finally, pick some coordinates}
+
+After having carefully found bounds that do not depend on a coordinate system, it's now time to pick one. Choose
+normal coordinates $v=v^{t^*,E_{t^*}}$ based on an orthonormal basis $E_{t^*}$ and rescale by $\delta_t^{-1}$ denoting this by $z$. In these coordinates, the terms $\log_{t^*}(t)$ are replaced by
+$$
+\log_{t^^*}(t) = \sum_{i=1}^d z_i(t) \partial z_i(z(t)).
+$$
+The derivatives Taylor expansions are now simply linear in $z$ scaled by $\delta_{t^*}^{-1}$
+(for the determinant term) and $\delta_{t^*}^{-3}$ for the density of the gradient term. This choice of coordinates is not natural for 
+pivots, but it is indeed a clean way to express the intensity function as a function on $\mc{T}$. The resulting
+linear and cubic terms are such that they are $O(\delta_{t^*})$ in size, as expected. 
+
+ 
 
 \section{Appendix: Taylor's theorem for tensor fields}
 
