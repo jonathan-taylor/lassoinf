@@ -143,14 +143,16 @@ $$
 Alternatively, we could write
 $$
 \begin{aligned}
-\rho(t,y) = (2\pi)^{-d/2} \det(\Lambda_t)^{-1/2} \E \left[\det\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] \phi_{Y_t|\partial Y_t=0}(y) \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)}
+\rho(t,y) &= (2\pi)^{-d/2} \det(\Lambda_t)^{-1} \E \left[\det\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] \phi_{Y_t|\partial Y_t=0}(y) \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)} \\
+ &= (2\pi)^{-d/2} \E \left[\det\left({\cal H}_t\Lambda_t^{-1}\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] \phi_{Y_t|\partial Y_t=0}(y) \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)} \\
 \end{aligned}
 $$
+with ${\cal H}_{t,ij}$ the negative of the matrix of \nabla^2 Y_t$  in the basis $\partial t_i$ at $t$..
 
 In the constant variance case (with variance 1), this simplifies to
 $$
 \begin{aligned}
-\rho(t,y) = (2\pi)^{-(d+1)/2} \det(\Lambda_t)^{-1/2} \E \left[\det\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] e^{-\frac{1}{2}(y-\mu_t)^2} \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)}
+\rho(t,y) = (2\pi)^{-(d+1)/2}  \E \left[\det\left({\cal H}_t\Lambda_t^{-1}\right) 1_{{\cal N}}\left(-\nabla^2 Y(\partial t_i, \partial t_j)_t \right) \biggl \vert \partial Y_t=0, Y_t=y\right] e^{-\frac{1}{2}(y-\mu_t)^2} \; e^{-\frac{1}{2}g(\nabla \mu_t,\nabla \mu_t)}
 \end{aligned}
 $$
 
@@ -254,14 +256,15 @@ Covariant derivatives of a tensor field are similary defined. Suppose $A$ is a $
 $$
 A_t:\otimes^k T_t\mc{T} \to \R
 $$
-then 
+then we can define a $(k+1)$ order covariant tensor field by
 $$
 \begin{aligned}
-  \nabla^1 A(X_{k+1}, X_k, \dots, X_1)_t &= X_{k+1,t}(A(X_k, \dots, X_1)) - A(\nabla_{X_{k+1}}X_k, \dots, X_1)  \\
-  &  \qquad  A(X_{k}, \nabla_{X_{k+1}}X_{k-1}, \dots, X_1)_t - \\
-  & \qquad A(X_{k}, \dots, \nabla_{X_{k+1}}X_1)_t.
+  \nabla A(Y, X_k, \dots, X_1)_t &= Y_{t}(A(X_k, \dots, X_1)) - A(\nabla_{Y}X_k, \dots, X_1)_t  \\
+  &  \qquad  A(X_{k}, \nabla_{Y}X_{k-1}, \dots, X_1)_t - \\
+  & \qquad A(X_{k}, \dots, \nabla_{Y}X_1)_t.
 \end{aligned}
 $$
+
 Viewing $\nabla^{k} f$ as a tensor field, we see that $\nabla ( \nabla^k f)(X)$, to be read as the covariant derivative of the tensor $\nabla^k f$ in the direction
 $X$, would be a tensor field of order $k$ satisfying
 $$
@@ -337,44 +340,198 @@ The constant $C(f, r)$ is similarly defined to Theorem \ref{thm:taylor}.
 
 %\\\\\\\\\\\\\\\
 
+Above, the $\nabla$ operator raises the order of the tensor but we can turn this into a connection
+on tensor fields, i.e. define it so that the derivative is itself order $k$.
+For this, we use the abuse of notation $\nabla A(Y)$ or, more properly,
+$\nabla_YA$ which is defined by
+$$
+(\nabla_YA)(X_1,\dots, X_1) = (\nabla A(Y))(X_k,\dots, X_1) = \nabla A(Y, X_k, \dots, X_1).
+$$
+Using the $\nabla_YA$ notation, we can define the second order covariant derivative of $A$ in the natural way
+$$
+\nabla^2 A(Z,Y)(X_k, \dots, X_1)_t = (\nabla_Z(\nabla_YA) - \nabla_{\nabla_ZY}A)(X_k, \dots, X_1)_t = \nabla^2 A(Z, Y, X_k, \dots, X_1)
+$$
+
+Given vector fields $X, W$ and a covariate 2-tensor field $A$ we'll want to compute the gradient of the functions
+$$
+t \mapsto A(X,W)_t \overset{def}{=} \mathfrak{a}_t
+$$
+We see the gradient is computed as
+$$
+\nabla \mathfrak{a}(Z)_t = (\nabla A(Z))(X, W) + A(\nabla X(Z), W) + A(X, \nabla W(Z)).
+$$
+Its Hessian is
+$$
+\begin{aligned}
+  \nabla^2 \mathfrak{a}(Y, Z)_t &= (\nabla^2 A(Y,Z))(X, W) + (\nabla A(Z))(\nabla X(Y), W) + (\nabla A(Z))(X, \nabla W(Y)) + \\
+& \qquad  (\nabla A(Y))(\nabla X(Z), W) + A(\nabla^2 X(Y, Z), W) + A(\nabla X(Z), \nabla W(Y)) + \\
+& \qquad  (\nabla A(Y))(X, \nabla W(Z)) + A(\nabla X(Y), \nabla W(Z)) + A(X, \nabla^2 W(Y, Z))  \\
+\end{aligned}
+$$
+
+\subsection{Higher order case when $A=g$ and $X=W$}
+
+In the special case $A=g$ and $X=W$ we see that $\mathfrak{a}_t = \frac{1}{2}g(X,X)_t$, half the squared norm
+of a vector field. For this special case, which we'll write $\mathfrak{g}$, we'll also want third and fourth order derivatives. Our work
+is simplified in this case as $\nabla g=0$, so all terms involving covariant derivatives of the metric vanish:
+$$
+\begin{aligned}
+\nabla \mathfrak{g}(V_1) &= g(\nabla X(V_1), X) \\
+\nabla^2 \mathfrak{g}(V_2, V_1) &= g(\nabla^2 X(V_2, V_1), X) + g(\nabla X(V_2), \nabla X(V_1)) \\
+  \nabla^3 \mathfrak{g}(V_3, V_2, V_1)& = g(\nabla^3 X(V_3, V_2, V_1), X) + g(\nabla^2  X(V_2, V_1), \nabla X(V_3)) +  \\
+  & \qquad g(\nabla^2 X(V_3, V_2), \nabla X(V_1)) + g(\nabla X(V_2), \nabla^2 X(V_3, V_1)). \\
+\end{aligned}
+$$
+In our application of this later, we will have $X=\nabla \mu$ hence, with $E=(E_1, \dots, E_d)$ an orthonormal frame,
+the above simplifies to
+$$
+\begin{aligned}
+\nabla \mathfrak{g}(V_1) &= \sum_{i=1}^d \nabla^2 \mu(V_1, E_i) \nabla \mu(E_i) \\
+\nabla^2 \mathfrak{g}(V_2, V_1) &= \sum_{i=1}^d 
+\biggl(\nabla^3 \mu(V_2, V_1, E_i) \nabla \mu(E_i) + \nabla^2 \mu(V_2, E_i) \nabla^2 \mu(E_i, V_1) \biggr) \\
+  \nabla^3 \mathfrak{g}(V_3, V_2, V_1)& = \sum_{i=1}^d
+\biggl(\nabla^4 \mu(V_3, V_2, V_1, E_i) \nabla \mu(E_i) + \nabla^3  \mu(V_2, V_1, E_i) \nabla^2 \mu(V_3, E_i) +  \\
+  & \qquad \nabla^3 \mu(V_3, V_2, E_i) \nabla^2 \mu(V_1, E_i) +  \nabla^2 \mu(V_2, E_i) \nabla^3 \mu(V_3, V_1, E_i) \biggr)
+\end{aligned}
+$$
+
+Finally, when evaluating at $t^*$ under the assumption $\nabla \mu_{t^*}=0$ we see
+\begin{equation}
+  \label{eq:grad:density}
+\begin{aligned}
+\nabla \mathfrak{g}(V_1)_{t^*} &= 0 \\
+\nabla^2 \mathfrak{g}(V_2, V_1)_{t^*} &= \sum_{i=1}^d 
+ \nabla^2 \mu(V_2, E_i)_{t^*} \nabla^2 \mu(E_i, V_1)_{t^*} \\
+  \nabla^3 \mathfrak{g}(V_3, V_2, V_1)_{t^*}& = \sum_{i=1}^d
+\biggl(\nabla^3  \mu(V_2, V_1, E_i)_{t^*} \nabla^2 \mu(V_3, E_i)_{t^*} +  \\
+  & \qquad \nabla^3 \mu(V_3, V_2, E_i)_{t^*} \nabla^2 \mu(V_1, E_i)_{t^*} +  \nabla^2 \mu(V_2, E_i)_{t^*} \nabla^3 \mu(V_3, V_1, E_i)_{t^*} \biggr)
+\end{aligned}
+\end{equation}
+
+
+\subsection{Handling the remainders}
+
+\subsubsection{Remainder relating derivatives in a chart to covariant derivatives}
+
+Away from $h=0$, the difference between the $k$-th order derivatives of $f$
+and the corresponding covariant term will involve 
+the vector fields $\nabla_{\partial h_i} \partial h_j, 1 \leq i,j \leq d$ for $h$ in a ball around 0 as well as the lower order covariant derivatives of $f$. Terms like this can be bounded (for suitable norms) over a small ball as follows:
+\begin{equation}
+  \label{eq:lower:covariant}
+\left|\sum_{(i_1,\dots,i_k)} \nabla^{k-1} f(\nabla_{\partial h_{i_k}}\partial h_{i_{k-1}}, \partial h_{i_{k-2}}, \dots)_{t=\exp_{\mc{T}}(t^*, h)} \prod_{l=1}^k h_{i_l}\right|
+\leq \|h\|^{k+1} \|\nabla^{k-1}f\|_h \max_{i,j} (\|h\|^{-1}\|(\nabla_{\partial h_i}\partial h_j)_h\|)
+\end{equation}
+and then maximized over $h$ in some ball around 0. This bound depends (weakly) on the choice of basis $E_{t^*}$ through the terms $\|(\nabla_{\partial h_i}\partial h_j)_h\|/\|h\|$ (which will be $O(1)$ due to
+the vanishing Christoffel symbols at $h=0$). Maximizing
+over the set of orthonormal bases, parameterized by $O(d)$, would yield a bound independent of the choice of
+basis determining our normal
+coordinate system. That is, for any $O \in O(d)$ we can find another orthonormal basis
+$$
+E^O_{t^*} = \left\{\sum_{j=1}^d O_{1j}E_{j,t^*}, \dots, \sum_{j=1}^d O_{dj}E_{j,t^*} \right\}
+$$
+with corresponding normal coordinates $h^O$. We can minimize over $O$ to get a ``better'' coordinate free bound.
+
+\subsubsection{Remainders with chartwise H\"older ounds}
+
+Assuming H\"older for the last derivative, the usual remainder in normal coordinates
+will have a constant based on the choice of orthonormal basis. We could similarly minimize over $O$ here as well.
+
+\subsection{Putting the pieces together}
+
+So what does a Taylor expansion finally look like? We now have an answer. Let $\log_{t^*}:\mc{T} \rightarrow
+T_{t^*}\mc{T}$ denote the inverse of the map
+$$
+X_{t^*} \to \exp_{\mc{T}}(t^*, X_{t^*})
+$$
+Then, we can write, for $t$ in some ball $B(t^*,r)$
+$$
+f(t) = f(t^*) + \nabla^1 f_t(\log_{t^*}(t)) + \frac{1}{2} \nabla^2 f_t(\log_{t^*}(t), \log_{t^*}(t))
++ \dots + \frac{1}{k!} \nabla^k f_t(\log_{t^*}(t), \dots, \log_{t^*}(t)) + R(t,t^*).
+$$
+The remainder $R$ has two contributions. The first comes from lower order
+covariant derivatives \eqref{eq:lower:covariant} and the second comes from a chartwise H\"older constants
+in balls around $t^*$. The first contribution is of order $\|\log_{t^*}(t)\|^{k+1}$ and
+the second is of order $\|\log_{t^*}(t)\|^{k+\alpha}$ if the function is $C^{k+\alpha}$.
+>>>>>>> b9092d2 (coordinate free form of density, later tensor derivatives -- need to swap in the correct Taylor series section)
+
 \section{Coordinate-free versions of (10),(11),(14),(15)}
 
-In a given coordinate system, $H_t(v)$ is a (coordinate-dependent) matrix but it can similarly
-be thought of as a tensor field. With variance constant and equal to 1, it is
-$$
-\begin{aligned}
-  H(v)(X, W)_t &= \E[-\nabla^2 Y(X, W)_t | \partial Y_t=0, Y_t=v] \\
-  &= \E[\nabla^2 Y(X, W)_t | \partial Y_t=0] \\
-  &=- \nabla^2 \mu(X, W)_t + (v-\mu_t)g(X, W)_t
-\end{aligned}
-$$
+\subsection{Determinant term (11)}
 
-In the general case, it is given by (correcting the error of the display between (12.2.11) and (12.2.12) in RFG along with non-zero mean):
+The first parts of Lemma 1 should be almost identical. That is, the ignorability
+of the local maxima condition should be able to be pushed through as coordinate-free,
+as well as the Gaussian moment calculation, which can similarly be done coordinate-free. What remains is the determinant term:
+$$
+\det(\Lambda_t^{-1} H_t(y)) \overset{def}{=} \det(A_t(y))
+$$
+Recall that this can be evaluated in any basis without changing its value. More precisely, the eigenvalues
+of the matrix above do not depend on our choice of basis.
+We might as well use an orthonormal frame field $E=(E_1, \dots, E_d)$.
+Above, when the variance is constant and equal to 1, the entries of the matrix\footnote{Strictly speaking, this is a matrix valued function whose $\det$ agrees with $\det(A_t(y))$ at every $(t,y)$} can be taken to be
 $$
 \begin{aligned}
-  H(v)(X, W)_t &= \E[-\nabla^2 Y(X, W)_t | \partial Y_t=0, Y_t=v] \\
-  &= -\nabla^2 \mu(X, W)_t - \frac{(v-\bar{\mu}_t)}{\text{\Var}(\epsilon_t|\partial \epsilon_t)} \Cov(\nabla^2 \epsilon(X, W)_t, \epsilon_t).
+A_{t,ij}(y) &= \E \left[-\nabla^2 Y(E_i, E_j)_t | Y_h=y, \partial Y_h=0\right] \\
+&= \E \left[-\nabla^2 Y(E_i, E_j)_h | Y_h=y\right] \\
+&= - \nabla^2 \mu(E_i, E_j)_t + (y - \mu_t) I \\
 \end{aligned}
+$$
+For non-constant variance the matrix $\Lambda_h$ above is replaced by something different, but not terrible and we defer this to paper \# 2.
+
+For a matrix valued function $M$ we can write
+$$
+\det(M_{x+\Delta}) = \det(M_{x}) \exp(\log \det(M_{x+\Delta}) - \log \det( M_{x}))
+$$
+hence, for our matrix valued function on $\mc{T}$
+$$
+\nabla (\det A)(E_k)_t = \det(A_{t}) \cdot \text{Tr}\left(\left(\frac{\partial \log \det}{\partial M}\biggl|_{M=A_t}\right) \nabla A(E_i)_t\right) = \det(A_t) \cdot
+\text{Tr}(A_t^{-1} \nabla A(E_k)_t)
 $$
 with
 $$
-\bar{\mu}_t = \E[Y_t|\partial Y_t=0] = \mu_t - \Cov(\epsilon_t,\partial \epsilon_t) \Cov(\partial \epsilon_t)^{-1} \partial \mu_t.
-$$
-In the general case, note that $\nabla^2 \epsilon(X, W)_t$ is independent of $\partial \epsilon_t$ hence
-$$
-\Cov(\nabla^2 \epsilon(X, W)_t, \epsilon_t | \partial \epsilon_t) = \Cov(\nabla^2 \epsilon(X, W)_t, \epsilon_t).
+\nabla A(E_k) = -\nabla^3 \mu(E_k, E_i, E_j) - \nabla \mu(E_k) I.
 $$
 
-In either case, we can define
+ To get a proper Taylor remainder we should differentiate again.
+ The Hessian we're after is
+ $$
+\begin{aligned}
+  \nabla^2 \det (A)(X, Y)_t &= \det(A_t) \cdot \biggl(\text{Tr}(A^{-1}\nabla A(X))_t \text{Tr}(A^{-1}\nabla A(Y))_t - \text{Tr}(A^{-1}\nabla A(X)A^{-1}\nabla A(Y))_t + \\
+  & \qquad \qquad \text{Tr}(A^{-1}\nabla^2 A(X, Y))_t \biggr) \\
+\end{aligned}
+ $$
+Dividing through by $\det(A_t)$, the relative error
+for the first two terms can be bounded by a constant involving a bound on the operator norm of $A^{-1}_t$
 $$
-\delta(t,v) = \inf_{X_t: g_t(X_t,X_t)=1} H(v)_t(X_t,X_t)
+\sup_{t \in B(t^*,r)} \|A^{-1}_t\| \leq \inf_O  \|H^O_h(y)^{-1}\|
 $$
-as a coordinate-free measure of curvature.
+with the $O$ denoting a choice of orthogonal matrix.
+Another term in the error for the first two terms will involve (with suitable norms)
+$$
+\sup_{t \in B(t^*,r)} \|\nabla \mu_t\| + \|\nabla^3 \mu_t\|.
+$$
 
-{\bf Let's stick with the variance constant and equal to 1 moving forward.}
+In the last term
+$$
+\nabla^2 A(X, Y)_{ij} = -\nabla^4 \mu(X, Y, E_i, E_j) - \nabla^2 \mu(X, Y) \cdot I
+$$
+hence the product $A^{-1} \nabla^2 A(E_k, E_l)$ for orthonormal $E_k, E_l$ should be bounded over $B(t^*,r)$ as long as
+$-\nabla^4 \mu$ does not grow faster than $-\nabla^2 \mu$. Of the terms above in the Hessian, this is really the only one that is obviously constant in the regime that $-\nabla^2\mu$ dominates.
 
-Lemma 1 is essentially unchanged though relevant bounds could be made coordinate free if desired.
-The $D_k$ terms actually can be computed in terms of the Riemannian curvature tensor using
-(12.2.13) and Lemma 12.3.1 of RFG.
+\subsubsection{Conclusion on (11)}
+
+We can conclude that, ignoring the lower order term from \eqref{eq:lower:covariant}
+$$
+\left|\frac{\det(\Lambda_t^{-1}H_t(y))}{\det(\Lambda_{t^*}^{-1}H_{t^*}(y))} - \text{Tr}(A_{t^*}(y)^{-1} \nabla^3 \mu(\cdot, \cdot, \log_{t^*}(t))) \right| \leq C \| \log_{t^*}(t)\|^2  
+ $$
+where
+$$
+\nabla^3 \mu(\cdot, \cdot, \log_{t^*}(t))_{ij} = \nabla^3 \mu_{t^*}(E_{i,t^*}, E_{j,t^*}, \log_{t^*}(t))
+$$
+and
+ $C$ can be chosen to be coordinate-free.
 
 \end{document}
+
+
+{\bf For tilt method: look at difference of regressions Taylor series when switching base and evaluation points from $(t,t^*)$ to  $(t^*,t)$. Zeroth-order terms are
+  identical, linear term should be 0. Second order is hessian at $t$ and vectors $\log_tt^*$ the other is at $t^*$ with vectors $\log_{t^*}t$.}
