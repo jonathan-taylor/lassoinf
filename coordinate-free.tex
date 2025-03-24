@@ -389,8 +389,20 @@ Summarizing, we can state the following lemma.
 The Taylor expansion does not depend on the choice of orthonormal basis.
   \end{lemma}
 The two terms in the bound appear  based on analyzing terms of $\nabla^3 \mathfrak{g}$ with $\nabla^4 \mu(\cdot) \nabla \mu(\cdot)$ separately from
-terms with $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$. As we have only assumed $\mu \in C^{4+\alpha}$ we will have to consider these terms separately. On the other hand, $\nabla \mu$ can only grow to size $\delta^{-1}_{t^*}(-\log (\delta_{t^*}))$ on our ball.
-
+terms with $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$ as we have only assumed $\mu \in C^{4+\alpha}$. The second
+terms comes from differentiating terms like $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$. For the first term, we use the standard argument, with some abuse of notation\footnote{What's wrong with this notation? The most obvious thing
+is that $\nabla^4 \mu_t$ is a tensor on $\otimes^4 T_t\mc{T}$ while $\nabla^4 \mu_{t^*}$ is a tensor
+on $\otimes T_{t^*}\mc{T}$. This fact also prevents us from considering a term like $\nabla^4 \mu_{t^*}\nabla \mu_t$ which we've added and subtracted, in somewhat poor form. Still, the remainder will be differences of evaluations of these tensors at (tensor products of) $\dot{\gamma}_t$
+along the curve $\gamma$. }
+$$
+\begin{aligned}
+  \left\|\nabla^4 \mu_t \cdot \nabla \mu_t - \nabla^4 \mu_{t^*} \cdot \nabla\mu_{t^*} \right\|
+&  \leq \|(\nabla^4\mu_t - \nabla^4 \mu_{t^*})\| \|\nabla \mu_{t}\| +
+  \|\nabla^4 \mu_{t^*}\| \|\nabla \mu_t - \nabla \mu_{t^*}\| \\
+  & \leq \kappa^2 \left( \bar{C} \cdot d(t,t^*)^{\alpha} \delta_{t^*}^{-1}(-\log(\delta_{t^*})) + \bar{C}' \cdot \delta_{t^*}^{-2} d(t,t^*) \right).
+\end{aligned}
+$$
+Multiplying by $d(t,t^*)^3$ for the Taylor remainder along the curve $\gamma$ completes the argument.
 
 
 \section{Coordinate-free versions of (10),(11),(14),(15)}
@@ -427,9 +439,13 @@ $$
 Differentiating in our normal coordinate system, and applying Lemma \ref{lem:normal:taylor:tensor} yields
 $$
 \begin{aligned}
-  \nabla (\det A)(\partial v_k)_{t^*} &= \det(A_{t}) \cdot \text{Tr}\left(\left(\frac{\partial \log \det}{\partial M}\biggl|_{M=H_t}\right) \nabla H(\partial v_k)_t - \left(\frac{\partial \log \det}{\partial M}\biggl|_{M=\Lambda_t}\right) \nabla \Lambda(\partial v_k)_t\right) \\
-  &= \det(H_{t^*}) \cdot \left(\sum_{i,j} \nabla^3 \mu(\partial v_k, \partial v_i, \partial v_j)_{t^*} (H_{t^*}^{-1})_{ji} \right)
+  \nabla (\det A)(\partial v_k)_{t} &= \det(A_{t}) \cdot \text{Tr}\left(\left(\frac{\partial \log \det}{\partial M}\biggl|_{M=H_t}\right) \nabla H(\partial v_k)_t - \left(\frac{\partial \log \det}{\partial M}\biggl|_{M=\Lambda_t}\right) \nabla \Lambda(\partial v_k)_t\right) \\
 \end{aligned}
+$$
+As $\nabla \Lambda(\partial v_k)_{t^*}=0$, we see that evaluating
+the above at $t^*$ yields
+$$
+\det(H_{t^*}) \cdot \left(\sum_{i,j} \nabla^3 \mu(\partial v_k, \partial v_i, \partial v_j)_{t^*} (H_{t^*}^{-1})_{ji} \right)
 $$
 
  To get a proper Taylor remainder we should differentiate again.
@@ -453,12 +469,12 @@ Lemma \ref{lem:grad:density} can be used to get a relative error bound on
 $$
 e^{-\frac{1}{2}g(\nabla \mu, \nabla \mu)_t}.
 $$
-That is, for $r$ sufficiently small, and assuming that neither $\mu^3$ nor $\mu^4$ dominate $\mu^2$ we can almost directly conclude 
+That is, for $r$ sufficiently small, and with our conditioning assumption we can almost directly conclude 
 \begin{equation}
 \begin{aligned}
 \lefteqn{  \biggl|\exp\left(-\frac{1}{2}g(\nabla \mu, \nabla \mu)_t\right) - \exp\left(-\frac{1}{2} \sum_{i=1}^d \nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*})^2\right) \times} \\
 & \qquad   \left(1 + \frac{1}{2} \sum_{i=1}^d \nabla^3 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t), E_{i,t^*}) \nabla^2 \mu_{t^*}(E_{i,t^*}, \log_{t^*}(t)) \right) \biggr|  \\
-&  \leq \qquad (1 + \kappa \cdot \bar{C} d(t^*,t)^{3+\alpha} \delta_{t^*}^{-1} + \kappa^2 \cdot \bar{C}' d(t^*,t)^4 \delta_{t^*}^{-2}) \cdot \exp\left(-\frac{1}{2} \sum_{i=1}^d \nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*})^2\right) .
+&  \leq \qquad (1 + \kappa \cdot \bar{C} \cdot d(t^*,t)^{3+\alpha} \delta_{t^*}^{-1} + \kappa^2 \cdot \bar{C}' \cdot d(t^*,t)^4 \delta_{t^*}^{-2}) \cdot \exp\left(-\frac{1}{2} \sum_{i=1}^d \nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*})^2\right) .
 \end{aligned}
 \end{equation}
 The actual relative error can be bounded by the square of the  remainder from the 2nd order Taylor expansion
@@ -499,7 +515,7 @@ $$
 \begin{aligned}
   \lefteqn{\biggl|\exp(a(t)) - \exp\left(\frac{1}{2}(y-\mu_{t^*}) \nabla^2 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t))\right) \times} \\
   & \qquad \left(1 + (y - \mu_{t^*})( \nabla^3 \mu(\log_{t^*}(t), \log_{t^*}(t) ,\log_{t^*}(t))) \right)\biggr|
-  \leq \exp\left(\frac{1}{2}(y-\mu_{t^*}) \nabla^2 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t))\right) \kappa^2 \bar{C} d(t,t^*)^4 \delta_{t^*}^{-2}.
+  \leq \exp\left(\frac{1}{2}(y-\mu_{t^*}) \nabla^2 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t))\right) \kappa^2 \cdot \bar{C} \cdot d(t,t^*)^4 \delta_{t^*}^{-2}.
 \end{aligned}
 $$
 Moving the first order term in to the relative error yields a different bound
