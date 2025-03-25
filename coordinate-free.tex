@@ -396,12 +396,11 @@ is bounded as above.  As for the $\nabla^4$ term, its remainder is in
 fact bounded by the same quantity. This follows from the following
 fact. Let $f: \R to \R$ is $C^1$ be such that $f'(x) = b(x) *
 \bar{b}(x)$ where $b(x)$ is only continuous while $\bar{b}(x)$ is
-$C^{1+\alpha}$ for $\alpha \in (0,1]$ (so that it has a usual Taylor
-  remainder). Suppose, in addition, that $\bar{b}(x_0)=0$. Then, for
+$C^{1}$. Suppose, in addition, that $\bar{b}(x_0)=0$. Then, for
   all $|x-x_0|<1$ it follows
   $$
   \left|  f(x) - f(x_0) \right| \leq  \bar{C} \cdot x^2 * \left(\sup_{v \in [x_0,x]} | b(v)| \right)
-  \left(\sup_{v \in [x_0, x]} |\bar{b}'(v)| + C(\bar{b}, B_{x_0}(|x-x_0|))\right)
+  \left(\sup_{v \in [x_0, x]} |\bar{b}'(v)| \right)
   $$
 with $C(\bar{b}, B_{x_0}(|x-x_0|))$ is the constant in the Taylor remainder for $\bar{b}$ over the corresponding ball.
 By the usual arguments, this fact extends to higher derivatives as well as higher dimensions.
