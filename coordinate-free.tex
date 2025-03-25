@@ -276,7 +276,7 @@ In other words $\nabla (\nabla^k f) = \nabla^{k+1} f$.
 \subsection{Assumptions on $\mu$}
 
 Having defined the form of Taylor's theorem on Riemannian manifolds, 
-we now make the following assumptions on $\mu \in C^{4+\alpha}$, with asymptotic parameter $\delta_{t^*}$:
+we now make the following assumptions on $\mu \in C^4$, with asymptotic parameter $\delta_{t^*}$ (which we'll take to be less than 1/2 so $d(t,t^*)^{1+\alpha}<d(t,t^*)$ always holds for any $\alpha>0$:
 $$
 \inf_{t \in B_{t^*}(-\log(\delta(t^*)) \delta(t^*))} \inf_{X_t \in T_t\mc{T}: g_t(X_t,X_t)=1} (-\nabla^2 \mu_{t^*})(X_t, X_t) \geq C (\delta_{t^*})^{-1}
 $$
@@ -286,8 +286,7 @@ for some fixed $C$. That is, we'll be applying our Taylor theorem $r=\delta_{t^*
   $$
 \sup_{t \in B_{t^*}(-\log(\delta(t^*)))} \|\nabla^2 \mu_t\| + \|\nabla^3 \mu_t\| + \|\nabla^4 \mu_t\| \leq \kappa C \delta_{t^*}^{-1}
   $$
-for some fixed $\kappa$. As for the H\"older coefficient, we assume
-$$\inf_{E_{t^*}} C_{\alpha, E_{t^*}}(\bar{f}^{E_{t^*}}, r) \leq \kappa \cdot C \cdot \delta_{t^*}^{-1}.$$
+for some fixed $\kappa$. 
 
 
 \subsection{Taylor's theorem for evaluations of tensors}
@@ -375,34 +374,37 @@ Finally, when evaluating at $t^*$ under the assumption $\nabla \mu_{t^*}=0$ we s
 Summarizing, we can state the following lemma.
 \begin{lemma}
 \label{lem:grad:density}
-  Suppose $\mu \in C^{4+\alpha}(\mc{T};\R)$ and $\nabla \mu_{t^*}=0$. Then, with H\"older remainder term,
+  Suppose $\mu \in C^{4+\alpha}(\mc{T};\R)$ and $\nabla \mu_{t^*}=0$. Then, 
   \begin{equation}
 \begin{aligned}
 \lefteqn{    \biggl| \frac{1}{2} g(\nabla \mu, \nabla \mu)_t -  } \\
 & \qquad  \frac{1}{2}\sum_{i=1}^d \biggl[ (\nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*}))^2 + \\
     & \qquad \qquad 
       \nabla^3 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t), E_{i,t^*}) \nabla^2 \mu_{t^*}(E_{i,t^*}, \log_{t^*}(t)) \biggr] \biggr| \\
-& \qquad \leq \kappa^2 \cdot \bar{C} \cdot d(t^*,t)^{3+\alpha} \delta^{-1}_{t^*}(-\log(\delta_{t^*})) +
-\kappa^2 \cdot \bar{C}' \cdot d(t^*,t)^4 \delta_{t^*}^{-2}
+& \qquad \leq \kappa^2 \cdot \bar{C}' \cdot d(t^*,t)^4 \delta_{t^*}^{-2}
 \end{aligned}
     \end{equation}
 The Taylor expansion does not depend on the choice of orthonormal basis.
   \end{lemma}
-The two terms in the bound appear  based on analyzing terms of $\nabla^3 \mathfrak{g}$ with $\nabla^4 \mu(\cdot) \nabla \mu(\cdot)$ separately from
-terms with $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$ as we have only assumed $\mu \in C^{4+\alpha}$. The second
-terms comes from differentiating terms like $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$. For the first term, we use the standard argument, with some abuse of notation\footnote{What's wrong with this notation? The most obvious thing
-is that $\nabla^4 \mu_t$ is a tensor on $\otimes^4 T_t\mc{T}$ while $\nabla^4 \mu_{t^*}$ is a tensor
-on $\otimes T_{t^*}\mc{T}$. This fact also prevents us from considering a term like $\nabla^4 \mu_{t^*}\nabla \mu_t$ which we've added and subtracted, in somewhat poor form. Still, the remainder will be differences of evaluations of these tensors at (tensor products of) $\dot{\gamma}_t$
-along the curve $\gamma$. }
-$$
-\begin{aligned}
-  \left\|\nabla^4 \mu_t \cdot \nabla \mu_t - \nabla^4 \mu_{t^*} \cdot \nabla\mu_{t^*} \right\|
-&  \leq \|(\nabla^4\mu_t - \nabla^4 \mu_{t^*})\| \|\nabla \mu_{t}\| +
-  \|\nabla^4 \mu_{t^*}\| \|\nabla \mu_t - \nabla \mu_{t^*}\| \\
-  & \leq \kappa^2 \left( \bar{C} \cdot d(t,t^*)^{\alpha} \delta_{t^*}^{-1}(-\log(\delta_{t^*})) + \bar{C}' \cdot \delta_{t^*}^{-2} \cdot d(t,t^*) \right).
-\end{aligned}
-$$
-Multiplying by $d(t,t^*)^3$ for the Taylor remainder along the curve $\gamma$ completes the argument.
+
+The two terms in the bound appear based on analyzing terms of
+$\nabla^3 \mathfrak{g}$ with $\nabla^4 \mu(\cdot) \nabla \mu(\cdot)$
+separately from terms with $\nabla^3 \mu(\cdot) \nabla^2 \mu(\cdot)$
+as we have only assumed $\mu \in C^{4}$ hence the first term is not
+differentiable. The second term is differentiable, and its remainder
+is bounded as above.  As for the $\nabla^4$ term, its remainder is in
+fact bounded by the same quantity. This follows from the following
+fact. Let $f: \R to \R$ is $C^1$ be such that $f'(x) = b(x) *
+\bar{b}(x)$ where $b(x)$ is only continuous while $\bar{b}(x)$ is
+$C^{1+\alpha}$ for $\alpha \in (0,1]$ (so that it has a usual Taylor
+  remainder). Suppose, in addition, that $\bar{b}(x_0)=0$. Then, for
+  all $|x-x_0|<1$ it follows
+  $$
+  \left|  f(x) - f(x_0) \right| \leq  \bar{C} \cdot x^2 * \left(\sup_{v \in [x_0,x]} | b(v)| \right)
+  \left(\sup_{v \in [x_0, x]} |\bar{b}'(v)| + C(\bar{b}, B_{x_0}(|x-x_0|))\right)
+  $$
+with $C(\bar{b}, B_{x_0}(|x-x_0|))$ is the constant in the Taylor remainder for $\bar{b}$ over the corresponding ball.
+By the usual arguments, this fact extends to higher derivatives as well as higher dimensions.
 
 
 \section{Coordinate-free versions of (10),(11),(14),(15)}
@@ -474,7 +476,7 @@ That is, for $r$ sufficiently small, and with our conditioning assumption we can
 \begin{aligned}
 \lefteqn{  \biggl|\exp\left(-\frac{1}{2}g(\nabla \mu, \nabla \mu)_t\right) - \exp\left(-\frac{1}{2} \sum_{i=1}^d \nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*})^2\right) \times} \\
 & \qquad   \left(1 + \frac{1}{2} \sum_{i=1}^d \nabla^3 \mu_{t^*}(\log_{t^*}(t), \log_{t^*}(t), E_{i,t^*}) \nabla^2 \mu_{t^*}(E_{i,t^*}, \log_{t^*}(t)) \right) \biggr|  \\
-&  \leq \qquad (1 + \kappa \cdot \bar{C} \cdot d(t^*,t)^{3+\alpha} \delta_{t^*}^{-1} + \kappa^2 \cdot \bar{C}' \cdot d(t^*,t)^4 \delta_{t^*}^{-2}) \cdot \exp\left(-\frac{1}{2} \sum_{i=1}^d \nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*})^2\right) .
+&  \leq \qquad \left(1 + \kappa \cdot \bar{C} \cdot d(t^*,t)^{3+\alpha} \delta_{t^*}^{-1} + \kappa^2 \cdot \bar{C}' \cdot d(t^*,t)^4 \delta_{t^*}^{-2}\right) \cdot \exp\left(-\frac{1}{2} \sum_{i=1}^d \nabla^2 \mu_{t^*}(\log_{t^*}(t), E_{i,t^*})^2\right) .
 \end{aligned}
 \end{equation}
 The actual relative error can be bounded by the square of the  remainder from the 2nd order Taylor expansion
