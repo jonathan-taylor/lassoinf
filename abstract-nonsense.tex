@@ -1,0 +1,177 @@
+\documentclass{article}
+
+\input{../preamble.sty}
+\usepackage{lmodern}
+
+\newcommand{\ag}[1]{{\bf{{\red{[{AG: #1}]}}}}}
+\newcommand{\InnerProduct}[2]{\langle #1,#2 \rangle}
+\newcommand{\Norm}[1]{\|#1\|}
+\newcommand{\bP}{\mathbb{P}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\M}{\mathbb{M}}
+\newcommand{\V}{\mathbb{V}}
+\newcommand{\br}{{\bf r}}
+\newcommand{\bs}{{\bf s}}
+\newcommand{\bt}{{\boldsymbol t}}
+\newcommand{\bH}{{\boldsymbol H}}
+\newcommand{\Newton}{\mathrm{Newton}}
+\newcommand{\DummyField}{{\tt f}}
+\newcommand{\DummyGradient}{{\bf g}}
+\newcommand{\InformationMatrix}{{\boldsymbol J}}
+\newcommand{\lin}{\mathrm{lin}}
+\newcommand{\ind}{\perp\!\!\!\!\perp} 
+\newcommand{\Exp}{\mathrm{Exp}}
+
+\newcommand{\RandomField}{Y}
+\newcommand{\bLambda}{{\boldsymbol \Lambda}}
+\newcommand{\bGamma}{{\boldsymbol \Gamma}}
+\newcommand{\Err}{\mathrm{Err}}
+\newcommand{\bQ}{{\boldsymbol Q}}
+\newcommand{\bJ}{{\boldsymbol J}}
+\newcommand{\bV}{{\boldsymbol V}}
+\newcommand{\bI}{{\boldsymbol I}}
+\newcommand{\bC}{{\boldsymbol C}}
+\newcommand{\convweak}{\overset{d}{\to}}
+
+\newcommand{\appropto}{\mathrel{\vcenter{
+			\offinterlineskip\halign{\hfil$##$\cr
+				\propto\cr\noalign{\kern2pt}\sim\cr\noalign{\kern-2pt}}}}}
+
+\renewcommand{\thealgorithm}{\arabic{algorithm}}
+
+\title{ {\bf Inference for Local Maxima of a Gaussian Random Field} \\ Abstract nonsense: random sections, zeros, Kac-Rice and Slepian}
+
+\begin{document}
+
+	\maketitle
+	\RaggedRight
+
+\section{A does of abstract nonsense}
+
+In this bit of abstract nonsense, we're going to discuss smooth random
+sections of a rank $d$ bundle $\pi:E \to M$ (generalization of smooth random
+fields) and associated probabilistic constructs. As in the case of a random field, a random section can
+be viewed as a map $\xi:\Omega \to \Gamma(E)$, i.e. a map from a probability space to smooth sections of $E$.
+We're going to work with just $C^{\infty}$ for now, as the point is to see what tools are in the toolbox.
+We'll assume the existence of $\bar{\nabla}$, a base connection on $E$. The map $\xi$ will determine
+its own connection as in the case of a real-valued random field on $M$, the base connection is just to
+ensure we have some notion of differentiating sections, though it is not strictly necessary.
+
+\subsection{Canonical example}
+
+Pick a set $\{V_1, \dots, V_n\} \in \Gamma(E)$, i.e. a set of sections of the dual bundle $E$ and
+a random vector $\bar{\zeta}:\Omega \rightarrow \mathbb{R}^n$ and define, for any $\alpha_p \in E_p^*$
+\begin{equation}
+  \label{eq:process}
+\alpha_p(\xi(\omega)) = \sum_{i=1}^n \bar{\zeta}_i(\omega) \cdot \alpha(V_i)_p.
+\end{equation}
+If $\bar{\zeta}_i$ are Gaussian this would of course be a smooth Gaussian section of $E$, though
+the construction above doesn't require Gaussianity.
+
+As for random fields, there is an associated RKHS. In this case, the covariance kernel is a map $R:E^* \times E^* \to \R$ determined by
+$$
+R(\alpha_p, \bar{\alpha}_q) = \text{Cov}(\alpha_p(\xi), \bar{\alpha}_q(\xi)), \qquad \alpha_p \in F_p, \bar{\alpha}_q \in F_q.
+$$
+The corresponding  RKHS is a subspace of $\Gamma(E)$ with witness functions
+$$
+\langle R_{\alpha_p}, R_{\bar{\alpha}_q} \rangle_{\cal H} = R(\alpha_p, \bar{\alpha}_q).
+$$
+The basic function in the RKHS takes the form
+$$
+h = \sum_j c_j R_{\alpha_{p_j}}   \in \Gamma(E)
+$$
+defined by
+$$
+h(\bar{\alpha})_q = \sum_j c_j R(\alpha_{p_j}, \bar{\alpha}_q)
+$$
+with the reproducing property following
+$$
+\langle R_{\alpha_p}, R_{\bar{\alpha}_q} \rangle = R(\alpha_p, \bar{\alpha}_q).
+$$
+
+The RKHS also determines a smooth metric on $E^*$:
+$$
+g(\alpha_p, \bar{\alpha}_p) = \text{Cov}(\alpha_p(\xi), \bar{\alpha}_p(\xi)).
+$$
+
+\subsection{Gaussian case}
+
+We expect, but won't prove here, that in the case $\bar{\zeta}$ are mean 0 and Gaussian one can take any orthonormal basis
+$(\varphi_i)$ of the RKHS along with IID $\zeta_i \sim N(0,1)$ defined above and realize the law $\xi$ as
+\begin{equation}
+  \label{eq:KL}
+\xi(\omega) \overset{D}{=} \sum_i \zeta_i(\omega) \varphi_i.
+\end{equation}
+That is,
+$$
+\alpha_p(\xi(\omega)) = \sum_i \zeta_i(\omega) \alpha(\varphi_i)_p.
+$$
+
+\subsubsection{Why do this? A practical example}
+
+Let $f$ be a real-valued Gaussian field on $M$ and set $\xi_p = df_p$. This is a random section of $T^*(M)$. Shortly,
+we'll want to discuss how the laws and intensities related to $\xi$ vary so that we might make
+sense of asymptotic analysis. 
+
+\section{Differentiation}
+
+Given the base connection $\bar{\nabla}$ on $E$, we can clearly define
+$$
+\bar{\nabla}_X\xi(\omega) = \sum_i \zeta_i(\omega) \bar{\nabla}_X \varphi_i.
+$$
+This is certainly well-defined if the RKHS is finite-dimensional. There is, however, a more natural
+connection to consider.
+
+\subsection{Induced connection}
+
+The RKHS {\em almost} induces a connection $\nabla$ on $E$  in a canonical fashion from ${\cal H}$.
+Fix a curve $\gamma:(-\epsilon,\epsilon) \to M$ with $\gamma(0)=p, \dot{\gamma}(0)=X_p$
+and consider sections of the form
+$p \mapsto R_{\alpha_p} \in F_p$. We first differentiate the curve $R_{\alpha} \circ \gamma$:
+\begin{equation}
+\dot{R}_{\alpha} = \frac{d}{dt} R_{\alpha} \circ \gamma(t) \biggl|_{t=0} = \lim_{t \to 0} \frac{1}{t} \left[ R_{\alpha(\gamma(t))} - R_{\alpha(0)}\right] \in {\cal H}.
+\end{equation}
+We then set
+$$
+\nabla_{X_p}R_{\alpha} = \dot{R}_{\alpha} - P(\dot{R}_{\alpha}, \text{span}(\dot{R}_{\bar{\alpha}_p}, \bar{\alpha}_p \in F_p^*)).
+$$
+That is, $\nabla_{X_p}R_{\alpha}$ is the residual after projecting $\dot{R}_{\alpha}$ onto the subspace of ${\cal H}$ spanned by the fiber $F_p$.
+This connection can therefore be extended to all of ${\cal H}$ in a natural fashion.\footnote{Formally, this connection is not defined for any section as we've only defined it on the witness functions of {\cal H}. This is not too worrying as the main use for this connection is to define pathwise derivatives of $\xi$ which only require
+${\cal H}$.} In turn this allows us to define
+a pathwise derivative $\nabla_{X_p}\xi$. By construction, we will have $\nabla_{X_p}\xi$ is orthogonal
+to $\alpha_p(\xi)$ for all $\alpha_p \in F_p^*$.
+
+This connection is clearly not the same as the base connection, nor
+does it even depend on $\bar{\nabla}$ in any way. We can realize this pathwise derivative by
+taking any basis $(\bar{\alpha}_{j,p})$ for $F_p^*$:
+\begin{equation}
+\label{eq:pathwise:1}
+(\nabla_X\xi)_p = (\bar{\nabla}_X\xi)_p - \text{Cov}(\bar{\nabla}_X\xi)_p, \bar{\alpha}_{i,p}(\xi))
+  \Sigma^{\dagger}_{ij,p} \bar{\alpha}_{j,p}(\xi)
+\end{equation}
+with $\Sigma_{ij,p} = \text{Cov}(\bar{\alpha}_{i,p}(\xi), \bar{\alpha}_{j,p}(\xi))$ with $\Sigma^{\dagger}$ its pseudo-inverse.
+This can be checked by using the Karhunen-Lo\'eve expansion \eqref{eq:KL} for the right hand side and verifying
+that the covariance of this random variable with any other linear functional of $\xi$ is equal, through the usual Paley-Wiener map ${\cal I}:{\cal H} \to L^2(\Omega)$, to the corresponding inner products on ${\cal H}$. In fewer words,
+the right hand side can be written
+\begin{equation}
+  \label{eq:pathwise:2}
+(\nabla_X\xi)_p(\omega) = {\cal I}(\dot{R}_{\alpha})(\omega).
+\end{equation}
+
+\subsection{Higher order derivatives}
+
+We can write the connection $\nabla$ in terms of covariant derivatives
+$$
+{\nabla} \xi(\omega) = \sum_i \zeta_i(\omega) \nabla \varphi_i \in \Gamma(T^*M \otimes E).
+$$
+The left hand side is our definition of the pathwise derivative from \eqref{eq:pathwise:2}.  The right
+hand side is mathematically valid as $\varphi_i \in {\cal H}$ so we can define $\nabla_X \varphi_i$ as we did
+$\nabla_XR_{\alpha}$, extended to linear combinations in the usual fashion.
+
+Higher order covariant derivatives can be similarly defined
+$$
+\nabla^k \xi(\omega) = \sum_i \zeta_i(\omega) \nabla^k \varphi_i \in \Gamma(T^*M^{\otimes k} \otimes E).
+$$
+
+
+\end{document}
