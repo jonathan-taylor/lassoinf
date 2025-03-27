@@ -46,7 +46,7 @@
 	\maketitle
 	\RaggedRight
 
-\section{A does of abstract nonsense}
+\section{A dose of abstract nonsense}
 
 In this bit of abstract nonsense, we're going to discuss smooth random
 sections of a rank $d$ bundle $\pi:E \to M$ (generalization of smooth random
@@ -65,6 +65,10 @@ a random vector $\bar{\zeta}:\Omega \rightarrow \mathbb{R}^n$ and define, for an
   \label{eq:process}
 \alpha_p(\xi(\omega)) = \sum_{i=1}^n \bar{\zeta}_i(\omega) \cdot \alpha(V_i)_p.
 \end{equation}
+The mean of $\xi$ is clearly
+$$
+\sum_{i=1}^n \E[\bar{\zeta}_i] \cdot V_i.
+$$
 If $\bar{\zeta}_i$ are Gaussian this would of course be a smooth Gaussian section of $E$, though
 the construction above doesn't require Gaussianity.
 
@@ -74,7 +78,7 @@ R(\alpha_p, \bar{\alpha}_q) = \text{Cov}(\alpha_p(\xi), \bar{\alpha}_q(\xi)), \q
 $$
 The corresponding  RKHS is a subspace of $\Gamma(E)$ with witness functions
 $$
-\langle R_{\alpha_p}, R_{\bar{\alpha}_q} \rangle_{\cal H} = R(\alpha_p, \bar{\alpha}_q).
+\langle R_{\alpha_p}, R_{\bar{\alpha}_q} \rangle_{\cH} = R(\alpha_p, \bar{\alpha}_q).
 $$
 The basic function in the RKHS takes the form
 $$
@@ -89,29 +93,58 @@ $$
 \langle R_{\alpha_p}, R_{\bar{\alpha}_q} \rangle = R(\alpha_p, \bar{\alpha}_q).
 $$
 
-The RKHS also determines a smooth metric on $E^*$:
+A different, but equivalent way to define a random section of $E$ is as a real valued process $\bar{\xi}:\Omega \times E^* \rightarrow \R$ satisfying
+\begin{equation}
+  \label{eq:alternate:construction}
+\bar{\xi}(\alpha_p + \bar{\alpha}_p) = \bar{\xi}(\alpha_p) + \bar{\alpha}_p).
+\end{equation}
+Thus, defining any process of the form $\bar{\xi}$ on $E^*$ determines a random section of $E$ via
+$$
+\xi(\alpha)_p = \bar{\xi}(\alpha_p).
+$$
+
+The RKHS also determines a smooth metric on $E^*$ (and hence $E$):
 $$
 g(\alpha_p, \bar{\alpha}_p) = \text{Cov}(\alpha_p(\xi), \bar{\alpha}_p(\xi)).
 $$
 
+As we've defined the associate RKHS, we make the assumption that $\mu \in \cH$.
+
 \subsection{Gaussian case}
 
-We expect, but won't prove here, that in the case $\bar{\zeta}$ are mean 0 and Gaussian one can take any orthonormal basis
+In the case $\bar{\zeta}$ are mean 0 and Gaussian one can take any orthonormal basis
 $(\varphi_i)$ of the RKHS along with IID $\zeta_i \sim N(0,1)$ defined above and realize the law $\xi$ as
 \begin{equation}
   \label{eq:KL}
-\xi(\omega) \overset{D}{=} \sum_i \zeta_i(\omega) \varphi_i.
+\xi(\omega) \overset{D}{=} \sum_i \zeta_i(\omega) \varphi_i + \mu.
 \end{equation}
 That is,
 $$
-\alpha_p(\xi(\omega)) = \sum_i \zeta_i(\omega) \alpha(\varphi_i)_p.
+\alpha_p(\xi(\omega)) = \sum_i \zeta_i(\omega) \alpha(\varphi_i)_p + \alpha_p(\mu).
 $$
 
-\subsubsection{Why do this? A practical example}
+\subsubsection{A few practical (?) examples}
 
 Let $f$ be a real-valued Gaussian field on $M$ and set $\xi_p = df_p$. This is a random section of $T^*(M)$. Shortly,
-we'll want to discuss how the laws and intensities related to $\xi$ vary so that we might make
+we'll want to discuss how the laws and intensities related to $\xi$ and its zeros vary so that we might make
 sense of asymptotic analysis. 
+
+Consider the following process on $T^*(M \times \R)$: given $(X_{a,p}, b_{a,p}) \in T_p M \oplus T_a \R$ set
+$$
+\bar{\zeta}_{a,p} = df_p(X_{a,p}) + b_{a,p} \cdot (f_p - u).
+$$
+As this is a real valued process on $T(M \times \R)$ satisfying the required linearity, by our remark
+\eqref{eq:alternate:construction} $\bar{\zeta}$ extends to a random section of $T^*(M \times \R)$. Zeros of
+this process determine the intensity for critical points and their values.
+
+Finally, given two real-valued processes $f$ and $\bar{f}$ consider a process on $T^*(M \times M)$ determined as follows: given $(X_{p,\bar{p}}, \bar{X}_{p,\bar{p}}) \in T_pM \oplus T_{\bar{p}}M$
+set
+$$
+\bar{\zeta}(X_{p,\bar{p}}, \bar{X}_{p,\bar{p}}) = df_p(X_{p,\bar{p}}) + d\bar{f}_{\bar{p}}(\bar{X}_{p,\bar{p}}).
+$$ If $f=\bar{f}$ then zeros of the above counts pairs of critical
+points. By extending to $T^*((M \times \R) \times (M \times \R))$ as
+our second example above we see that zeros of this process determine
+the intensity for pairs of critical points and their values.
 
 \section{Differentiation}
 
@@ -122,9 +155,10 @@ $$
 This is certainly well-defined if the RKHS is finite-dimensional. There is, however, a more natural
 connection to consider.
 
-\subsection{Induced connection}
+\subsection{The ${\cal H}$ connection $\nabla^{\cal H}$}
 
-The RKHS {\em almost} induces a connection $\nabla$ on $E$  in a canonical fashion from ${\cal H}$.
+The RKHS {\em almost} induces a connection $\nabla=\nabla^{\cH}$ on $\Gamma(E)$  in a canonical fashion.
+It induces a connection defined on $\cH \subset \Gamma(E)$.
 Fix a curve $\gamma:(-\epsilon,\epsilon) \to M$ with $\gamma(0)=p, \dot{\gamma}(0)=X_p$
 and consider sections of the form
 $p \mapsto R_{\alpha_p} \in F_p$. We first differentiate the curve $R_{\alpha} \circ \gamma$:
@@ -136,8 +170,9 @@ $$
 \nabla_{X_p}R_{\alpha} = \dot{R}_{\alpha} - P(\dot{R}_{\alpha}, \text{span}(\dot{R}_{\bar{\alpha}_p}, \bar{\alpha}_p \in F_p^*)).
 $$
 That is, $\nabla_{X_p}R_{\alpha}$ is the residual after projecting $\dot{R}_{\alpha}$ onto the subspace of ${\cal H}$ spanned by the fiber $F_p$.
-This connection can therefore be extended to all of ${\cal H}$ in a natural fashion.\footnote{Formally, this connection is not defined for any section as we've only defined it on the witness functions of {\cal H}. This is not too worrying as the main use for this connection is to define pathwise derivatives of $\xi$ which only require
-${\cal H}$.} In turn this allows us to define
+This connection can therefore be extended to all of ${\cal H}$ in a natural fashion.
+Formally, this connection is not defined for any section as we've only defined it on the witness functions of {\cal H}. This is not too worrying as the main use for this connection is to define pathwise derivatives of $\xi$ which only require
+${\cal H}$. In turn this allows us to define
 a pathwise derivative $\nabla_{X_p}\xi$. By construction, we will have $\nabla_{X_p}\xi$ is orthogonal
 to $\alpha_p(\xi)$ for all $\alpha_p \in F_p^*$.
 
@@ -149,14 +184,43 @@ taking any basis $(\bar{\alpha}_{j,p})$ for $F_p^*$:
 (\nabla_X\xi)_p = (\bar{\nabla}_X\xi)_p - \text{Cov}(\bar{\nabla}_X\xi)_p, \bar{\alpha}_{i,p}(\xi))
   \Sigma^{\dagger}_{ij,p} \bar{\alpha}_{j,p}(\xi)
 \end{equation}
-with $\Sigma_{ij,p} = \text{Cov}(\bar{\alpha}_{i,p}(\xi), \bar{\alpha}_{j,p}(\xi))$ with $\Sigma^{\dagger}$ its pseudo-inverse.
-This can be checked by using the Karhunen-Lo\'eve expansion \eqref{eq:KL} for the right hand side and verifying
-that the covariance of this random variable with any other linear functional of $\xi$ is equal, through the usual Paley-Wiener map ${\cal I}:{\cal H} \to L^2(\Omega)$, to the corresponding inner products on ${\cal H}$. In fewer words,
-the right hand side can be written
+with $\Sigma_{ij,p} = \text{Cov}(\bar{\alpha}_{i,p}(\xi),
+\bar{\alpha}_{j,p}(\xi))$ with $\Sigma^{\dagger}$ its pseudo-inverse.
+This can be checked by using the Karhunen-Lo\'eve expansion
+\eqref{eq:KL} for the right hand side and verifying that the
+covariance of this random variable with any other linear functional of
+$\xi$ is equal, through the usual Paley-Wiener map ${\cal I}:{\cal H}
+\to L^2(\Omega)$, to the corresponding inner products on ${\cal
+  H}$. In fewer words, in the Gaussian case, the right hand side can be written
 \begin{equation}
   \label{eq:pathwise:2}
-(\nabla_X\xi)_p(\omega) = {\cal I}(\dot{R}_{\alpha})(\omega).
+(\nabla_X\xi)_p(\omega) = {\cal I}(\dot{R}_{\alpha})(\omega) + (\nabla_X \mu)_p
 \end{equation}
+When $\zeta$ are not Gaussian, ${\cal I}$ is still defined, at least for finite sums.
+
+\subsection{Is it a Levi-Civita connection?}
+
+When $E$ is $T(M)$ or $T^*(M)$ we see that $\cH$ induces (subject to non-degeneracy) a metric on
+$E^*$ (and hence $E$). It is therefore a Riemannian metric. We have further associated a
+connection to $\cH$. It is natural to ask if this connection is the Levi-Civita connection
+of this Riemannian manifold. That is, is it compatable with the metric and torsion free.
+
+In broad generality, the connection $\nabla$ is compatible with the metric on $E^*$.
+To see this, let's assuming for simplicity $\mu=0$ below so we can write $\E$ instead of $\Cov$.
+For any vector field $X$ and sections $\alpha, \bar{\alpha} \in \cH$:
+$$
+\begin{aligned}
+  X(g(\alpha, \bar{\alpha}))_p &= X(\E[\alpha(\xi) \bar{\alpha}(\xi)])_p \\
+  &= \E[X(\alpha(\xi))_p \bar{\alpha}_p] \\
+  &= \E[(\nabla_X\alpha)(\xi)_p + \alpha(\nabla_X\xi)_p)((\nabla_X\bar{\alpha})(\xi)_p + \bar{\alpha}(\nabla_X\xi)_p)] \\
+  &= \E[(\nabla_X\alpha)(\xi)_p \bar{\alpha}(\xi)_p] + \E[\alpha(\xi)_p (\nabla_X\bar{\alpha})(\xi)_p] \\
+  &= g(\nabla_X\alpha, \bar{\alpha}) + g(\alpha, \nabla_X\bar{\alpha}).
+\end{aligned}
+$$
+
+The property of being torsion free is less clear. We do note that it is shown that it is indeed
+the Levi-Civita connection in \cite{RFG,phdthesis} for
+processes $\xi$ of the form $\bar{\xi}_p(X_p)=df_p(X_p)$.
 
 \subsection{Higher order derivatives}
 
@@ -173,5 +237,114 @@ $$
 \nabla^k \xi(\omega) = \sum_i \zeta_i(\omega) \nabla^k \varphi_i \in \Gamma(T^*M^{\otimes k} \otimes E).
 $$
 
+\section{Kac-Rice intensity}
+
+\newcommand{\coordchart}{\mathfrak{t}}
+
+Suppose $\pi:E \to M$ is a vector bundle of rank $d$ on a $d$-dimensional manifold $M$ and $\xi$
+a smooth random section of $E$. Then, under standard non-degeneracy assumptions zeros of $\xi$ will be isolated
+and we can compute the intensity function of the zeros of $\xi$. As $\cH$ induces a metric on $E$ we can pick
+an orthonormal frame for $E^*$ which we denote by $\omega=(\omega_1, \dots, \omega_d) \in \cH$ and a chart
+$\coordchart:U \to \R^d$ so that
+$$
+\breve{\xi}_t = (\xi(\omega_1)_{\^{-1}(t)}, \dots, \xi(\omega_d)_{\phi^{-1}(t)}): \R^d \to \R^d.
+$$
+The standard Kac-Rice formula on $\R^d$ yields, for $B \subset U$
+$$
+\begin{aligned}
+\E \left[\{p \in B: \xi_p=0\} \right] &= \int_{\coordchart(B)} \E\left[|\det(J_t)| \bigr | \breve{\xi}_t=0 \right] \phi_{\breve{\xi}_t}(0) \; dt \\
+\end{aligned}
+$$
+where
+$$
+\begin{aligned}
+  (J_t)_{ij} &= \frac{\partial \breve{\xi}_t}{\partial t_i} \\
+  &= (\omega_j(\nabla_{\partial t_i}\xi))_{\coordchart^{-1}(t)} + (\nabla_{\partial t_i} \omega_j)(\xi)_{\coordchart^{-1}(t)}. \\
+\end{aligned}
+$$
+As this the conditional expectation sets $\xi_p$ to 0, we can rewrite this as
+$$
+\begin{aligned}
+\E \left[\{p \in B: \xi_p=0\} \right] &= \int_{\coordchart(B)} \E \left[|\det(\breve{J}_t)| \bigr | \breve{\xi}_t=0 \right] \phi_{\breve{\xi}_t}(0) \; dt \\
+\end{aligned}
+$$
+with
+$$
+\begin{aligned}
+  (\breve{J}_t)_{ij} &= \omega_j(\nabla_{\partial t_i}\xi)_{\phi^{-1}(t)}
+\end{aligned}
+$$
+which is tensorial in $\partial t_i$ and $\omega_j$.
+
+\subsection{Special case: $E=T(M)$ or $E=T^*(M)$}
+
+In this case, as $\cH$ determines a metric on $E^*$ (and $E^*$), this will be a Riemannian metric. The implication
+here means that the $\omega_j$'s can therefore be interpreted as an orthonormal frame of vector fields with
+this metric. The tensorial aspect of $\breve{J}_t$ implies we can now compute this intensity
+with respect to the Riemannian measure $\nu$:
+$$
+\begin{aligned}
+\E \left[\{p \in B: \xi_p=0\} \right] &= \int_{B} \E[|\det(\bar{J}_p)| | \xi_p=0] \phi_{\breve{\xi}_{\phi(p)}}(0) \; \nu(dp). \\
+\end{aligned}
+$$
+with
+$$
+\bar{J}_{p,ij} =  \omega_j(\nabla_{\omega_i}\xi)_{p}
+$$
+
+The generality of the formula seems somewhat remarkable, though it hides many
+nitty gritty details as many such formulae do. The only difference between the formula in
+\cite{RFG} for counting critical points of a real-valued function is the $\cH$ connection. For counting
+critical points, the connection is the Levi-Civita connection of the induced metric. The intensity
+is completely coordinate free and does not depend on the choice of frame.
+
+\subsection{Special case: Gaussian but $E$ arbitrary}
+
+When $\zeta$ are Gaussian, then the joint law of $(\bar{J}_p,\xi_p)$ is of course Gaussian and, by construction of
+the connection
+$\bar{J}(\xi)_p$ is independent of $\xi_p$. In general, unless $E$ is $T(M)$ or $T^*(M)$ there is no
+special Riemannian metric associated to $\cH$. In this case, the Kac-Rice formula is perhaps better interpreted
+as an alternating $d$-form (Lemma 2.4 of \cite{EulerCharManifolds}).
+Still, we can pick our favorite Riemannian measure and work out the intensity
+with respect to its Riemannian measure.
+
+Importantly, Gaussianity implies that
+the density $\phi_{\breve{\xi}_t}(0)$ is invariant to choice of orthonormal frame:
+$$
+\phi_{\breve{\xi}_t}(0) = (2\pi)^{-d/2} \exp\left(-\frac{1}{2} g(\mu_p, \mu_p) \right)
+$$
+
+Fixing a set of orthonormal vector fields $\{X_1,\dots, X_d\}$ for our favorite Riemannian metric on $M$ we could
+write the intensity as
+$$
+\begin{aligned}
+\E \left[\{p \in B: \xi_p=0\} \right] &= (2 \pi)^{-d/2}\int_{B} \E[|\det(\check{J}_p)|]  \exp\left(-\frac{1}{2} g(\mu_{p}, \mu_{p}) \right) \nu(dp). \\
+\end{aligned}
+$$
+with
+$$
+\check{J}_{p,ij} =  \omega_j(\nabla_{X_i}\xi)_{p}.
+$$
+This intensity is coordinate free in that it does not depend on the choice of $\omega_j$'s or $X_i$'s.
+
+\subsection{Very special case: Gaussian and $E$ is $T(M)$ or $T^*(M)$}
+
+In this case, as noted above we can take $X_j=\omega_j$ (properly interpreted) and the
+formula is very compact:
+$$
+\begin{aligned}
+\E \left[\{p \in B: \xi_p=0\} \right] &= (2\pi)^{-d/2} \int_{B} \E[|\det(\bar{J}_p)|]  \exp\left(-\frac{1}{2} g(\mu_{p}, \mu_{p}) \right) \nu(dp). \\
+\end{aligned}
+$$
+{\bf 
+The only difference from this formula and the one for computing
+the critical point intensity of a real-valued Gaussian process is the connection seen in $\bar{J}$. Above,
+$g$ would genuinely be a Riemannian metric. As we only assume $\mu \in H$ (and we've done all this work), this is
+the connection which we'll use when doing coordinate free calculus for this intensity. The connection
+may or may not be the Levi-Civita connection. This doesn't matter for Taylor series as all we will use is the
+fact that it determines a parallel transport. One more related comment, for Riemannian manifolds with
+the Levi-Civita connection there were natural curves to use for parallel transport, i.e. geodesics. Well,
+we have a Riemannian metric too so there are natural curves for Taylor series to use for parallel transport. The parallel transport we do may not be the same as if it were the Levi-Civita connection but that doesn't matter. We would have to rewrite a few things in the Taylor series notes as I used the geodesic property, but that would be in paper \# 2 in any case...
+}
 
 \end{document}
