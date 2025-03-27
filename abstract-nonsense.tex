@@ -206,7 +206,7 @@ connection to $\cH$. It is natural to ask if this connection is the Levi-Civita 
 of this Riemannian manifold. That is, is it compatable with the metric and torsion free.
 
 In broad generality, the connection $\nabla$ is compatible with the metric on $E^*$.
-To see this, let's assuming for simplicity $\mu=0$ below so we can write $\E$ instead of $\Cov$.
+To see this, let's assuming for the moment that $\mu=0$ below so we can write $\E$ instead of $\Cov$.
 For any vector field $X$ and sections $\alpha, \bar{\alpha} \in \cH$:
 $$
 \begin{aligned}
@@ -221,6 +221,8 @@ $$
 The property of being torsion free is less clear. We do note that it is shown that it is indeed
 the Levi-Civita connection in \cite{RFG,phdthesis} for
 processes $\xi$ of the form $\bar{\xi}_p(X_p)=df_p(X_p)$.
+
+We now resume assuming that $\mu \neq 0$.
 
 \subsection{Higher order derivatives}
 
@@ -288,13 +290,15 @@ $$
 \end{aligned}
 $$
 with
-$$
+\begin{equation}
+  \label{eq:jacobian}
 \bar{J}_{p,ij} =  \omega_j(\nabla_{\omega_i}\xi)_{p}
-$$
+\end{equation}
 
 The generality of the formula seems somewhat remarkable, though it hides many
 nitty gritty details as many such formulae do. The only difference between the formula in
-\cite{RFG} for counting critical points of a real-valued function is the $\cH$ connection. For counting
+\cite{RFG} for counting critical points of a real-valued function is the $\cH$ connection in
+\eqref{eq:jacobian}. For counting
 critical points, the connection is the Levi-Civita connection of the induced metric. The intensity
 is completely coordinate free and does not depend on the choice of frame.
 
