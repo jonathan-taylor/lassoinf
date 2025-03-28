@@ -4,6 +4,7 @@
 \usepackage{lmodern}
 
 \newcommand{\ag}[1]{{\bf{{\red{[{AG: #1}]}}}}}
+\newcommand{\jt}[1]{{\bf{{\red{[{JT: #1}]}}}}}
 \newcommand{\InnerProduct}[2]{\langle #1,#2 \rangle}
 \newcommand{\Norm}[1]{\|#1\|}
 \newcommand{\bP}{\mathbb{P}}
@@ -103,10 +104,14 @@ $$
 \xi(\alpha)_p = \bar{\xi}(\alpha_p).
 $$
 
-The RKHS also determines a smooth metric on $E^*$ (and hence $E$):
+The RKHS also determines a smooth (possibly degenerate) metric on $E^*$ (and hence $E$):
 $$
-g(\alpha_p, \bar{\alpha}_p) = \text{Cov}(\alpha_p(\xi), \bar{\alpha}_p(\xi)).
+g_p(\alpha_p, \bar{\alpha}_p) = \text{Cov}(\alpha_p(\xi), \bar{\alpha}_p(\xi)).
 $$
+The subspace on which $g$ is non-degenerate which we might call $H_p$. Assuming the subspaces vary
+smoothly may lead to a sub-bundle $H \subset E$ on which the metric would be non-degenerate.
+With this metric on $H^* \subset E^*$ we see that there is an equivalent RKHS $\cH^*$ of sections of $\Gamma(E^*)$ via fiberwise
+application of the Riesz representation theorem. 
 
 As we've defined the associate RKHS, we make the assumption that $\mu \in \cH$.
 
@@ -118,7 +123,7 @@ $(\varphi_i)$ of the RKHS along with IID $\zeta_i \sim N(0,1)$ defined above and
   \label{eq:KL}
 \xi(\omega) \overset{D}{=} \sum_i \zeta_i(\omega) \varphi_i + \mu.
 \end{equation}
-That is,
+That is, for $\alpha_p \in H_p^*$
 $$
 \alpha_p(\xi(\omega)) = \sum_i \zeta_i(\omega) \alpha(\varphi_i)_p + \alpha_p(\mu).
 $$
@@ -171,7 +176,9 @@ $$
 $$
 That is, $\nabla_{X_p}R_{\alpha}$ is the residual after projecting $\dot{R}_{\alpha}$ onto the subspace of ${\cal H}$ spanned by the fiber $F_p$.
 This connection can therefore be extended to all of ${\cal H}$ in a natural fashion.
-Formally, this connection is not defined for any section as we've only defined it on the witness functions of {\cal H}. This is not too worrying as the main use for this connection is to define pathwise derivatives of $\xi$ which only require
+Formally, this connection is not defined for any section as we've only defined it on $\cH$. By Riesz
+representation,
+it is also well defined on $\cH^*$. This is not too worrying as the main use for this connection is to define pathwise derivatives of $\xi$ which only require
 ${\cal H}$. In turn this allows us to define
 a pathwise derivative $\nabla_{X_p}\xi$. By construction, we will have $\nabla_{X_p}\xi$ is orthogonal
 to $\alpha_p(\xi)$ for all $\alpha_p \in F_p^*$.
@@ -203,18 +210,18 @@ When $\zeta$ are not Gaussian, ${\cal I}$ is still defined, at least for finite 
 When $E$ is $T(M)$ or $T^*(M)$ we see that $\cH$ induces (subject to non-degeneracy) a metric on
 $E^*$ (and hence $E$). It is therefore a Riemannian metric. We have further associated a
 connection to $\cH$. It is natural to ask if this connection is the Levi-Civita connection
-of this Riemannian manifold. That is, is it compatable with the metric and torsion free.
+of this Riemannian manifold. That is, is it compatible with the metric and torsion free.
 
 In broad generality, the connection $\nabla$ is compatible with the metric on $E^*$.
 To see this, let's assuming for the moment that $\mu=0$ below so we can write $\E$ instead of $\Cov$.
-For any vector field $X$ and sections $\alpha, \bar{\alpha} \in \cH$:
+For any vector field $X$ and sections $\alpha, \bar{\alpha} \in \cH^*$:
 $$
 \begin{aligned}
   X(g(\alpha, \bar{\alpha}))_p &= X(\E[\alpha(\xi) \bar{\alpha}(\xi)])_p \\
-  &= \E[X(\alpha(\xi))_p \bar{\alpha}_p] \\
-  &= \E[(\nabla_X\alpha)(\xi)_p + \alpha(\nabla_X\xi)_p)((\nabla_X\bar{\alpha})(\xi)_p + \bar{\alpha}(\nabla_X\xi)_p)] \\
-  &= \E[(\nabla_X\alpha)(\xi)_p \bar{\alpha}(\xi)_p] + \E[\alpha(\xi)_p (\nabla_X\bar{\alpha})(\xi)_p] \\
-  &= g(\nabla_X\alpha, \bar{\alpha}) + g(\alpha, \nabla_X\bar{\alpha}).
+  &= \E[X(\alpha(\xi))_p \cdot \bar{\alpha}(\xi)_p + \alpha(\xi)_p \cdot X(\bar{\alpha}(\xi))_p] \\
+  &= \E\left[\left((\nabla_X\alpha)(\xi)_p + \alpha (\nabla_X\xi)_p\right) \bar{\alpha}(\xi)_p] + \E\left[\alpha(\xi)_p \left((\nabla_X\bar{\alpha})(\xi)_p + \bar{\alpha} (\nabla_X\xi)_p\right) \right] \\
+  &= \E\left[(\nabla_X\alpha)(\xi)_p \bar{\alpha}(\xi)_p] + \E\left[\alpha(\xi)_p (\nabla_X\bar{\alpha})(\xi)_p \right] \\
+  &= g(\nabla_X\alpha, \bar{\alpha})_p + g(\alpha, \nabla_X\bar{\alpha})_p.
 \end{aligned}
 $$
 
@@ -246,7 +253,7 @@ $$
 Suppose $\pi:E \to M$ is a vector bundle of rank $d$ on a $d$-dimensional manifold $M$ and $\xi$
 a smooth random section of $E$. Then, under standard non-degeneracy assumptions zeros of $\xi$ will be isolated
 and we can compute the intensity function of the zeros of $\xi$. As $\cH$ induces a metric on $E$ we can pick
-an orthonormal frame for $E^*$ which we denote by $\omega=(\omega_1, \dots, \omega_d) \in \cH$ and a chart
+an orthonormal frame for $E^*$ which we denote by $\omega=(\omega_1, \dots, \omega_d) \in \cH^*$ and a chart
 $\coordchart:U \to \R^d$ so that
 $$
 \breve{\xi}_t = (\xi(\omega_1)_{\coordchart^{-1}(t)}, \dots, \xi(\omega_d)_{\coordchart^{-1}(t)}): \R^d \to \R^d.
@@ -267,22 +274,23 @@ $$
 As this the conditional expectation sets $\xi_p$ to 0, we can rewrite this as
 $$
 \begin{aligned}
-\E \left[\{p \in B: \xi_p=0\} \right] &= \int_{\coordchart(B)} \E \left[|\det(\breve{J}_t)| \bigr | \breve{\xi}_t=0 \right] \phi_{\breve{\xi}_t}(0) \; dt \\
+\E \left[\{p \in B: \xi_p=0\} \right] &= \int_{\coordchart(B)} \E \left[|\det(\breve{J}_{\coordchart^{-1}(t)})| \bigr | \xi_{\coordchart^{-1}(t)}=0 \right] \phi_{\breve{\xi}_t}(0) \; dt \\
 \end{aligned}
 $$
 with
 $$
 \begin{aligned}
-  (\breve{J}_t)_{ij} &= \omega_j(\nabla_{\partial t_i}\xi)_{\phi^{-1}(t)}
+  (\breve{J}_p)_{ij} &= \omega_j(\nabla_{\partial t_i}\xi)_{p}
 \end{aligned}
 $$
 which is tensorial in $\partial t_i$ and $\omega_j$.
 
 \subsection{Special case: $E=T(M)$ or $E=T^*(M)$}
 
-In this case, as $\cH$ determines a metric on $E^*$ (and $E^*$), this will be a Riemannian metric. The implication
+In this case, as $\cH$ determines a metric on $E^*$ (and $E^*$), this will be a (possibly degenerate) Riemannian
+metric. For Kac-Rice it would have to be non-degenerate so the dimension of each fiber is $d$. The implication
 here means that the $\omega_j$'s can therefore be interpreted as an orthonormal frame of vector fields with
-this metric. The tensorial aspect of $\breve{J}_t$ implies we can now compute this intensity
+this metric. The tensorial aspect of $\breve{J}_p$ implies we can now compute this intensity
 with respect to the Riemannian measure $\nu$:
 $$
 \begin{aligned}
@@ -350,5 +358,93 @@ fact that it determines a parallel transport. One more related comment, for Riem
 the Levi-Civita connection there were natural curves to use for parallel transport, i.e. geodesics. Well,
 we have a Riemannian metric too so there are natural curves for Taylor series to use for parallel transport. The parallel transport we do may not be the same as if it were the Levi-Civita connection but that doesn't matter. We would have to rewrite a few things in the Taylor series notes as I used the geodesic property, but that would be in paper \# 2 in any case...
 }
+
+\section{Measures bundles: computing integrals within and across fibers}
+
+\jt{I feel some of this stuff must be written somewhere, though not for Gaussian densities. I know
+  people who do stochastic analysis on manifolds study regularity of the heat kernel which is kind
+  of similar. Not sure where I'd find it. This seems one sensible way to do things.}
+
+\newcommand{\cJ}{\mathcal{J}}
+
+In order to compute the Kac-Rice intensity one needs to evaluate the above expectation. This calculation
+may of course be quite subtle. The matrix $\breve{J}_p$ is random and depends on our choice of frames even though it is indeed tensorial in the arguments $\partial t_i$ and $\omega_j$. It is more natural to consider
+$\breve{\cJ} \in \Gamma(T^*(M) \otimes H)$ with
+$$
+\breve{J}_{ij,p} = \breve{\cJ}(\partial t_i, \omega_j)_p.
+$$
+
+This is of course a random section of $\Gamma(T^*(M) \otimes H)$ hence there is a map
+$p \to {\cal P}_p(T_p^*M \otimes H_p)$ with ${\cal P}_p$ the set of probability measures
+on $T_p^*M \otimes H_p$. These of course form a bundle ${\cal P}(T^*M \otimes H)$.
+
+Given that $H_p$ has a metric there is a natural Hausdorff measure on $H_p$ while we may
+pick a Riemannian  metric on $M$ so that $T_p^*M$ inherits its own natural Hausdorff measure.
+In this case, we can consider  the subset ${\cal P}^{\infty}(T^*M \otimes H)$, the bundle  of probability measures
+that have smooth densities with respect to the induced measure on $T_p^*M \otimes H_p$.
+
+While we have made this construction for random sections of a specific bundle, similar ones can be made for other tensor products of $H$ and $T(M)$.
+Let's consider first how to describe the law of $\xi$.
+Define $\mathbb{R}^{\cH}$ to be the bundle of smooth functions $p \to \R^{H_p}$ generated by functions of the form
+$$
+a(X)_p = \bar{a}(\alpha_{1}(X)_p, \dots, \alpha_j(X)_p), \qquad \alpha_1, \dots, \alpha_j \in \cH^*, \bar{h}:\R^j \to \R
+$$
+That is, each function is determined by a set of $j$ sections of $\cH^*$ and a fixed function $\bar{a}$.
+
+Let ${\cal M}_p(H_p) \supset {\cal P}_p(H_p)$ denote the set of measures on $H_p$ and its corresponding
+smooth version ${\cal M}^{\infty}_p(H_p)$. We can consider ${\cal M}^{\infty}(H)$ as a bundle.
+Given a section $m$ of this bundle and a section $a$ of $\mathbb{R}^{\cH}$ we 
+can define the pairing
+$$
+m(a)_p = \int_{H_p} \bar{a}(\alpha_{1,p}(h_p), \dots, \alpha_{j,p}(h_p)) m_p(dh_p)
+$$
+with $dh_p$ the natural Hausdorff measure.
+
+\jt{After looking at this more, we probably want to pullback $\gamma(t) \to p$... will look similar.}
+
+Given a curve $\gamma:(-\epsilon,\epsilon) \to M$ with $\gamma(0)=p$ we can define
+the parallel pushforward of $m$ as
+$m_{p \to \gamma(t)} \in {\cal M}_{\gamma(t)}(H_{\gamma(t)})$
+with
+$$
+\begin{aligned}
+m_{p \to \gamma(t)}(a_{\gamma(t)}) &= \int_{H_{\gamma(t)}} \bar{a}(\alpha_{1, \gamma(t)}(h_{\gamma(t),p}), \dots, \alpha_{j,\gamma(t)}(h_{\gamma(t),p})) m_{p}(dh_p) \\
+&= \int_{H_{\gamma(t)}} \bar{a}(\alpha_{1, \gamma(t)}(u), \dots, \alpha_{j,\gamma(t)}(u)) J_{p\to\gamma(t)} m_{\gamma(t)}(du) \\
+&= J_{p\to\gamma(t)} \cdot m_{\gamma(t)}(a_{\gamma(t)})
+\end{aligned}
+  $$
+where $h_{\gamma(t)}=P_{p \to \gamma(t)}h_p$ the parallel transport of $h_p$ to $h_{\gamma(t)}$ along $\gamma$ and
+we have made the change of variables $u=P_{p \to \gamma(t)}h_p$. The variable
+of integration in the second line doesn't include a subscript $\gamma(t)$ but it need not. The domain
+is clear, as is the measure -- $u$ is simply a variable of integration. In the expression above, $m_p$ is pushed forward under the parallel transport map so that we can then integrate functions
+over $H_{\gamma(t)}$.
+
+The Jacobian \jt{(or its reciprocal ??)} is given by
+$$
+\begin{aligned}
+  J_{p \to \gamma(t)}^2 &= \det(g_p(\omega_{i,\gamma(t)}, P_{p \to \gamma(t)}\omega_{j,p})), u \in H_{\gamma(t)}
+  &= 1 + t \cdot \sum_{i=1}^d g(\nabla_{\dot{\gamma}(0)}\omega_i, \omega_i)_p + O(t^2)
+\end{aligned}
+$$
+for any set of orthonormal frames on $H^*$. 
+
+\jt{The $J_{p \to \gamma(t)}$  will be something like $\det(I + t V_p)$ -- a determinant like volume of tubes, fun!}
+
+We have thus defined a mechanism that allows us to transport the pairing on ${\cal M}(H)$ and $\R^H$, meaning we can
+meaningfully differentiate integrals of functions in $\R^{\cH}$ so that we might compute Taylor expansions along $\gamma$.
+In the Riemannian case, recall that the curves by naturally taken to be geodesics so the above can be used to get
+a relative error term that, to first order, will be an odd function.
+
+Differentiating the intergal fully will obviously depend on the set of frames the densities but conceptually is not
+too bad now: we can use the connection. These are the kind of calculations we were doing for the
+coordinate free case so far (or the same in coordinates).
+ That is, we can compute
+$$
+\begin{aligned}
+  \lim_{t \downarrow 0} \frac{1}{t}(m_{\gamma(t)}(a_{\gamma(t)}) - m_p(a_p)) &=
+\lim_{t \downarrow 0} \frac{1}{t}  \left(m_{\gamma(t)}(a_{\gamma(t)}) - m_{p \to \gamma(t)}(a_{\gamma(t)}) +  m_{p \to \gamma(t)}(a_{\gamma(t)}) - m_p(a_p)\right)
+  
+\end{aligned}
+$$
 
 \end{document}
