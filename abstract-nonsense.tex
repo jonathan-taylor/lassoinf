@@ -70,7 +70,7 @@ a random vector $\bar{\zeta}:\Omega \rightarrow \mathbb{R}^n$ and define, for an
 \alpha_p(\randsec(\omega)) = \sum_{i=1}^n \bar{\zeta}_i(\omega) \cdot \alpha(V_i)_p.
 \end{equation}
 The mean of $\randsec$ is clearly
-\begin{eqaution}
+\begin{equation}
   \label{eq:meansec}
 \meansec = \sum_{i=1}^n \E[\bar{\zeta}_i] \cdot V_i.
 \end{equation}
@@ -182,7 +182,7 @@ We first differentiate the curve $R_{\alpha} \circ \gamma$:
 \end{equation}
 We then set
 $$
-\nabla_{X_p}R_{\alpha} = \dot{R}_{\alpha} - P(\dot{R}_{\alpha}, \text{span}(\dot{R}_{\bar{\alpha}_p}, \bar{\alpha}_p \in F_p^*)).
+\nabla_{X_p}R_{\alpha} = \dot{R}_{\alpha} - P(\dot{R}_{\alpha}, \text{span}(R_{\bar{\alpha}_p}, \bar{\alpha}_p \in F_p^*)).
 $$
 That is, $\nabla_{X_p}R_{\alpha}$ is the residual after projecting $\dot{R}_{\alpha}$ onto the subspace of ${\cal H}$ spanned by the fiber $F_p$.
 This connection can therefore be extended to all of ${\cal H}$ in a natural fashion.
@@ -450,7 +450,7 @@ of \cite{RFG,ECmanifolds} can be used to evaluate the expectation of its
 determinant. We continue to use the notation $\text{Tr}$.  \jt{We save this calculation for later: the second moment should be the curvature double form
 for the $H$-connection.}
 
-\subsection{Restriction of a random section}
+\section{Restriction of a random section}
 
 Suppose $\bar{N} \subset N$ is an embedded submanifold of co-dimension $k \geq 1$. The process $\randsec$ on the bundle of rank
 $d=\text{dim}(N)$ will generically not have any zeros in $\bar{N}$. If we could somehow naturally restrict
