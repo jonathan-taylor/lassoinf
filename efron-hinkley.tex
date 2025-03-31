@@ -102,7 +102,7 @@ As the first $n-k$ forms span $T_xM$  this process counts zeros of the score in 
 solutions to
 \begin{equation}
 \label{eq:critical:set}
-\left\{x: X_x(Z-x)=0 \ \forall \  X_x \in T_xM\right\}.
+\left\{x \in M: X_x(Z-x)=0 \ \forall \  X_x \in T_xM\right\}.
 \end{equation}
 This of course corresponds to critical points of the restriction of  to $M$ of the function
 $$
@@ -177,12 +177,24 @@ W_i = \eta_{i,x}(Z-\theta^*-x) \sim N(0, 1)
 $$
 are ancillary in the sense their distribution is known, but they are not statistics.
 
-\subsection{Can they be conditioned on?}
+\subsection{Can these things be conditioned on?}
 
 Yes. The Kac-Rice intensity of $\xi$ is a function on $\R^n$. It can be evaluated in
 a coordinate system locally on $M$ with its first $k$-coordinates given by coefficients
 in the $\eta_i$'s and some coordinate system on $T_xM$. To condition on the
 EH statistic, we fix the first $k$ coordinates of this joint intensity.
+
+The $W_i$'s can also be conditioned on, though they cannot be observed. I claim that
+the Kac-Rice intensity for this joint intensity will explicitly not show any ``statistical curvature''. The tangential component will be the same as the Kac-Rice intensity for
+\eqref{eq:critical:set} and for the normal component we'll get something
+that doesn't depend on $\theta$ (because they are ``ancillary'', though not statistics).
+
+Specifically, when we restrict that joint
+intensity to $M$ 
+\begin{equation}
+  \left\{(x,w) \in M \times \R^k: X_x(Z-x)=0 \ \forall \  X_x \in T_xM,
+  \eta_{i,x}(Z-\theta^*-x)=w_i, 1 \leq i \leq k \right\}.
+  \end{equation}
 
 \subsection{Do they need to be standardized?}
 
