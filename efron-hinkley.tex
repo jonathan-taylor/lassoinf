@@ -61,7 +61,7 @@ a co-tangent bundle) is just the Euclidean matric.
 
 On $\R^n$ this process has a Kac-Rice intensity on $\R^n$ given by counting
 $$
-\left\{x \in \R^n: \xi_x=0\}.
+\left\{x \in \R^n: \xi_x=0\right\}.
 $$
 It will just be $(2\pi)^{-n/2} e^{-\|x-\theta\|^2_2/2}$.
 
@@ -189,12 +189,12 @@ the Kac-Rice intensity for this joint intensity will explicitly not show any ``s
 \eqref{eq:critical:set} and for the normal component we'll get something
 that doesn't depend on $\theta$ (because they are ``ancillary'', though not statistics).
 
-Specifically, when we restrict that joint
-intensity to $M$ 
-\begin{equation}
-  \left\{(x,w) \in M \times \R^k: X_x(Z-x)=0 \ \forall \  X_x \in T_xM,
-  \eta_{i,x}(Z-\theta^*-x)=w_i, 1 \leq i \leq k \right\}.
-  \end{equation}
+Specifically, we could define a following random section on $T_x^*\R^n$ by defining
+it on tangent vectors in $X_x \in T_xM$ and normal vectors $\eta_x \in N_xM$ as
+$$\xi^W\left(X_x,\eta_x\right) = X_x(Z-x) + \eta_x(Z-\theta^*-x).
+$$
+Its zeros would have a Kac-Rice intensity that is the product (in the sense of measures)
+of the intensity of the zeros in \eqref{eq:critical:set} and $N(0,I_{k \times k})$.
 
 \subsection{Do they need to be standardized?}
 
