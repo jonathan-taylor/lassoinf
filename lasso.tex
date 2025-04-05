@@ -1,0 +1,463 @@
+\documentclass{article}
+
+\input{../preamble.sty}
+\usepackage{lmodern}
+
+\newcommand{\OLS}{\bar{\beta}}
+\newcommand{\REG}{\hat{\beta}}
+\def\qed{\hfill $\Box$\newline}
+\newcommand{\ag}[1]{{\bf{{\red{[{AG: #1}]}}}}}
+\newcommand{\jt}[1]{{\bf{{\red{[{JT: #1}]}}}}}
+\newcommand{\InnerProduct}[2]{\langle #1,#2 \rangle}
+\newcommand{\Norm}[1]{\|#1\|}
+\newcommand{\bP}{\mathbb{P}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\M}{\mathbb{M}}
+\newcommand{\V}{\mathbb{V}}
+\newcommand{\br}{{\bf r}}
+\newcommand{\bs}{{\bf s}}
+\newcommand{\bt}{{\boldsymbol t}}
+\newcommand{\bH}{{\boldsymbol H}}
+\newcommand{\Newton}{\mathrm{Newton}}
+\newcommand{\DummyField}{{\tt f}}
+\newcommand{\DummyGradient}{{\bf g}}
+\newcommand{\InformationMatrix}{{\boldsymbol J}}
+\newcommand{\lin}{\mathrm{lin}}
+\newcommand{\ind}{\perp\!\!\!\!\perp} 
+\newcommand{\Exp}{\mathrm{Exp}}
+
+\newcommand{\RandomField}{Y}
+\newcommand{\bLambda}{{\boldsymbol \Lambda}}
+\newcommand{\bGamma}{{\boldsymbol \Gamma}}
+\newcommand{\Err}{\mathrm{Err}}
+\newcommand{\bQ}{{\boldsymbol Q}}
+\newcommand{\bJ}{{\boldsymbol J}}
+\newcommand{\bV}{{\boldsymbol V}}
+\newcommand{\bI}{{\boldsymbol I}}
+\newcommand{\bC}{{\boldsymbol C}}
+\newcommand{\convweak}{\overset{d}{\to}}
+
+\newcommand{\appropto}{\mathrel{\vcenter{
+			\offinterlineskip\halign{\hfil$##$\cr
+				\propto\cr\noalign{\kern2pt}\sim\cr\noalign{\kern-2pt}}}}}
+
+\renewcommand{\thealgorithm}{\arabic{algorithm}}
+\newcommand{\randsec}{\xi}
+\newcommand{\linprocess}{\mathring{\randsec}}
+\newcommand{\meansec}{\bar{\mu}}
+
+\title{ {\bf Inference (bootstrap or otherwise)
+    for projected parameter in the LASSO via homotopy}}
+\author{Alden Green and Jonathan Taylor}
+
+\begin{document}
+
+	\maketitle
+	\RaggedRight
+
+        
+        \section{Back to the beginning}
+
+        Let's begin in the parametric case: $y|X \sim N(\mu, \sigma^2
+        I)$ with $\sigma^2$ known which we take to be 1. Of course $\mu=\mu(X)$ but all
+        inference that follows is conditional on $X$ so we drop this bit of notation.
+
+        Let $\hat{E}=\hat{E}_{\lambda}(y,X)$ denote the set selected by the LASSO at a
+        fixed value of $\lambda$. We similarly drop the dependence of $\hat{E}$ on $X$.
+        The LASSO also selects signs $\hat{s}_{\hat{E}}(y,X)$ which we will denote
+        by $\hat{s}(y)$. This is a bit sloppy as we have to remember that $s$ is not defined
+        unless we have fixed $E$, but that's not too bad.
+        
+        Lee et al. writes
+        $$
+        \begin{aligned}
+        \bar{\cal S}_{E,s_E}
+        &\overset{def}{=} \left\{y: (\hat{E}(y),\hat{s}(y))=(E, s_E)\right\}
+        &= \left\{y: A_{E,s_E}\OLS_E(y) \geq 0, I_{E,s_E}(R_Ey) \geq 0 \right\}
+        \end{aligned}
+        $$
+        where $A_{E,s_E}$ is an affine inequality on
+        $$
+        \OLS_E(y) = X_E^{\dagger}y
+        $$
+        and $I_{E,s_E}$ is an affine inequality on
+        $$
+        R_Ey = (I - X_EX_E^{\dagger})y=(I-P_E)y.
+        $$
+
+        Now let's write
+        $$
+        {\cal S}_E \overset{def}{=} \left\{y: \hat{E}(y)=E\right\} = \bigcup_{s_E \in \{-1,1\}^E} \bar{\cal S}_{E,s_E}.
+        $$
+
+        Fithian, Sun, Taylor (FST), of which Lee et al. is a specific application, describes how to
+        do conditional inference about a given contrast $\bar{\eta}'\mu$ on ${\cal S}_E$ by decomposing
+        $y$ into two pieces as
+        $$
+        (\bar{\eta}'y, N_{\eta}(y))=(I - \bar{\eta}\bar{\eta}')y).
+        $$
+
+        The relevant law conditions on $N_{\eta}$ to remove nuisance
+        parameter $(I-\eta\eta')y$ and for any  $H_0:\bar{\eta}'\mu=\theta$ we use a
+        conditional law with density
+        \begin{equation}
+          \label{eq:selective:density}
+        z \mapsto f_{\theta}(z | N_{\eta}(y)=n) \propto \exp \left(-\frac{1}{2}(z-\theta)^2 \right)
+        \cdot \P_{\mu}({\cal S}_E | \bar{\eta}'y=z, N_{\eta}(y)=n).
+        \end{equation}
+        The {\em magic} of Lee et al. / FST is that the last probability, while nominally
+        a function of $\mu$ is actually expressible as
+        \begin{equation}
+          \label{eq:prob:selection}
+        \P_{\mu}({\cal S}_E | \bar{\eta}'y=z, N_{\eta}(y)=n) =
+        \begin{cases}
+          1 & z \in T(n) \\
+          0 & \text{otherwise.}
+          \end{cases}
+        \end{equation}
+        where $T(n) \subset \R$ is computable as a union of intervals, one for each $s_E$.
+
+        This is magical in that it seems we computed an integral involving $\mu$ over all
+        of $\mathbb{R}^n$ without knowing $\mu$. But of course, we did no such thing.
+        Given $(z,n)$ the random vector $y$ can be reconstructed explicitly and we can
+        simply check whether the resulting $y=y(z,n) \in {\cal S}_E$.
+        Without further assumptions on $\mu$ it also seems to be about the best we can do
+        because otherwise we'd need to do something about the nuisance parameter $N_{\eta}(\mu)$.
+
+        Now suppose we're interested in a contrast $\eta'\beta_E(\mu)$ of
+        $$\beta_E(\mu)=X_E^{\dagger}\mu.$$
+        This contrast can of course be expressed as $\bar{\eta}'\mu$.
+        
+        There is a natural further decomposition:\footnote{This is the subbundle discussion: picking coordinates on a bigger bundle to get a sensible restriction of a process to a submanifold of the base space of the bundle.}
+        $$
+        (\eta'\OLS_E, R_{\eta,E}(y), R_E(y)) \overset{def}{=} (\eta'\OLS_E, N_{E,\eta}(y), R_E(y))
+        $$
+        with
+        $$
+        R_{\eta,E} = P_E - \bar{\eta}\bar{\eta}'.
+        $$
+
+        The selected model device of FST uses the heuristic that says
+        we've selected a good model so the 
+        residual must have little information in $\mu$ associated to it.  Specifically, assumes
+        $R_E(y) \sim N(0, R_E)$. This assumption is a spectrum, a researcher could choose some
+        other features to add to $E$ they might think are relevant and make the assumption that
+        $R_{M}y \sim N(0, R_M)$ for some $R_{M}-R_E \geq 0$. They might
+        also look at $E$ and say, some of these are clearly garbage, in which case $R_E-R_M \geq 0$.
+
+        {\bf Comment (don't ignore):} For the Gaussian case, when $p > n$ and $\sigma^2$ is unknown it is
+        essentially unavoidable to make a choice of $M$ simply necessary to be
+        able to estimate variance. In GLMs and Cox this wouldn't be
+        strictly necessary. 
+
+        {\bf Comment (don't ignore):} This choice of $M$ determines an ancillary
+        statistic (at least for the pre-selection density), when $\sigma^2$
+        is known, namely $R_M(y)$. If $\sigma^2$ is unknown, then we can proceed once
+        $E'$ is fixed, by conditioning on $\|R_{M}(y)\|^2_2$. This is similar to
+        what we saw in Lucas' talk, as well as \cite{sqrtlasso} or other examples in FST.
+        We leave this for now, assuming that we will simply plugin
+        $$
+        \hat{\sigma}^2_{M}(y) = \frac{1}{\text{Tr}(R_{M})} \|R_{M}y\|^2_2
+        $$
+        as an estimate of variance. 
+
+        {\bf Comment (maybe OK to ignore):} This choice of ancillary is, in the selective
+        inference setting, a choice of the researcher. As mentioned above, the researcher could choose $M \subset E$, though we would reparametrize our statistics. If $n>p$ we can also
+        take $M=\{1, \dots, p\}$.
+        We see then, that the choice of $M$
+        corresponds to 
+        choosing an  orthonormal frame on the $E$ strata of
+        the normal bundle\footnote{Referring here to
+        the normal bundle of the convex set $\{r \in \mathbb{R}^n: \|X'r\|_{\infty} \leq \lambda$ as it sits in $\R^n}. The data selected $E$ but the researcher
+        chooses $M$. 
+
+        {\bf Comment (safe to ignore):} This spectrum of choice of ancillary subspace
+        (better said orthonormal frame) is related to ancillarity in
+        curved exponential families and the {\em Efron-Hinkley}
+        ancillary statistic}. These problems are well-specified problems without selection.
+          In that setting, there is similarly a choice of orthonormal frame
+          and {\em Efron-Hinkley} is somehow the smallest orthonormal frame
+          that allows for curvature. In our problem, 
+          Efron-Hinkley choice
+          would set $M=E$ if we insist on defining the target parameters to be $X_E^{\dagger}\mu$. In this (exponential family) context, the Efron-Hinkley statistic would be degenerate, it is
+          simply 0.
+
+          {\bf Comment (probably best for 2nd reading):} Once we've chosen $M$ we have a choice on whether to condition
+          on the maximal ancillary or some projections of it. The Efron-Hinkley
+          ancillary is somehow the smallest thing one could reasonably think about conditioning
+          on if you want to see the effect of curvature in your densities. Our densities
+          are flat because we are in an exponential family. FST and Lee et al. condition
+          on the maximal ancillary.
+
+\subsection{OK, enough with the comments}
+        
+Let's get back to implications of fixing a selected model and consider inference for
+a target $\eta'\beta_M(\mu)=\eta'X_M^{\dagger}\mu$.
+Recall that this parameterizes $y$ as
+$$
+\left(\bar{\eta}'y, (P_M-\bar{\eta}\bar{\eta}')(y), R_M(y)\right) \overset{def}{=}
+(\eta'\OLS_M, N_{M,\eta}(y), R_M(y))
+$$
+with (pre-selection)
+$$
+R_M(y) \sim N(0, R_M).
+$$
+
+FST tells us that we should use the following density to test $H_0:\eta'\beta_M=0$:
+        \begin{equation}
+          \label{eq:selective:density:M}
+        z \mapsto f_{\theta}(z | N_{M,\eta}(y)=n) \propto \exp \left(-\frac{1}{2}(z-\theta)^2 \right)
+        \cdot \P_{\mu}({\cal S}_E | \bar{\eta}'y=z, N_{M,\eta}(y)=n).
+        \end{equation}
+        Note that in \eqref{eq:selective:density:M} we have integrated out $R_M(y)$. To do so,
+        we {\bf must integrate out $R_M(y)$} which may not be easy.
+
+        The approach taken in FST is to condition on a finer sigma-algbra
+        replacing it with
+        \begin{equation}
+          \label{eq:selective:density:FST}
+        z \mapsto f_{\theta}(z | N_{M,\eta}(y)=n, R_M(y)=r) \propto \exp \left(-\frac{1}{2}(z-\theta)^2 \right)
+        \cdot \P_{\mu}({\cal S}_E | \bar{\eta}'y=z, N_{M,\eta}(y)=n, R_M(y)=r).
+        \end{equation}
+        To be precise, Lee et al. also mentions marginalizing over signs as well.
+        
+        Again, this is computable because
+        $$
+        \P_{\mu}({\cal S}_E | \bar{\eta}'y=z, N_{M,\eta}(y)=n, R_M(y)=r) =
+        \begin{cases}
+          1 & \hat{E}(z,n,r)=E \\
+          0 & \text{otherwise.}
+          \end{cases}
+        $$
+        Lee et al. conditions on the signs as well using density
+        \begin{equation}
+          \label{eq:selective:density:FST}
+        z \mapsto f_{\theta}(z | N_{M,\eta}(y)=n, R_M(y)=r) \propto \exp \left(-\frac{1}{2}(z-\theta)^2 \right)
+        \cdot \P_{\mu}(\bar{\cal S}_{E,s_E} | \bar{\eta}'y=z, N_{M,\eta}(y)=n, R_M(y)=r).
+        \end{equation}
+
+        The polyhedral lemma of Lee et al. shows that
+        $$
+        \P_{\mu}(\bar{\cal S}_{E,s_E} | \bar{\eta}'y=z, N_{M,\eta}(y)=n, R_M(y)=r) =
+        \begin{cases}
+          1 & z \in [L_{E,s_E}(n,r), U_{E,s_E}(n,r)]  \\
+          0 & \text{otherwise,}
+          \end{cases}
+        $$
+        and describes an algorithm to find $[L_{E,s_E}(n,r), U_{E,s_E}(n,r)] $.
+
+        \subsection{So what?}
+
+        Let's suppose we actually want to use FST within the model $M$.
+        We need to compute
+        \begin{equation}
+          \label{eq:selective:probability}
+          \begin{aligned}
+            \P_{\mu}({\cal S}_E | \bar{\eta}'y=z, N_{M,\eta}(y)=n) &=
+            \cup_{s_E}             \P_{\mu}(\bar{\cal S}_{E,s_E} | \bar{\eta}'y=z, N_{M,\eta}(y)=n) \\
+&=
+            \cup_{s_E}             \P_{\mu}\left(\bar{\cal S}_{E,s_E} \bigl | A_{E,s_E}(y(z,n,r)) \geq 0, I_{E,s_E}(y(z,n,r)) \geq 0, N_{\eta,M}=n, \eta'\OLS_M=z \right)
+          \end{aligned}
+          \end{equation}
+        We've used the notation $y(z,n,r)$ to denote that $y$ can be reconstructed
+        fully from these parameters, i.e. it reflects a parametrization of $y$.
+        
+        The basic object to compute is therefore, fixing $n$
+        $$
+z \mapsto \P_{\mu}\left(y(z,n,R_M) \in \bar{\cal S}_{E,s_E} \bigl | A_{E,s_E}(y(z,n,R_M)) \geq 0, I_{E,s_E}(y(z,n,R_M)) \geq 0, N_{\eta,M}=n, \eta'\OLS_M=z \right).
+        $$
+        This is an integral of the law of $R_M$ over a convex set $K_{E,s_E}$ determined by $(z,n)$.
+
+        How can we do this? It is clearly a difficult integral to compute. How can this be
+        done? \cite{sifan} has some methods based on quasi-monte Carlo that are applicable.
+
+        Alternatively, since $R_M$ is Gaussian\footnote{I've just introduced a
+        slight abuse of notation here: when
+        context calls for a random variable then $R_M$ should be read as $R_My$. When
+        context calls for a projection matrix, it should be read as the corresponding projection
+        matrix. Hopefully there will not be }
+        in our model we can use a large deviations approximation similar to \cite{snigdha...}
+        \begin{equation}
+          \label{eq:LD}
+        \P(R_M \in K_{E,s_E}(z,n)) \propto \exp\left(-\frac{1}{2} \inf_{\{r \in K_{E,s_E}(z,n)\}}
+        \|R_Mr\|^2_2\right)
+        \end{equation}
+
+        {\bf Comment:} A version of this
+        has seemingly already been proposed in \cite{snigdha:jelena}, even in the
+        non-parametric bootstrap context though in that work the
+        integral only integrates out the randomness introduced to the problem. 
+That work also does not follow through with the union over $s_E$. 
+In the bootstrap context, the parametrization of the statistics 
+        uses population versions of the coordinate systems. I.e. in constructing the
+        random variables $\eta'\OLS_M, N_{M,\eta}, R_M$
+        it orthogonalizes with respect
+        to covariances estimated via the bootstrap.        That is, in the non-parametric case, there is no special reason to separately
+        parametrize $(N_{M,\eta}, R_M)$ as they are not independent. 
+ More precisely,
+        with $\omega$ the auxiliary randomization, that work goes after
+        the expression
+        \begin{equation}
+          \label{eq:LD:rand}
+        (z,n) \mapsto \P(\omega \in \bar{K}_{E,s_E}(z,n)) \propto \exp\left(-\frac{1}{2} \inf_{\{\omega \in \bar{K}_{E,s_E}(z,n)\}}
+        \omega' \Theta \omega\right).
+        \end{equation}
+        with $\Theta$ the precision of the auxiliary randomization.
+
+        \subsection{A concrete proposal}
+
+\newcommand{\indep}{\perp\kern-5pt\perp}
+
+        In the parametric case, the form of the selection event for the
+        LASSO (as will be the case for any additive polyhedral regularizer)
+        there is a special structure not present otherwise. It is most obvious
+        when we set $M=E$. In this context,
+        the joint density of $(\eta'\OLS_E, N_{\eta,E}, R_E)$ factorizes
+        pre-selection. But, crucially
+        \begin{equation}
+          \label{eq:cond:independence}
+          (\eta'\OLS_E, N_{\eta,E})  \indep R_E | \hat{E}=E, \hat{s}=s_E
+        \end{equation}
+        
+        In turn, this, combined with the assumption that $R_E(y) \sim N(0, R_E)$
+        \begin{equation}
+          \P_{\mu}(\bar{\cal S}_{E,s_E} | \bar{\eta}'y=z, N_{E,\eta}(y)=n, R_E(y)=r) =
+          1_{[L_{E,s_E}(n), U_{E,s_E}(n)]}(z) \cdot \P_{0}(I_{E,s_E}(R_E) \geq 0).
+        \end{equation}
+        Above, note that
+        $$
+        1_{[L_{E,s_E}(n), U_{E,s_E}(n)]}(z) = \begin{cases} 1 & A_{E,s_E}P_Ey(z,n) \geq 0 \\
+          0 & \text{otherwise,}
+          \end{cases}
+        $$
+          is just a different way of expressing the active constraint.
+          
+        \begin{lemma}[Selected model reference law]
+          Under selected model $M=E$, under $H_0:\eta'\beta_E(\mu)=\theta$,
+          the conditional law of $\eta'\OLS_E$
+          given $\hat{E}=E, N_{E,\eta}=n$ is
+          the usual $N(\theta, 1)$ density modified by the factor
+          \begin{equation}
+            \label{eq:union}
+            \sum_{s_E}  1_{[L_{E,s_E}(n), U_{E,s_E}(n)]}(z) \cdot \gamma_{s_E}
+            \end{equation}
+          with
+        $$
+        \gamma_{s_E} \mapsto \P_0(I_{E,s_E}(R_E) \geq 0).
+        $$
+          \end{lemma}
+
+        {\bf Comment:}
+        In words, this density is a piecewise Gaussian density. In FST
+        which fixes $E$ or Lee et al. approach which condition on $R_E$ this final
+        probability is always 1. When integrating out $R_E$ this is a number:
+        each sign pattern gets a different weight. In order to use this approach we must
+        compute these numbers.
+        We might as  allow for different means for $R_E$ and
+        define
+          \begin{equation}
+            \label{eq:sign:prob}
+            \gamma_{s_E}(\mu) \overset{def}{=} \P_{\mu}(I_{E,s_E}(R_E) \geq 0) = \P_{R_E\mu}(I_{E,s_E}(R_E) \geq 0).
+          \end{equation}
+        
+          \subsection{Approximating $\gamma_{s_E}$}
+
+          We start with a lemma used to approximate the maps $\gamma_{s_E}$. Where
+          needed $\Lambda$ will denote a diagonal matrix with entries from $\lambda$. Similarly
+          for $\Lambda_E$.
+          
+        \begin{lemma}[Value lemma]
+          For $w \in \R^n$, consider the value of the program
+          \begin{equation}
+            \label{eq:dual:value}
+            V(w,\lambda_{-E}) = \inf_{\beta} \left(\frac{1}{2} \|w-X\beta\|^2_2 +  \|\Lambda_{-E}\beta_{-E}\|_1 \right).
+          \end{equation}
+          The value map satisfies
+          \begin{equation}
+            \label{eq:value:map}
+\left(          \inf_{z:\|X_{-E}'R_E(z-w)\|_{\infty} \leq \lambda_{-E}} \frac{1}{2} \|z\|^2_2 \right) = \frac{1}{2} \|w\|^2_2 - V(\lambda_{-E}, w).
+          \end{equation}
+
+          \end{lemma}
+
+        {\bf Proof:} 
+        Noting that the constraint $P_EX\beta=w$ implies 
+        any optimal $\beta_E^*$ can be written as $X_E^{\dagger}w+n$
+        where $n \in \text{null}(X_E)$. The optimization problem can therefore be written as
+        \begin{equation}
+          \label{eq:primal:problem}
+        \text{minimize}_{n_E, \beta_{-E}: \beta_E=X_E^{\dagger}w+n_E} \left( \frac{1}{2} \|P_EX\beta\|^2_2 + \frac{1}{2}\|R_EX_{-E}\beta_{-E}\|^2_2+ \lambda_{-E} \|\beta_{-E}\|_1\right).
+        \end{equation}
+        The term $n_E$ doesn't appear anywhere but the linear constraint
+        implying we can simply take $n_E=0$. Having made that choice,
+        the part of the
+        optimization problem is therefore
+        $$
+        \text{minimize}_{\beta_{-E}} \left( \frac{1}{2} \|w\|^2_2 + \frac{1}{2} \|R_EX_{-E}\beta_{-E}\|^2_2 + \lambda_{-E} \|\beta_{-E}\|_1\right).
+        $$
+        In a familiar fashion we introduce a new variable $\mu$ and the linear constraint
+        $\mu=w + R_EX_{-E}\beta_{-E}$ leading to the Lagrangian
+        $$
+        {\cal L}(z|\beta_{-E},\mu) = \frac{1}{2} \|\mu\|^2_2 + \lambda_{-E} \|\beta_{-E}\|_1  + z'(\mu-w-R_EX_{-E}\beta_{-E}).
+        $$
+        Minimizing over $\mu$ yields $\mu^*(z)=-z$. Plugging this in leaves
+        $$
+        -\frac{1}{2}\|z\|^2_2 + \lambda_{-E} \|\beta_{-E}\|_1 + I_0(\beta_E-X_E^{\dagger}w) + z'(\mu-X_E\beta_E - X_{-E}\beta_{-E}).
+        $$
+        
+        Minimizing over $(\beta_E,\beta_{-E})$ yields
+        $$
+        -z'w
+        $$
+        as well as the constraint $\|X_{-E}'R_Ez\|_{\infty} \leq \lambda_{-E}$.
+
+        We conclude that
+        $$
+        \inf_{\beta_{-E},\mu}{\cal L}(z|\beta_{-E},\mu) = -z'w - \frac{1}{2}\|z\|^2_2 \right
+        $$ with the constraint $\|X_{-E}'R_Ez\|_{\infty} \leq \lambda_{-E}$. As strong
+        duality holds (the problem \eqref{eq:primal:problem} has a solution), the value  
+        \eqref{eq:dual:value} is
+        $$
+        \begin{aligned}
+          \lefteqn{\sup_{z: \|X_{-E}'R_Ez\|_{\infty} \leq \lambda_{-E}} \left(-z'w - \frac{1}{2}\|z\|^2_2 \right)} \\
+          &= \sup_{z: \|X_{-E}'R_Ez\|_{\infty} \leq \lambda_{-E}} \left( \frac{1}{2}\|w\|^2_2 - \frac{1}{2}\|z+w\|^2_2 \right) \\
+          &= \frac{1}{2} \|w\|^2_2 + \sup_{z: \|X_{-E}'R_Ez\|_{\infty} \leq \lambda_{-E}} -\frac{1}{2}\|z+w\|^2_2 \\
+          &= \frac{1}{2} \|w\|^2_2 + \sup_{z: \|X_{-E}'R_E(z-w)\|_{\infty} \leq \lambda_{-E}} -\frac{1}{2}\|z\|^2_2 \\
+          &= \frac{1}{2} \|w\|^2_2 - \inf_{z: \|X_{-E}'R_E(z-w)\|_{\infty} \leq \lambda_{-E}} \frac{1}{2}\|z\|^2_2. \\
+        \end{aligned}
+        $$ \qed
+
+        We relate this value function to our LASSO problem with the following lemma.
+        \begin{lemma}[The LASSO value on $\bar{\cal S}_{E,s_E}$]
+          On the event $\bar{\cal S}_{E,s_E}$ the following holds
+          \begin{equation}
+            \begin{aligned}
+            \label{eq:lasso:value}
+            \inf_{\beta} \frac{1}{2} \|y-X\beta\|^2_2 +  \|\Lambda \beta\|_1 &= V((X_E')^{\dagger}\Lambda_Es_E, \lambda_{-E}) \\
+            &= \frac{1}{2} \|X_E^{\dagger}\lambda_Es_E\|^2_2 \\
+            &= \frac{1}{2} s_E'\Lambda_EX_E'X_E\Lambda_Es_E + \Lambda_E'(s_E\hat{\beta}_E)
+            \end{aligned}
+          \end{equation}
+        \end{lemma}
+
+        {\bf Proof:} On $\bar{S}_{E,s_E}$ we know the fitted values can be written
+        $$
+        \begin{aligned}
+          X\REG(y) &= X_E\REG_E(y) \\
+          &= X_E(X_E^{\dagger}y - (X_E'X_E)^{\dagger}\Lambda_Es_E) \\
+          &= P_Ey - (X_E')^{\dagger}\Lambda_Es_E.
+        \end{aligned}
+        $$
+        Therefore,
+        $$
+        \begin{aligned}
+          \frac{1}{2} \|y-X\REG(y)\|^2_2 &= \frac{1}{2}\|(X_E')^{\dagger}\Lambda_Es_E\|^2_2 + \frac{1}{2} \|R_Ey\|^2_2 \\
+          \|\Lambda_E\REG_E(y)\|_1 &= s_E'\Lambda_E\REG_E(y) \\
+          &= s_E'\Lambda_E(X_E^{\dagger}y - (X_E'X_E)^{\dagger}\Lambda_Es_E) \\
+          \frac{1}{2} \|y-X\REG(y)\|^2_2+\|\Lambda_E\REG_E(y)\|_1
+          &= s_E'\Lambda_EX_E^{\dagger}y - \frac{1}{2} s_E'\Lambda_E'\Lambda_E s_E  + \frac{1}{2}\|R_Ey\|^2_2.
+          \end{aligned}
+        $$
+        
+
+\end{document}
