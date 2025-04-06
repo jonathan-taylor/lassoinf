@@ -65,10 +65,10 @@
         test $H_0:\eta'\beta_E^*=\theta$ for some contrast\footnote{Without loss of generality we will assume that all contrasts are standardized: $\eta'(X_E'X_E)^{\dagger}X_E=1$.} $\eta \in \text{row}(X_E)$. The general
         results of FST tells us that this density takes the form
         $$
-        z \mapsto \exp\left(-\frac{1}{2}(z-\theta)^2\right) \ell_E(z)
+        z \mapsto \exp\left(-\frac{1}{2}(z-\theta)^2\right) \ell_{E,\lambda}(z)
         $$
-        for some function $\ell_E(z)$ that adjusts the density accordingly. The hard
-        work in all of this business is getting our hand on $\ell_E(z)$.
+        for some function $\ell_{E,\lambda}(z)$ that adjusts the density accordingly. The hard
+        work in all of this business is getting our hand on $\ell_{E,\lambda}(z)$.
 
         \subsection{A homotopy}
 
@@ -96,21 +96,21 @@
         with
         \begin{equation}
           \label{eq:sign:offsets}
-        \zeta_{E,s_E} = (X_E')^{\dagger}\Lambda_Es_E.
+        \zeta_{E,s_E,\lambda} = (X_E')^{\dagger}\Lambda_Es_E.
         \end{equation}
 The
-          $\zeta_{E,s_E}$ can be thought of as the vector in $\R^n$
+          $\zeta_{E,s_E,\lambda}$ can be thought of as the vector in $\R^n$
           that reflects the shrinkage applied to $y$ before fitting
           the model\footnote{Alternatively, it is a distinguished point 
           in the base space of the normal bundle of $\|\Lambda^{-1}X'r\|_{\infty} \leq 1$ that any solution with signs $s_E$ projects to.}. In particular, the fitted values of the LASSO at
-          $\zeta_{E,s_E}$ are 0: $\REG_E(\zeta_{E,s_E})=0$ even though
-          it is a LASSO ``solution'' at $\zeta_{E,s_E}$.
+          $\zeta_{E,s_E,\lambda}$ are 0: $\REG_E(\zeta_{E,s_E,\lambda})=0$ even though
+          it is a LASSO ``solution'' at $\zeta_{E,s_E,\lambda}$.
 
         The following is an approximation to $\ell_E(z)$ (that should be close to normalized):
         \begin{equation}
           \label{eq:selective:RN}
-        \ell_E(z) \approx \begin{cases}
-          e^{-\bar{\gamma}_{\hat{s}(z)}/2} & \hat{s}(z) \in \{-1,1\}^E \\
+        \ell_E(z,\lambda) \approx \begin{cases}
+          e^{-\bar{\gamma}_{\hat{s}(z),\lambda}/2} & \hat{s}(z) \in \{-1,1\}^E \\
           0 & \text{otherwise.}
           \end{cases}
         \end{equation}
@@ -119,7 +119,7 @@ The
         bounded and well-behaved as in LMT.
         
         {\bf My mistake last week: I had tried to simply ignore a part of the meddlesome
-          $\ell_E(z)$, namely the $e^{-\bar{\gamma}_{\hat{s}(z)}/2}$...}
+          $\ell_{E,\lambda}(z)$, namely the $e^{-\bar{\gamma}_{\hat{s}(z),\lambda}/2}$...}
 
         \section{Back to the beginning}
 
@@ -152,13 +152,13 @@ The
         $$
 
         Now let's write
-        $$ {\cal S}_E \overset{def}{=} \left\{y: \hat{E}(y)=E\right\}
-        = \bigcup_{s_E \in \{-1,1\}^E} \bar{\cal S}_{E,s_E}.
+        $$ {\cal S}_{E,\lambda} \overset{def}{=} \left\{y: \hat{E}(y)=E\right\}
+        = \bigcup_{s_E \in \{-1,1\}^E} \bar{\cal S}_{E,s_E,\lambda}.
         $$
 
         Fithian, Sun, Taylor (FST), of which Lee et al. is a specific
         application, describes how to do conditional inference about a
-        given contrast $\bar{\eta}'\mu$ on ${\cal S}_E$ by decomposing
+        given contrast $\bar{\eta}'\mu$ on ${\cal S}_{E,\lambda}$ by decomposing
         $y$ into two pieces as
         $$ (\bar{\eta}'y, N_{\eta}(y))=(I - \bar{\eta}\bar{\eta}')y).
         $$
@@ -171,14 +171,14 @@ The
           \label{eq:selective:density}
         z \mapsto f_{\theta}(z | N_{\eta}(y)=n) \propto \exp
         \left(-\frac{1}{2}(z-\theta)^2 \right) \cdot \P_{\mu}({\cal
-          S}_E | \bar{\eta}'y=z, N_{\eta}(y)=n).
+          S}_{E,\lambda} | \bar{\eta}'y=z, N_{\eta}(y)=n).
         \end{equation}
         The {\em magic} of Lee et al. / FST is that the last
         probability, while nominally a function of $\mu$ is actually
         expressible as
         \begin{equation}
           \label{eq:prob:selection}
-        \P_{\mu}({\cal S}_E | \bar{\eta}'y=z, N_{\eta}(y)=n) =
+        \P_{\mu}({\cal S}_{E,\lambda} | \bar{\eta}'y=z, N_{\eta}(y)=n) =
         \begin{cases}
           1 & z \in T(n) \\ 0 & \text{otherwise.}
           \end{cases}
@@ -190,7 +190,7 @@ The
         involving $\mu$ over all of $\mathbb{R}^n$ without knowing
         $\mu$. But of course, we did no such thing.  Given $(z,n)$ the
         random vector $y$ can be reconstructed explicitly and we can
-        simply check whether the resulting $y=y(z,n) \in {\cal S}_E$.
+        simply check whether the resulting $y=y(z,n) \in {\cal S}_{E,\lambda}$.
         Without further assumptions on $\mu$ it also seems to be about
         the best we can do because otherwise we'd need to do something
         about the nuisance parameter $N_{\eta}(\mu)$.
@@ -298,7 +298,7 @@ The
           \label{eq:selective:density:M}
         z \mapsto f_{\theta}(z | N_{M,\eta}(y)=n) \propto \exp
         \left(-\frac{1}{2}(z-\theta)^2 \right) \cdot \P_{\mu}({\cal
-          S}_E | \bar{\eta}'y=z, N_{M,\eta}(y)=n).
+          S}_{E,\lambda} | \bar{\eta}'y=z, N_{M,\eta}(y)=n).
         \end{equation}
         Note that \eqref{eq:selective:density:M}  has marginalized
         over $R_M(y)$. To do so, we {\bf must integrate out $R_M(y)$}
@@ -310,14 +310,14 @@ The
           \label{eq:selective:density:FST}
         z \mapsto f_{\theta}(z | N_{M,\eta}(y)=n, R_M(y)=r) \propto
         \exp \left(-\frac{1}{2}(z-\theta)^2 \right) \cdot
-        \P_{\mu}({\cal S}_E | \bar{\eta}'y=z, N_{M,\eta}(y)=n,
+        \P_{\mu}({\cal S}_{E,\lambda} | \bar{\eta}'y=z, N_{M,\eta}(y)=n,
         R_M(y)=r).
         \end{equation}
         To be precise, Lee et al. also mentions marginalizing over
         signs as well.
         
         Again, this is computable because
-        $$ \P_{\mu}({\cal S}_E | \bar{\eta}'y=z, N_{M,\eta}(y)=n,
+        $$ \P_{\mu}({\cal S}_{E,\lambda} | \bar{\eta}'y=z, N_{M,\eta}(y)=n,
         R_M(y)=r) =
         \begin{cases}
           1 & \hat{E}(z,n,r)=E \\ 0 & \text{otherwise.}
@@ -328,19 +328,19 @@ The
           \label{eq:selective:density:FST}
         z \mapsto f_{\theta}(z | N_{M,\eta}(y)=n, R_M(y)=r) \propto
         \exp \left(-\frac{1}{2}(z-\theta)^2 \right) \cdot
-        \P_{\mu}(\bar{\cal S}_{E,s_E} | \bar{\eta}'y=z,
+        \P_{\mu}(\bar{\cal S}_{E,s_E,\lambda} | \bar{\eta}'y=z,
         N_{M,\eta}(y)=n, R_M(y)=r).
         \end{equation}
 
         The polyhedral lemma of Lee et al. shows that
-        $$ \P_{\mu}(\bar{\cal S}_{E,s_E} | \bar{\eta}'y=z,
+        $$ \P_{\mu}(\bar{\cal S}_{E,s_E,\lambda} | \bar{\eta}'y=z,
         N_{M,\eta}(y)=n, R_M(y)=r) =
         \begin{cases}
-          1 & z \in [L_{E,s_E}(n,r), U_{E,s_E}(n,r)] \\ 0 &
+          1 & z \in [L_{E,s_E,\lambda}(n,r), U_{E,s_E,\lambda}(n,r)] \\ 0 &
           \text{otherwise,}
           \end{cases}
-        $$ and describes an algorithm to find $[L_{E,s_E}(n,r),
-          U_{E,s_E}(n,r)] $.
+        $$ and describes an algorithm to find $[L_{E,s_E,\lambda}(n,r),
+          U_{E,s_E,\lambda}(n,r)] $.
 
         \subsection{So what?}
 
@@ -349,8 +349,8 @@ The
         \begin{equation}
           \label{eq:selective:probability}
           \begin{aligned}
-            \P_{\mu}({\cal S}_E | \bar{\eta}'y=z, N_{M,\eta}(y)=n) &=
-            \bigcup_{s_E} \P_{\mu}(\bar{\cal S}_{E,s_E} | \bar{\eta}'y=z,
+            \P_{\mu}({\cal S}_{E,\lambda} | \bar{\eta}'y=z, N_{M,\eta}(y)=n) &=
+            \bigcup_{s_E} \P_{\mu}(\bar{\cal S}_{E,s_E,\lambda} | \bar{\eta}'y=z,
             N_{M,\eta}(y)=n) \\ &= \bigcup_{s_E} \P_{\mu}\left( A_{E,s_E,\lambda}(y(z,n,R_M)) \geq 0,
             I_{E,s_E,\lambda}(y(z,n,R_M)) \geq 0  \bigl | N_{\eta,M}=n, \eta'\OLS_M=z
             \right)
@@ -364,7 +364,7 @@ The
         $$ z \mapsto \P_{\mu}\left( A_{E,s_E,\lambda}(y(z,n,R_M)) \geq 0, I_{E,s_E,\lambda}(y(z,n,R_M))
         \geq 0  \bigl | N_{\eta,M}=n, \eta'\OLS_M=z \right).
         $$ This is an integral of the law of $R_M$ over a convex set
-        $K_{E,s_E}$ determined by $(z,n)$.
+        $K_{E,s_E,\lambda}$ determined by $(z,n)$.
 
         How can we do this? It is clearly a difficult integral to
         compute. How can this be done? \cite{sifan} has some methods
@@ -379,8 +379,8 @@ The
         approximation similar to \cite{snigdha...}
         \begin{equation}
           \label{eq:LD}
-        \P(R_M \in K_{E,s_E}(z,n)) \propto \exp\left(-\frac{1}{2}
-        \inf_{\{r \in K_{E,s_E}(z,n)\}} \|R_Mr\|^2_2\right)
+        \P(R_M \in K_{E,s_E,\lambda}(z,n)) \propto \exp\left(-\frac{1}{2}
+        \inf_{\{r \in K_{E,s_E,\lambda}(z,n)\}} \|R_Mr\|^2_2\right)
         \end{equation}
 
         {\bf Comment:} A closely related version of this has already been
@@ -399,9 +399,9 @@ The
         that work goes after the expression
         \begin{equation}
           \label{eq:LD:rand}
-        (z,n) \mapsto \P(\omega \in \bar{K}_{E,s_E}(z,n)) \propto
+        (z,n) \mapsto \P(\omega \in \bar{K}_{E,s_E,\lambda}(z,n)) \propto
           \exp\left(-\frac{1}{2} \inf_{\{\omega \in
-            \bar{K}_{E,s_E}(z,n)\}} \omega' \Theta \omega\right).
+            \bar{K}_{E,s_E,\lambda}(z,n)\}} \omega' \Theta \omega\right).
         \end{equation}
         with $\Theta$ the precision of the auxiliary randomization.
 
@@ -424,12 +424,12 @@ The
         In turn, this, combined with the assumption that $R_E(y) \sim
         N(0, R_E)$
         \begin{equation}
-          \P_{\mu}(\bar{\cal S}_{E,s_E} | \bar{\eta}'y=z,
-          N_{E,\eta}(y)=n, R_E(y)=r) = 1_{[L_{E,s_E}(n),
-              U_{E,s_E}(n)]}(z) \cdot \P_{0}(I_{E,s_E,\lambda}(R_E) \geq 0).
+          \P_{\mu}(\bar{\cal S}_{E,s_E,\lambda} | \bar{\eta}'y=z,
+          N_{E,\eta}(y)=n, R_E(y)=r) = 1_{[L_{E,s_E,\lambda}(n),
+              U_{E,s_E,\lambda}(n)]}(z) \cdot \P_{0}(I_{E,s_E,\lambda}(R_E) \geq 0).
         \end{equation}
         Above, note that
-        $$ 1_{[L_{E,s_E}(n), U_{E,s_E}(n)]}(z) = \begin{cases} 1 &
+        $$ 1_{[L_{E,s_E,\lambda}(n), U_{E,s_E,\lambda}(n)]}(z) = \begin{cases} 1 &
           A_{E,s_E,\lambda}P_Ey(z,n) \geq 0 \\ 0 & \text{otherwise,}
           \end{cases}
         $$ is just a different way of expressing the active
@@ -442,11 +442,11 @@ The
           $N(\theta, 1)$ density modified by the factor
           \begin{equation}
             \label{eq:union}
-            \sum_{s_E} 1_{[L_{E,s_E}(n), U_{E,s_E}(n)]}(z) \cdot
+            \sum_{s_E} 1_{[L_{E,s_E,\lambda}(n), U_{E,s_E,\lambda}(n)]}(z) \cdot
             \gamma_{s_E}
             \end{equation}
           with
-        $$ \gamma_{s_E} \mapsto \P_0(I_{E,s_E,\lambda}(R_E) \geq 0).
+        $$ \gamma_{s_E,\lambda} \mapsto \P_0(I_{E,s_E,\lambda}(R_E) \geq 0).
         $$
           \end{lemma}
 
@@ -459,21 +459,21 @@ The
         for $R_E$ and define
           \begin{equation}
             \label{eq:sign:prob}
-            \gamma_{s_E}(\mu) \overset{def}{=} \P_{\mu}(I_{E,s_E,\lambda}(R_E)
+            \gamma_{s_E,\lambda}(\mu) \overset{def}{=} \P_{\mu}(I_{E,s_E,\lambda}(R_E)
             \geq 0) = \P_{R_E\mu}(I_{E,s_E,\lambda}(R_E) \geq 0).
           \end{equation}
         
-          \subsection{Approximating $\gamma_{s_E}(0)$}
+          \subsection{Approximating $\gamma_{s_E,\lambda}(0)$}
 
           We start with a lemma used to approximate the maps
           $\gamma_{s_E}$. Recall that the inactive constraints of the
           LASSO can be expressed as
           \begin{equation}
             \label{eq:inactive}
-            \|\Lambda_{-E}^{-1}X_{-E}'(R_E + \zeta_{E,s_E})\|_{\infty}
+            \|\Lambda_{-E}^{-1}X_{-E}'(R_E + \zeta_{E,s_E,\lambda})\|_{\infty}
             \leq 1
             \end{equation}
-          with $\zeta_{E,s_E}$ defined in \eqref{eq:sign:offsets}.
+          with $\zeta_{E,s_E,\lambda}$ defined in \eqref{eq:sign:offsets}.
 
           
         \begin{lemma}[Value lemma]
@@ -481,7 +481,7 @@ The
           program
           \begin{equation}
             \label{eq:dual:value}
-            V_{E,s_E}(w,\lambda) = \inf_{\beta} \left(\frac{1}{2}
+            V_{E,s_E,\lambda}(w) = \inf_{\beta} \left(\frac{1}{2}
             \|w-X\beta\|^2_2 + s_E'\Lambda_E\beta_E +
             \|\Lambda_{-E}\beta_{-E}\|_1 \right).
           \end{equation}
@@ -489,16 +489,16 @@ The value satisfies
           \begin{equation}
             \label{eq:value:map}
 \left( \inf_{z:P_Ez=0,
-  \|\Lambda_{-E}^{-1}X_{-E}'(R_Ez+\zeta_{E,s_E})\|_{\infty} \leq 1}
+  \|\Lambda_{-E}^{-1}X_{-E}'(R_Ez+\zeta_{E,s_E,\lambda})\|_{\infty} \leq 1}
 \frac{1}{2} \|z\|^2_2 \right) = \frac{1}{2} \|w\|^2_2 -
-\frac{1}{2}\|\zeta_{E,s_E}-w\|^2_2 - V_{E,s_E}(w,\lambda).
+\frac{1}{2}\|\zeta_{E,s_E}-w\|^2_2 - V_{E,s_E,\lambda}(w).
           \end{equation}
-          Further, $V_{E,s_E}(\zeta_{E,s_E}, \lambda) = 0$ so that
+          Further, $V_{E,s_E,\lambda}(\zeta_{E,s_E,\lambda}) = 0$ so that
           \begin{equation}
             \label{eq:LD:lasso}
             \begin{aligned}
             \inf_{z:P_Ez=0,
-              \|\Lambda_{-E}^{-1}X_{-E}'(R_Ez+\zeta_{E,s_E})\|_{\infty}
+              \|\Lambda_{-E}^{-1}X_{-E}'(R_Ez+\zeta_{E,s_E,\lambda})\|_{\infty}
               \leq 1}\frac{1}{2} \|z\|^2_2  &= \frac{1}{2}
             \|\zeta_{E,s_E}\|^2_2 \\ &=
             \frac{1}{2}s_E'\Lambda_E(X_E'X_E)^{\dagger}\Lambda_Es_E.
@@ -520,7 +520,7 @@ The value satisfies
         $$ Minimizing over $\mu$ yields $\mu^*(z)=w-z$. Minimizing
         over $\beta$ yields the constraint and
         $\|\Lambda_E^{-1}X_{-E}'z\|_{\infty} \leq 1$ and
-        $P_Ez=\zeta_{E,s_E}$.  Plugging in the value of
+        $P_Ez=\zeta_{E,s_E,\lambda}$.  Plugging in the value of
         $\hat{\mu}^*(z)$ yields
         $$ \frac{1}{2}\|z\|^2_2 - z'(w-z) = z'w - \frac{1}{2}\|z\|^2_2
         $$ subject to those two constraints.
@@ -529,39 +529,39 @@ The value satisfies
         $$ \inf_{\beta_{-E},\mu}{\cal L}(z|\beta,\mu) = z'w -
         \frac{1}{2}\|z\|^2_2
         $$ with the constraint $\|X_{-E}'R_Ez\|_{\infty} \leq
-        \lambda_{-E}$, $P_Ez=\zeta_{E,s_E}$.
+        \lambda_{-E}$, $P_Ez=\zeta_{E,s_E,\lambda}$.
 
         As strong duality holds (the problem \eqref{eq:primal:problem}
         has a solution), the value \eqref{eq:dual:value} is
         $$
         \begin{aligned}
-          \lefteqn{\sup_{z: P_Ez=\zeta_{E,s_E},
+          \lefteqn{\sup_{z: P_Ez=\zeta_{E,s_E,\lambda},
               \|\Lambda_E^{-1}X_{-E}'z\|_{\infty} \leq 1} \left(z'w -
             \frac{1}{2}\|z\|^2_2 \right)} \\ &= \sup_{z:
-            P_Ez=\zeta_{E,s_E}, \|\Lambda_E^{-1}X_{-E}'z\|_{\infty}
+            P_Ez=\zeta_{E,s_E,\lambda}, \|\Lambda_E^{-1}X_{-E}'z\|_{\infty}
             \leq 1} \left( \frac{1}{2}\|w\|^2_2 -
           \frac{1}{2}\|z-w\|^2_2 \right) \\ &= \sup_{z: P_Ez=0,
-            \|\Lambda_E^{-1}X_{-E}'(R_Ez+\zeta_{E,s_E})\|_{\infty}
+            \|\Lambda_E^{-1}X_{-E}'(R_Ez+\zeta_{E,s_E,\lambda})\|_{\infty}
             \leq 1} \left( \frac{1}{2}\|w\|^2_2 -
-          \frac{1}{2}\|R_Ez\|^2_2 - \frac{1}{2}\|\zeta_{E,s_E}-w\|^2_2
+          \frac{1}{2}\|R_Ez\|^2_2 - \frac{1}{2}\|\zeta_{E,s_E,\lambda}-w\|^2_2
           \right) \\ &= \frac{1}{2} \|w\|^2_2 -
-          \frac{1}{2}\|\zeta_{E,s_E}-w\|^2_2 + \sup_{z: P_Ez=0,
-            \|\Lambda_E^{-1}X_{-E}'(R_Ez+\zeta_{E,s_E})\|_{\infty}
+          \frac{1}{2}\|\zeta_{E,s_E,\lambda}-w\|^2_2 + \sup_{z: P_Ez=0,
+            \|\Lambda_E^{-1}X_{-E}'(R_Ez+\zeta_{E,s_E,\lambda})\|_{\infty}
             \leq 1} -\frac{1}{2}\|R_Ez\|^2_2 \\ &= \frac{1}{2}
-          \|w\|^2_2 - \frac{1}{2}\|\zeta_{E,s_E}-w\|^2_2 - \inf_{z:
+          \|w\|^2_2 - \frac{1}{2}\|\zeta_{E,s_E,\lambda}-w\|^2_2 - \inf_{z:
             P_Ez=0,
-            \|\Lambda_E^{-1}X_{-E}'(R_Ez+\zeta_{E,s_E})\|_{\infty}
+            \|\Lambda_E^{-1}X_{-E}'(R_Ez+\zeta_{E,s_E,\lambda})\|_{\infty}
             \leq 1} -\frac{1}{2}\|R_Ez\|^2_2 \\
         \end{aligned}
         $$ \qed
 
         The lemma above essentially computes \eqref{eq:LD} for this
-        problem.  We therefore define $\bar{\gamma}_{E,s_E}(0)$, our
-        approximation to $\gamma_{E,s_E}(0)$, as
+        problem.  We therefore define $\bar{\gamma}_{E,s_E,\lambda}(0)$, our
+        approximation to $\gamma_{E,s_E,\lambda}(0)$, as
         \begin{equation}
           \label{eq:gamma:val}
-          \bar{\gamma}_{E,s_E}(0) =
-          e^{-\frac{1}{2}\|\zeta_{E,s_E}\|^2_2}.
+          \bar{\gamma}_{E,s_E,\lambda}(0) =
+          e^{-\frac{1}{2}\|\zeta_{E,s_E,\lambda}\|^2_2}.
           \end{equation}
 
         \subsection{Finally...}
