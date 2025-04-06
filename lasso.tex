@@ -596,10 +596,10 @@ The value satisfies
         The density \eqref{eq:proposal} can be expressed as
         \begin{equation}
           \label{eq:proposal}
-          \beta_E \mapsto \exp\left(-\frac{1}{2} (\hat{\beta}_E - \beta_E^* - (X_E'X_E)^{\dagger}\Lambda_E\hat{s}(\beta_E))'X_E'X_E\beta_E (\hat{\beta}_E - \beta_E^* - (X_E'X_E)^{\dagger}\Lambda_E\hat{s}(\beta_E)) -\hat{s}(\beta_E)'\Lambda_E(\beta_E-\beta_E^*)\right).
+          \beta_E \mapsto \exp\left(-\frac{1}{2} ({\beta}_E - \beta_E^* - (X_E'X_E)^{\dagger}\Lambda_E\hat{s}(\beta_E))'X_E'X_E\beta_E ({\beta}_E - \beta_E^* - (X_E'X_E)^{\dagger}\Lambda_E\hat{s}(\beta_E)) -\hat{s}(\beta_E)'\Lambda_E(\beta_E-\beta_E^*)\right).
           \end{equation}
         Hence, making the change of variable $b_E=\beta_E - (X_E'X_E)^{\dagger}\Lambda_E \hat{s}(\beta_E)$ yields
-        a density for the LASSO coefficients of
+        a density for the LASSO coefficients truncated to ${\cal S}_{E,\lambda}$:
         \begin{equation}
           \label{eq:exp:family}
           b_E \mapsto \exp\left(-\frac{1}{2} (b_E-\beta_E^*)'X_E'X_E(b_E-\beta_E^*) - \|\Lambda_Eb_E\|_1 + \text{sign}(b_E)'\Lambda_E\beta_E^*\right).
