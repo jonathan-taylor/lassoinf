@@ -47,8 +47,8 @@
 \newcommand{\meansec}{\bar{\mu}}
 \newcommand{\indep}{\perp\kern-5pt\perp}
 
-\title{ {\bf Inference (bootstrap or otherwise)
-    for projected parameter in the LASSO via homotopy}}
+\title{ {\bf Inference 
+    for projected parameter in the LASSO via homotopy: a new exponential family}}
 \author{Alden Green and Jonathan Taylor}
 
 \begin{document}
@@ -67,7 +67,12 @@
         $$
         z \mapsto \exp\left(-\frac{1}{2}(z-\theta)^2\right) \ell_{E,\lambda}(z)
         $$
-        for some function $\ell_{E,\lambda}(z)$ that adjusts the density accordingly. The hard
+        for some function $\ell_{E,\lambda}(z)$ that adjusts the density accordingly.
+        These densities form a selected model:
+        $$
+        {\cal M}_E^* = \left\{f^*_E(\beta_E): f^*_E(\beta) \propto \exp\left(-\frac{1}{2}\|z-X_E\beta_E^*\|^_2 \right) \ell_{E,\lambda}(z), z \in \R^n \right\}.
+        $$
+The hard
         work in all of this business is getting our hand on $\ell_{E,\lambda}(z)$.
 
         \subsection{A homotopy}
@@ -118,6 +123,11 @@ The
         non-zero on the complement of an interval. This implies the intervals will be
         bounded and well-behaved as in LMT.
         
+        The above density is related to an exponential family structure \eqref{eq:exp:family}
+        for the
+        penalized coefficients $\REG_E(y) = \OLS_E(y) - X_E^{\dagger}\zeta_{E,\hat{s}(y)}$,
+        which is well defined on the event $\{\hat{E}(y)=E\}.$
+
         {\bf My mistake last week: I had tried to simply ignore a part of the meddlesome
           $\ell_{E,\lambda}(z)$, namely the $e^{-\bar{\gamma}_{\hat{s}(z),\lambda}/2}$...}
 
@@ -575,12 +585,30 @@ The value satisfies
 
         Applying \eqref{eq:gamma:val} we see that on
         the event $\hat{E}(y)=E$ the (approximate) selective density of
-        $\OLS_E(y)$ is
+        $\OLS_E(y)$  is
         \begin{equation}
           \label{eq:proposal}
-          \beta_E \mapsto \exp\left(-\frac{1}{2} \beta_E'X_E'X_E\beta_E - \frac{1}{2}\hat{s}(\beta_E)'(X_E'X_E)^{\dagger}\hat{s}(\beta_E)\right).
+          \beta_E \mapsto \exp\left(-\frac{1}{2} (\beta_E-\beta_E^*)'X_E'X_E(\beta_E-\beta_E^*) - \frac{1}{2}\hat{s}(\beta_E)'\Lambda_E(X_E'X_E)^{\dagger}\Lambda_E\hat{s}(\beta_E)\right).
           \end{equation}
         This is a mixture of exponential families, each with different support. 
+
+        {\bf Comment: An exponential family structure}
+        The density \eqref{eq:proposal} can be expressed as
+        \begin{equation}
+          \label{eq:proposal}
+          \beta_E \mapsto \exp\left(-\frac{1}{2} (\hat{\beta}_E - \beta_E^* - (X_E'X_E)^{\dagger}\Lambda_E\hat{s}(\beta_E))'X_E'X_E\beta_E (\hat{\beta}_E - \beta_E^* - (X_E'X_E)^{\dagger}\Lambda_E\hat{s}(\beta_E)) -\hat{s}(\beta_E)'\Lambda_E(\beta_E-\beta_E^*)\right).
+          \end{equation}
+        Hence, making the change of variable $b_E=\beta_E - (X_E'X_E)^{\dagger}\Lambda_E \hat{s}(\beta_E)$ yields
+        a density for the LASSO coefficients of
+        \begin{equation}
+          \label{eq:exp:family}
+          b_E \mapsto \exp\left(-\frac{1}{2} (b_E-\beta_E^*)'X_E'X_E(b_E-\beta_E^*) - \|\Lambda_Eb_E\|_1 + \text{sign}(b_E)'\Lambda_E\beta_E^*\right).
+        \end{equation}
+          With $\beta_E^*=0$ this
+          corresponds to the posterior density of $\beta_E$ in the selected model.
+          This suggests a test of $\beta_E^*=0$ within ${\cal M}_E$. It is also an exponential
+          family with natural parameter $\beta_E^*$
+          and sufficient statistic $X_E'X_Eb_E + \text{sign}(b_E)'\Lambda_E$. 
 
         Let $\OLS_E=\OLS_E(y)$ denote the observed value and consider an affine line of interest through
         $\OLS_E$ such with value $\OLS_E$ at $t=0$:
