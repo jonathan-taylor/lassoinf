@@ -76,8 +76,10 @@
         homotopy of solving the LASSO along an appropriate  path that fixes (i.e. conditions on)
         the statistic
         $$
-        N_{\eta,E}(y) = \OLS_E(y) - (X_E'X_E)^{\dagger} \eta \eta'\OLS_E.
-        $$ By construction, the residual off of $X_E$ will not change
+        N_{\eta,E}(y) = \OLS_E(y) - (X_E'X_E)^{\dagger} \eta \eta'\OLS_E
+        $$
+        with $\OLE_E(y) = X_E^{\dagger}y$.
+ By construction, the residual off of $X_E$ will not change
         and hence the inactive constraint always holds. It remains to
         check the active constraint along the path.  The signs $\hat{s}(z)$ along
         the homotopy path will be a vector in $\{-1,0,1\}^E$ with a 0
