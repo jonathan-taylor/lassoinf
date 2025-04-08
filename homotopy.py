@@ -219,7 +219,7 @@ class ActiveCholesky(object):
         np.ndarray
             The solution to the linear system.
         """
-        active_dir_vec = dir_vec[self.active_indices]
+        active_dir_vec = dir_vec[self.active_indices].copy()
         return solve(
             self.chol.T, solve(self.chol, active_dir_vec, lower=True), lower=False
         )
@@ -271,7 +271,8 @@ class ActiveCholesky(object):
             active_path = self.solve_active(dir_vec)
             for i, active_idx in enumerate(active_indices):
                 if abs(active_path[i]) > 1e-9:
-                    t_zero = -current_beta[active_idx] / active_path[i]
+                    t_zero = current_t - current_beta[active_idx] / active_path[i]
+#                    print(t_zero, 'leave')
                     if t_zero > current_t + 1e-9 and t_zero < next_event_t:
                         next_event_t = t_zero
                         event_type = "leave"
@@ -287,14 +288,15 @@ class ActiveCholesky(object):
                 inact_path -= Q_IA @ self.solve_active(dir_vec)
 
             for i, inactive_idx in enumerate(inactive_indices):
-                t_zero_pos = (lambda_values[inactive_idx] - current_subgrad[inactive_idx]) / inact_path[i]
-                t_zero_neg = (-lambda_values[inactive_idx] - current_subgrad[inactive_idx]) / inact_path[i]
+                t_zero_pos = current_t + (lambda_values[inactive_idx] - current_subgrad[inactive_idx]) / inact_path[i]
+                t_zero_neg = current_t + (-lambda_values[inactive_idx] - current_subgrad[inactive_idx]) / inact_path[i]
 
                 if t_zero_pos > current_t + 1e-9 and t_zero_pos < next_event_t:
                     next_event_t = t_zero_pos
                     event_type = "enter"
                     event_index = inactive_idx
 
+#                print(t_zero_pos, t_zero_neg, 'enter')
                 if t_zero_neg > current_t + 1e-9 and t_zero_neg < next_event_t:
                     next_event_t = t_zero_neg
                     event_type = "enter"
@@ -303,13 +305,20 @@ class ActiveCholesky(object):
         # 3. update the beta and subgradient now that the time has been computed
         delta_t = next_event_t - current_t
 
+        old_beta = current_beta.copy()
         if len(active_indices) > 0:
             for i, active_idx in enumerate(active_indices):
                 current_beta[active_idx] += delta_t * active_path[i]
 
+        if event_type == 'leave':
+            print(next_event_t, event_index, old_beta[event_index], current_beta[event_index], 'leaving beta value')
+        old_subgrad = current_subgrad.copy()
         if len(inactive_indices) > 0:
             for i, inactive_idx in enumerate(inactive_indices):
                 current_subgrad[inactive_idx] += delta_t * inact_path[i]
+
+        if event_type == 'enter':
+            print(next_event_t, event_index, old_subgrad[event_index], current_subgrad[event_index], 'leaving subgrad value')
 
         # 4. update the active chol
         if event_type == "enter":
@@ -318,6 +327,9 @@ class ActiveCholesky(object):
         elif event_type == "leave":
             self.downdate(event_index)
 
+        print(self.active_indices)
+#        print(delta_t, current_t, event_type, event_index, 'huh')
+        
         return (next_event_t, event_type, event_index)
 
 
@@ -391,6 +403,7 @@ def homotopy_path(
             path.append((next_t, current_beta.copy(), active_mask.copy(), event_type))
         current_t = next_t
 
+    print(len(active_chol.active_indices), active_chol.Q_mat.shape)
     return path
 
 
@@ -415,34 +428,45 @@ def solve_lasso_adelie(
         np.ndarray: The solution vector b.
     """
 
-    S = gaussian_cov(A=Q_mat, v=S_vec + t * dir_vec, lmda_path=[lambda_val])
+    S = gaussian_cov(A=Q_mat, v=S_vec + t * dir_vec, lmda_path=[1],
+                     penalty=lambda_val)
 
     return np.asarray(S.betas.todense()[-1]).reshape(-1)
 
 
 if __name__ == "__main__":
     # Example usage (in low dimensions)
-    n_features = 5
+    n_features = 20
     rng = np.random.default_rng()
     S_vec = rng.standard_normal(n_features)
     dir_vec = rng.standard_normal(n_features) * 0.2
     W = rng.standard_normal((2 * n_features, n_features))
-    Q_mat = W.T @ W
-    lambda_val = 0.2 * np.ones(n_features)
+    Q_mat = W.T @ W / n_features
+    lambda_val = 1.2 * np.ones(n_features)
 
     initial_soln = solve_lasso_adelie(S_vec, dir_vec, Q_mat, lambda_val)
-
+    active_set = np.where(np.fabs(initial_soln) > 0)[0]
+    
+    
+    initial_soln = initial_soln[active_set]
+    S_vec = S_vec[active_set]
+    dir_vec = dir_vec[active_set]
+    Q_mat = Q_mat[np.ix_(active_set, active_set)]
+    lambda_val = lambda_val[active_set]
     forward_path = homotopy_path(
-        initial_soln, S_vec, dir_vec, Q_mat, lambda_val, t_end=1.0
-    )
+        initial_soln, S_vec, dir_vec,
+        Q_mat, lambda_val)
+
     backward_path = homotopy_path(
         initial_soln, S_vec, -dir_vec, Q_mat, lambda_val, t_end=1.0
     )[::-1]
-    backward_path = [
-        (-t, beta, active, event_type) for t, beta, active, event_type in backward_path
-    ]
-    path = backward_path + forward_path
+    # backward_path = [
+    #     (-t, beta, active, event_type) for t, beta, active, event_type in backward_path
+    # ]
+    # path = backward_path + forward_path
 
+    path = forward_path
+    
     adelie_solns = [
         (
             t,
@@ -453,8 +477,10 @@ if __name__ == "__main__":
 
     #    print("Homotopy Path (t, beta, active_mask):")
 
-    print(np.array([beta for _, beta, _, _ in path]))
-    print(np.array([beta for _, beta in adelie_solns]))
+    H = np.array([beta for _, beta, _, _ in path])
+    A = np.array([beta for _, beta in adelie_solns])
+
+    print(np.linalg.norm(A - H) / max(np.linalg.norm(A), 1))
 
     # for t, beta, active, event_type in path:
     #     print(f"t = {t:.4f}, beta = {beta}, active = {active}, event_type = {event_type}")
