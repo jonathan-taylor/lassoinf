@@ -194,7 +194,7 @@ class HomotopyPath(object):
             beta = self.initial_soln.copy()
 
         _state = HomotopyState(beta=beta,
-                               subgrad=-S + self.Q_mat @ beta,
+                               subgrad=S - self.Q_mat @ beta,
                                t=0)
 
         if not _check_kkt(self,
@@ -202,7 +202,7 @@ class HomotopyPath(object):
                           _state):
             warn('initial KKT check not passing, refitting with adelie')
             _state.beta = self._adelie_solver.solve().betas[-1]
-            _state.subgrad = -S + self.Q_mat @ _state.beta
+            _state.subgrad = S - self.Q_mat @ _state.beta
         
         self._state = _state
 
@@ -280,7 +280,7 @@ class HomotopyPath(object):
     
     def next_event(
             self,
-            state,
+#            state,
             dir_vec: np.ndarray,
     ) -> tuple[float, str, int]:
         """
@@ -307,6 +307,7 @@ class HomotopyPath(object):
             - event_index (int): The index of the variable involved in the event (-1 if no event).
         """
 
+        state = self._state
         (current_beta,
          current_subgrad,
          current_t) = (state.beta,
@@ -392,6 +393,10 @@ class HomotopyPath(object):
                                    subgrad=current_subgrad,
                                    t=next_event_t)
         
+        self._state.t = next_event_t
+        print(_check_kkt(self, dir_vec, self._state))
+        self._state = next_state 
+
         return (next_state, event_type, event_index)
 
 
@@ -399,7 +404,7 @@ def _check_kkt(hpath: HomotopyPath,
                dir_vec: np.ndarray,
                state: HomotopyState):
     S = hpath.sufficient_stat + state.t * dir_vec
-    G = -S + hpath.Q_mat @ state.beta
+    G = S - hpath.Q_mat @ state.beta
     active_indices = hpath.active_indices
     inactive_indices = hpath.inactive_indices
 
@@ -407,7 +412,7 @@ def _check_kkt(hpath: HomotopyPath,
         # check the signs
         active_signs = hpath.active_signs[active_indices]
         active_subgrad = state.subgrad[active_indices]
-        active_check = np.all(state.beta[active_indices] * active_signs >= 0)
+        active_check = np.all(state.beta[active_indices] * active_signs >= -1e-3)
         active_lambda = hpath.lambda_values[active_indices]
         # check the active gradients have close to correct values
         active_check = active_check & (np.linalg.norm(active_subgrad * active_signs
@@ -483,28 +488,20 @@ def homotopy_path(
 
     path = [(current_t, current_beta.copy(), active_mask.copy(), ("init", None))]
 
-    initial_state = HomotopyState(beta=initial_soln,
-                                  subgrad=S_vec - Q_mat @ initial_soln,
-                                  t=0)
-    from copy import copy
-    state = copy(initial_state)
-
     while current_t < np.inf:
         (
-            next_state,
+            state,
             event_type,
             event_index,
         ) = hpath.next_event(
-            state,
             dir_vec,
         )
 
         active_mask[:] = 0
         active_mask[hpath.active_indices] = 1
-        if next_state.t < np.inf:
-            path.append((next_state.t, next_state.beta.copy(), active_mask.copy(), (event_type, event_index)))
-        current_t = next_state.t
-        state = next_state
+        if state.t < np.inf:
+            path.append((state.t, state.beta.copy(), active_mask.copy(), (event_type, event_index)))
+        current_t = state.t
 
     print(len(hpath.active_indices), hpath.Q_mat.shape)
     return path, hpath
