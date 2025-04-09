@@ -137,9 +137,28 @@ from cholupdates.rank_1 import downdate as downdate_chol
 from dataclasses import dataclass
 from adelie.solver import gaussian_cov
 
+@dataclass
+class HomotopyState(object):
+
+    beta: np.ndarray
+    subgrad: np.ndarray
+    t: float
+
+    def __copy__(self):
+        return self.__class__(beta=self.beta.copy(),
+                              subgrad=self.subgrad.copy(),
+                              t=self.t)
+
+    def __eq__(self, other):
+        val = ((self.t == other.t) and
+               np.allclose(self.beta, other.beta) and
+               np.allclose(self.subgrad, other.subgrad))
+        if not val:
+            stop
+        return val
 
 @dataclass
-class ActiveCholesky(object):
+class HomotopyPath(object):
     """
     Manages the Cholesky decomposition of the active set's submatrix.
 
@@ -152,7 +171,10 @@ class ActiveCholesky(object):
     inactive_indices: list
     active_signs: np.ndarray
     chol: np.ndarray  # lower cholesky
-
+    lambda_values: np.ndarray
+    sufficient_stat: np.ndarray
+    initial_soln: np.ndarray | None
+    
     def __post_init__(self):
         """Initializes the Cholesky decomposition."""
         if self.chol is None:
@@ -160,6 +182,30 @@ class ActiveCholesky(object):
             self.chol = np.linalg.cholesky(Q_A)  # lower triangular
             self._last_event = (None, None, None)
         
+        S = self.sufficient_stat
+
+        self._adelie_solver = gaussian_cov(A=self.Q_mat,
+                                           v=S, lmda_path=[1],
+                                           penalty=self.lambda_values)
+
+        if self.initial_soln is None:
+            beta = self._adelie_solver.solve().betas[-1]
+        else:
+            beta = self.initial_soln.copy()
+
+        _state = HomotopyState(beta=beta,
+                               subgrad=-S + self.Q_mat @ beta,
+                               t=0)
+
+        if not _check_kkt(self,
+                          np.zeros_like(S),
+                          _state):
+            warn('initial KKT check not passing, refitting with adelie')
+            _state.beta = self._adelie_solver.solve().betas[-1]
+            _state.subgrad = -S + self.Q_mat @ _state.beta
+        
+        self._state = _state
+
     def update(self, event_index: int, sign: int):
         """
         Updates the Cholesky decomposition when a variable enters the active set.
@@ -233,12 +279,9 @@ class ActiveCholesky(object):
         return unconstrained
     
     def next_event(
-        self,
-        current_beta: np.ndarray,
-        current_subgrad: np.ndarray,
-        current_t: float,
-        dir_vec: np.ndarray,
-        lambda_values: np.ndarray,
+            self,
+            state,
+            dir_vec: np.ndarray,
     ) -> tuple[float, str, int]:
         """
         Tracks the next event (variable entering or leaving the active set) as t increases.
@@ -264,8 +307,15 @@ class ActiveCholesky(object):
             - event_index (int): The index of the variable involved in the event (-1 if no event).
         """
 
+        (current_beta,
+         current_subgrad,
+         current_t) = (state.beta,
+                       state.subgrad,
+                       state.t)
+
         active_indices = self.active_indices
         inactive_indices = self.inactive_indices
+        lambda_values = self.lambda_values
 
         next_event_t = np.inf
         event_type = None
@@ -286,7 +336,7 @@ class ActiveCholesky(object):
                         event_type = "leave"
                         event_index = active_idx
                         event_sign = np.sign(current_beta[active_idx])
-
+                        
         # 2. Check for inactive variables becoming active (entering event)
         if len(inactive_indices) > 0:
             subgrad_inact = current_subgrad[inactive_indices]
@@ -306,24 +356,24 @@ class ActiveCholesky(object):
                         event_type = "enter"
                         event_sign = 1
                         event_index = inactive_idx
+
                 if t_zero_neg > current_t + 1e-9 and t_zero_neg < next_event_t:
                     if self._last_event != ('leave', inactive_idx, -1):
                         next_event_t = t_zero_neg
                         event_type = "enter"
                         event_sign = -1
                         event_index = inactive_idx
-
+                        
         # 3. update the beta and subgradient now that the time has been computed
         delta_t = next_event_t - current_t
 
-        old_beta = current_beta.copy()
         if len(active_indices) > 0:
             for i, active_idx in enumerate(active_indices):
                 current_beta[active_idx] += delta_t * active_path[i]
 
         if event_type == 'leave':
             self._last_event = ('leave', event_index, event_sign)
-        old_subgrad = current_subgrad.copy()
+
         if len(inactive_indices) > 0:
             for i, inactive_idx in enumerate(inactive_indices):
                 current_subgrad[inactive_idx] += delta_t * inact_path[i]
@@ -338,16 +388,50 @@ class ActiveCholesky(object):
         elif event_type == "leave":
             self.downdate(event_index)
 
-        return (next_event_t, event_type, event_index)
+        next_state = HomotopyState(beta=current_beta,
+                                   subgrad=current_subgrad,
+                                   t=next_event_t)
+        
+        return (next_state, event_type, event_index)
 
+
+def _check_kkt(hpath: HomotopyPath,
+               dir_vec: np.ndarray,
+               state: HomotopyState):
+    S = hpath.sufficient_stat + state.t * dir_vec
+    G = -S + hpath.Q_mat @ state.beta
+    active_indices = hpath.active_indices
+    inactive_indices = hpath.inactive_indices
+
+    if hpath.lambda_values[active_indices].sum() > 0:
+        # check the signs
+        active_signs = hpath.active_signs[active_indices]
+        active_subgrad = state.subgrad[active_indices]
+        active_check = np.all(state.beta[active_indices] * active_signs >= 0)
+        active_lambda = hpath.lambda_values[active_indices]
+        # check the active gradients have close to correct values
+        active_check = active_check & (np.linalg.norm(active_subgrad * active_signs
+                                                      + active_lambda) /
+                                       np.linalg.norm(active_lambda) < 1e-3)
+    else:
+        active_check = True
+        
+    if len(inactive_indices) > 0:
+        inactive_subgrad = state.subgrad[inactive_indices]
+        inactive_lambda = hpath.lambda_values[inactive_indices]
+        inactive_check = np.fabs(inactive_subgrad / inactive_lambda).max() <= 1 + 1e-3
+        inactive_check = inactive_check & (np.linalg.norm(G[inactive_indices] - inactive_subgrad) / np.linalg.norm(G[inactive_indices]) < 1e-3)
+    else:
+        inactive_check = True
+        
+    return {'active': active_check, 'inactive':inactive_check, 'G':G, 'subgrad':state.subgrad}
 
 def homotopy_path(
     initial_soln: np.ndarray,
     S_vec: np.ndarray,
     dir_vec: np.ndarray,
     Q_mat: np.ndarray,
-    lambda_val: np.ndarray,
-    t_end: float = 1.0,
+    lambda_values: np.ndarray,
 ) -> list[tuple[float, np.ndarray, np.ndarray, str]]:
     """
     Computes the homotopy path of the LASSO-like problem as t varies.
@@ -364,8 +448,6 @@ def homotopy_path(
         Matrix Q.
     lambda_val : np.ndarray
         Regularization parameter lambda.
-    t_end : float, optional
-        Ending value of t, by default 1.0.
 
     Returns
     -------
@@ -386,39 +468,46 @@ def homotopy_path(
     active_signs = np.sign(current_beta)
     active_signs[inactive_indices] = 0
 
-    active_chol = ActiveCholesky(
+    hpath = HomotopyPath(
+        sufficient_stat=S_vec,
         active_indices=active_indices,
         inactive_indices=inactive_indices,
         active_signs=active_signs,
         Q_mat=Q_mat,
         chol=None,
+        lambda_values=lambda_values,
+        initial_soln=initial_soln,
     )
 
     current_t = 0
 
     path = [(current_t, current_beta.copy(), active_mask.copy(), ("init", None))]
 
+    initial_state = HomotopyState(beta=initial_soln,
+                                  subgrad=S_vec - Q_mat @ initial_soln,
+                                  t=0)
+    from copy import copy
+    state = copy(initial_state)
+
     while current_t < np.inf:
         (
-            next_t,
+            next_state,
             event_type,
             event_index,
-        ) = active_chol.next_event(  # modified in place
-            current_beta,
-            current_subgrad,
-            current_t,
+        ) = hpath.next_event(
+            state,
             dir_vec,
-            lambda_val,
         )
 
         active_mask[:] = 0
-        active_mask[active_chol.active_indices] = 1
-        if next_t < np.inf:
-            path.append((next_t, current_beta.copy(), active_mask.copy(), (event_type, event_index)))
-        current_t = next_t
+        active_mask[hpath.active_indices] = 1
+        if next_state.t < np.inf:
+            path.append((next_state.t, next_state.beta.copy(), active_mask.copy(), (event_type, event_index)))
+        current_t = next_state.t
+        state = next_state
 
-    print(len(active_chol.active_indices), active_chol.Q_mat.shape)
-    return path, active_chol
+    print(len(hpath.active_indices), hpath.Q_mat.shape)
+    return path, hpath
 
 
 def solve_lasso_adelie(
@@ -451,8 +540,8 @@ def solve_lasso_adelie(
 
 if __name__ == "__main__":
     # Example usage (in low dimensions)
-    n_features = 200
-    rng = np.random.default_rng()
+    n_features = 30
+    rng = np.random.default_rng(0)
     S_vec = rng.standard_normal(n_features)
     dir_vec = rng.standard_normal(n_features) * 0.2
     W = []
@@ -471,12 +560,12 @@ if __name__ == "__main__":
     dir_vec = dir_vec[active_set]
     Q_mat = Q_mat[np.ix_(active_set, active_set)]
     lambda_val = lambda_val[active_set]
-    forward_path, active_chol = homotopy_path(
+    forward_path, hpath = homotopy_path(
         initial_soln, S_vec, dir_vec,
         Q_mat, lambda_val)
 
-    backward_path, active_chol = homotopy_path(
-        initial_soln, S_vec, -dir_vec, Q_mat, lambda_val, t_end=1.0
+    backward_path, hpath = homotopy_path(
+        initial_soln, S_vec, -dir_vec, Q_mat, lambda_val
     )
     backward_path = backward_path[::-1]
     backward_path = [
@@ -498,7 +587,7 @@ if __name__ == "__main__":
 
 
     print(np.linalg.norm(A - H) / max(np.linalg.norm(A), 1), np.linalg.norm(A))
-    if hasattr(active_chol, "_flag"):
+    if hasattr(hpath, "_flag"):
         print('flagged a problem')
     
     # for t, beta, active, event_type in path:
