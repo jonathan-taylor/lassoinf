@@ -154,16 +154,16 @@ class truncated_gaussian(object):
 
     def equal_tailed_interval(self,
                               observed,
-                              alpha):
+                              level=0.9):
         """
-        Computes the equal-tailed interval for a given observed value and alpha level.
+        Computes the equal-tailed interval for a given observed value and level.
 
         Parameters
         ----------
         observed : float
             The observed value.
-        alpha : float
-            The desired alpha level for the interval.
+        level : float
+            The desired level for the interval.
 
         Returns
         -------
@@ -177,6 +177,7 @@ class truncated_gaussian(object):
             self.set_mu(param)
             return self.cdf(observed)
 
+        alpha = 1 - level
         L = find_root(F, 1.0 - 0.5 * alpha, lb, ub)
         U = find_root(F, 0.5 * alpha, lb, ub)
         self.set_mu(old_mu)
