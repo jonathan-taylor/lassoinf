@@ -132,8 +132,6 @@ $$
 
 import numpy as np
 from scipy.linalg import solve
-from cholupdates.rank_1 import update as update_chol
-from cholupdates.rank_1 import downdate as downdate_chol
 from dataclasses import dataclass
 from adelie.solver import gaussian_cov
 
@@ -167,6 +165,7 @@ class HomotopyPath(object):
     """
 
     Q_mat: np.ndarray
+    direction: np.ndarray
     active_indices: list
     inactive_indices: list
     active_signs: np.ndarray
@@ -198,7 +197,6 @@ class HomotopyPath(object):
                                t=0)
 
         if not _check_kkt(self,
-                          np.zeros_like(S),
                           _state):
             warn('initial KKT check not passing, refitting with adelie')
             _state.beta = self._adelie_solver.solve().betas[-1]
@@ -255,7 +253,7 @@ class HomotopyPath(object):
         else:
             self.chol = None
 
-    def solve_active(self, dir_vec: np.ndarray) -> np.ndarray:
+    def solve_active(self) -> np.ndarray:
         """
         Solves the linear system involving the active set's submatrix.
 
@@ -269,6 +267,7 @@ class HomotopyPath(object):
         np.ndarray
             The solution to the linear system.
         """
+        dir_vec = self.direction
         active_dir_vec = dir_vec[self.active_indices].copy()
         unconstrained =  solve(
             self.chol.T, solve(self.chol, active_dir_vec, lower=True), lower=False
@@ -278,11 +277,7 @@ class HomotopyPath(object):
 
         return unconstrained
     
-    def next_event(
-            self,
-#            state,
-            dir_vec: np.ndarray,
-    ) -> tuple[float, str, int]:
+    def next_event(self) -> tuple[float, str, int]:
         """
         Tracks the next event (variable entering or leaving the active set) as t increases.
 
@@ -308,6 +303,8 @@ class HomotopyPath(object):
         """
 
         state = self._state
+        dir_vec = self.direction
+
         (current_beta,
          current_subgrad,
          current_t) = (state.beta,
@@ -327,7 +324,7 @@ class HomotopyPath(object):
 
         # 1. Check for active variables hitting zero (leaving event)
         if len(active_indices) > 0:
-            active_path = self.solve_active(dir_vec)
+            active_path = self.solve_active()
 
             for i, active_idx in enumerate(active_indices):
                 if abs(active_path[i]) > 1e-9:
@@ -345,7 +342,7 @@ class HomotopyPath(object):
 
             if len(active_indices) > 0:
                 Q_IA = self.Q_mat[np.ix_(inactive_indices, active_indices)]
-                inact_path -= Q_IA @ self.solve_active(dir_vec)
+                inact_path -= Q_IA @ self.solve_active()
 
             for i, inactive_idx in enumerate(inactive_indices):
                 t_zero_pos = current_t + (lambda_values[inactive_idx] - current_subgrad[inactive_idx]) / inact_path[i]
@@ -394,15 +391,16 @@ class HomotopyPath(object):
                                    t=next_event_t)
         
         self._state.t = next_event_t
-        print(_check_kkt(self, dir_vec, self._state))
+        print(_check_kkt(self,
+                         self._state))
         self._state = next_state 
 
         return (next_state, event_type, event_index)
 
 
 def _check_kkt(hpath: HomotopyPath,
-               dir_vec: np.ndarray,
                state: HomotopyState):
+    dir_vec = hpath.direction
     S = hpath.sufficient_stat + state.t * dir_vec
     G = S - hpath.Q_mat @ state.beta
     active_indices = hpath.active_indices
@@ -434,7 +432,7 @@ def _check_kkt(hpath: HomotopyPath,
 def homotopy_path(
     initial_soln: np.ndarray,
     S_vec: np.ndarray,
-    dir_vec: np.ndarray,
+    direction: np.ndarray,
     Q_mat: np.ndarray,
     lambda_values: np.ndarray,
 ) -> list[tuple[float, np.ndarray, np.ndarray, str]]:
@@ -447,7 +445,7 @@ def homotopy_path(
         Vector b that should be solution to the problem at t_start.
     S_vec : np.ndarray, shape (n_features,)
         Vector of sufficient statistics corresponding to nuisance parameters.
-    dir_vec : np.ndarray, shape (n_features,)
+    direction : np.ndarray, shape (n_features,)
         Vector v, the direction of the homotopy.
     Q_mat : np.ndarray, shape (n_features, n_features)
         Matrix Q.
@@ -479,6 +477,7 @@ def homotopy_path(
         inactive_indices=inactive_indices,
         active_signs=active_signs,
         Q_mat=Q_mat,
+        direction=direction,
         chol=None,
         lambda_values=lambda_values,
         initial_soln=initial_soln,
@@ -489,13 +488,9 @@ def homotopy_path(
     path = [(current_t, current_beta.copy(), active_mask.copy(), ("init", None))]
 
     while current_t < np.inf:
-        (
-            state,
-            event_type,
-            event_index,
-        ) = hpath.next_event(
-            dir_vec,
-        )
+        (state,
+         event_type,
+         event_index) = hpath.next_event()
 
         active_mask[:] = 0
         active_mask[hpath.active_indices] = 1
@@ -509,7 +504,7 @@ def homotopy_path(
 
 def solve_lasso_adelie(
     S_vec: np.ndarray,
-    dir_vec: np.ndarray,
+    direction: np.ndarray,
     Q_mat: np.ndarray,
     lambda_val: np.ndarray,
     t: float = 0,
@@ -519,7 +514,7 @@ def solve_lasso_adelie(
 
     Args:
         S_vec (np.ndarray): Vector of sufficient statistics.
-        dir_vec (np.ndarray): Vector defining the homotopy direction.
+        direction (np.ndarray): Vector defining the homotopy direction.
         Q_mat (np.ndarray): Matrix Q.
         lambda_val (np.ndarray): Regularization parameter lambda.
         t (float, optional): Homotopy parameter t. Defaults to 0.
@@ -528,7 +523,7 @@ def solve_lasso_adelie(
         np.ndarray: The solution vector b.
     """
 
-    S = gaussian_cov(A=Q_mat, v=S_vec + t * dir_vec, lmda_path=[1],
+    S = gaussian_cov(A=Q_mat, v=S_vec + t * direction, lmda_path=[1],
                      penalty=lambda_val)
 
     return np.asarray(S.betas.todense()[-1]).reshape(-1)
@@ -538,9 +533,9 @@ def solve_lasso_adelie(
 if __name__ == "__main__":
     # Example usage (in low dimensions)
     n_features = 30
-    rng = np.random.default_rng(0)
+    rng = np.random.default_rng()
     S_vec = rng.standard_normal(n_features)
-    dir_vec = rng.standard_normal(n_features) * 0.2
+    direction = rng.standard_normal(n_features) * 0.2
     W = []
     W = [rng.standard_normal(2 * n_features)]
     for i in range(n_features - 1):
@@ -549,20 +544,20 @@ if __name__ == "__main__":
     Q_mat = W @ W.T / n_features
     lambda_val = 1.2 * np.ones(n_features)
 
-    initial_soln = solve_lasso_adelie(S_vec, dir_vec, Q_mat, lambda_val)
+    initial_soln = solve_lasso_adelie(S_vec, direction, Q_mat, lambda_val)
     active_set = np.where(np.fabs(initial_soln) > 0)[0]
     
     initial_soln = initial_soln[active_set]
     S_vec = S_vec[active_set]
-    dir_vec = dir_vec[active_set]
+    direction = direction[active_set]
     Q_mat = Q_mat[np.ix_(active_set, active_set)]
     lambda_val = lambda_val[active_set]
     forward_path, hpath = homotopy_path(
-        initial_soln, S_vec, dir_vec,
+        initial_soln, S_vec, direction,
         Q_mat, lambda_val)
 
     backward_path, hpath = homotopy_path(
-        initial_soln, S_vec, -dir_vec, Q_mat, lambda_val
+        initial_soln, S_vec, -direction, Q_mat, lambda_val
     )
     backward_path = backward_path[::-1]
     backward_path = [
@@ -574,7 +569,7 @@ if __name__ == "__main__":
     adelie_solns = [
         (
             t,
-            solve_lasso_adelie(S_vec, dir_vec, Q_mat, lambda_val, t=t),
+            solve_lasso_adelie(S_vec, direction, Q_mat, lambda_val, t=t),
         )
         for t, _, _, _ in path
     ]
@@ -587,7 +582,4 @@ if __name__ == "__main__":
     if hasattr(hpath, "_flag"):
         print('flagged a problem')
     
-    # for t, beta, active, event_type in path:
-    #     print(f"t = {t:.4f}, beta = {beta}, active = {active}, event_type = {event_type}")
-    # print(adelie_solns)
 
