@@ -391,8 +391,6 @@ class HomotopyPath(object):
                                    t=next_event_t)
         
         self._state.t = next_event_t
-        print(_check_kkt(self,
-                         self._state))
         self._state = next_state 
 
         return (next_state, event_type, event_index)
@@ -485,7 +483,7 @@ def homotopy_path(
 
     current_t = 0
 
-    path = [(current_t, current_beta.copy(), active_mask.copy(), ("init", None))]
+    path = [(current_t, current_beta.copy(), active_mask.copy(), hpath.active_signs.copy(), ("init", None))]
 
     while current_t < np.inf:
         (state,
@@ -494,11 +492,11 @@ def homotopy_path(
 
         active_mask[:] = 0
         active_mask[hpath.active_indices] = 1
+
         if state.t < np.inf:
-            path.append((state.t, state.beta.copy(), active_mask.copy(), (event_type, event_index)))
+            path.append((state.t, state.beta.copy(), active_mask.copy(), hpath.active_signs.copy(), (event_type, event_index)))
         current_t = state.t
 
-    print(len(hpath.active_indices), hpath.Q_mat.shape)
     return path, hpath
 
 
@@ -530,65 +528,5 @@ def solve_lasso_adelie(
 
 
 
-if __name__ == "__main__":
-    # Example usage (in low dimensions)
-    n_features = 30
-    rng = np.random.default_rng()
-    sufficient_stat = rng.standard_normal(n_features)
-    W = []
-    W = [rng.standard_normal(2 * n_features)]
-    for i in range(n_features - 1):
-        W.append(0.7 * W[-1] + rng.standard_normal(2 * n_features))
-    W = np.array(W)
-    Q_mat = W @ W.T / n_features
-    lambda_val = 1.2 * np.ones(n_features)
-
-    initial_soln = solve_lasso_adelie(sufficient_stat, 0, Q_mat, lambda_val)
-    active_set = np.where(np.fabs(initial_soln) > 0)[0]
-    
-    # restrict the problem now
-
-    restr_soln = initial_soln[active_set]
-    restr_stat = sufficient_stat[active_set]
-    
-    Q_restr = Q_mat[np.ix_(active_set, active_set)]
-    target_direction = rng.standard_normal(Q_restr.shape[0]) * 0.2 # target parameter is target_direction' beta_E
-    Q_restr_i = np.linalg.inv(Q_restr)
-    observed_target = (target_direction * (Q_restr_i @ restr_stat)).sum() # not quite right -- restr_soln is \REG not \OLS
-    initial_t = observed_target
-    unscaled_var = (target_direction * (Q_restr_i @ target_direction)).sum()
-    direction = target_direction / unscaled_var
-    
-    lambda_val = lambda_val[active_set]
-
-    forward_path, hpath = homotopy_path(
-        restr_soln, restr_stat, direction,
-        Q_restr, lambda_val)
-
-    backward_path, hpath = homotopy_path(
-        restr_soln, restr_stat, -direction, Q_restr, lambda_val)
-
-    backward_path = backward_path[::-1]
-    backward_path = [
-        (-t, beta, active, event_type) for t, beta, active, event_type in backward_path
-    ]
-    path = backward_path + forward_path
-    #path = forward_path
-    
-    adelie_solns = [
-        (
-            t,
-            solve_lasso_adelie(restr_stat, direction, Q_restr, lambda_val, t=t),
-        )
-        for t, _, _, _ in path
-    ]
-
-    H = np.array([beta for _, beta, _, _ in path])
-    A = np.array([beta for _, beta in adelie_solns])
-
-
-    print(np.linalg.norm(A - H) / max(np.linalg.norm(A), 1), np.linalg.norm(A))
-    if hasattr(hpath, "_flag"):
-        print('flagged a problem')
     
 
