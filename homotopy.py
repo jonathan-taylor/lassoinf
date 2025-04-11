@@ -173,7 +173,6 @@ class HomotopyPath(object):
     lambda_values: np.ndarray
     sufficient_stat: np.ndarray
     initial_soln: np.ndarray | None
-    initial_t: float = 0    
 
     def __post_init__(self):
         """Initializes the Cholesky decomposition."""
@@ -195,7 +194,7 @@ class HomotopyPath(object):
 
         _state = HomotopyState(beta=beta,
                                subgrad=S - self.Q_mat @ beta,
-                               t=self.initial_t)
+                               t=0)
 
         if not _check_kkt(self,
                           _state):
@@ -436,7 +435,6 @@ def homotopy_path(
         direction: np.ndarray,
         Q_mat: np.ndarray,
         lambda_values: np.ndarray,
-        initial_t: float=0,
         ) -> list[tuple[float, np.ndarray, np.ndarray, str]]:
     """
     Computes the homotopy path of the LASSO-like problem as t varies.
@@ -447,8 +445,6 @@ def homotopy_path(
         Vector b that should be solution to the problem at initial_t
     sufficient_stat : np.ndarray, shape (n_features,)
         Vector of sufficient statistics
-    initial_t:
-        Initial value of target for initial_soln
     direction : np.ndarray, shape (n_features,)
         Vector v, the direction of the homotopy.
     Q_mat : np.ndarray, shape (n_features, n_features)
@@ -484,7 +480,7 @@ def homotopy_path(
         direction=direction,
         chol=None,
         lambda_values=lambda_values,
-        initial_soln=initial_soln,
+        initial_soln=initial_soln
     )
 
     current_t = 0
@@ -539,7 +535,6 @@ if __name__ == "__main__":
     n_features = 30
     rng = np.random.default_rng()
     sufficient_stat = rng.standard_normal(n_features)
-    direction = rng.standard_normal(n_features) * 0.2
     W = []
     W = [rng.standard_normal(2 * n_features)]
     for i in range(n_features - 1):
@@ -548,21 +543,31 @@ if __name__ == "__main__":
     Q_mat = W @ W.T / n_features
     lambda_val = 1.2 * np.ones(n_features)
 
-    initial_soln = solve_lasso_adelie(sufficient_stat, direction, Q_mat, lambda_val)
+    initial_soln = solve_lasso_adelie(sufficient_stat, 0, Q_mat, lambda_val)
     active_set = np.where(np.fabs(initial_soln) > 0)[0]
     
-    initial_soln = initial_soln[active_set]
-    sufficient_stat = sufficient_stat[active_set]
-    direction = direction[active_set]
-    Q_mat = Q_mat[np.ix_(active_set, active_set)]
+    # restrict the problem now
+
+    restr_soln = initial_soln[active_set]
+    restr_stat = sufficient_stat[active_set]
+    
+    Q_restr = Q_mat[np.ix_(active_set, active_set)]
+    target_direction = rng.standard_normal(Q_restr.shape[0]) * 0.2 # target parameter is target_direction' beta_E
+    Q_restr_i = np.linalg.inv(Q_restr)
+    observed_target = (target_direction * (Q_restr_i @ restr_stat)).sum() # not quite right -- restr_soln is \REG not \OLS
+    initial_t = observed_target
+    unscaled_var = (target_direction * (Q_restr_i @ target_direction)).sum()
+    direction = target_direction / unscaled_var
+    
     lambda_val = lambda_val[active_set]
+
     forward_path, hpath = homotopy_path(
-        initial_soln, sufficient_stat, direction,
-        Q_mat, lambda_val)
+        restr_soln, restr_stat, direction,
+        Q_restr, lambda_val)
 
     backward_path, hpath = homotopy_path(
-        initial_soln, sufficient_stat, -direction, Q_mat, lambda_val
-    )
+        restr_soln, restr_stat, -direction, Q_restr, lambda_val)
+
     backward_path = backward_path[::-1]
     backward_path = [
         (-t, beta, active, event_type) for t, beta, active, event_type in backward_path
@@ -573,7 +578,7 @@ if __name__ == "__main__":
     adelie_solns = [
         (
             t,
-            solve_lasso_adelie(sufficient_stat, direction, Q_mat, lambda_val, t=t),
+            solve_lasso_adelie(restr_stat, direction, Q_restr, lambda_val, t=t),
         )
         for t, _, _, _ in path
     ]
