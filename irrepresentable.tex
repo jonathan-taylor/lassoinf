@@ -170,4 +170,10 @@
           $$
           
 
+          \subsubsection{Solving this with \texttt{glmnet}}
+
+          This is equivalent to taking $P_My$ as \texttt{offset} (or the fitted linear predictors in a GLM) and then adding a
+          gradient term to the \texttt{glmnet} objective. James' \texttt{adelie} can handle this. I don't see an obvious way to
+          get it exactly into glmnet as either way there would seem to be a gradient term.
+
 \end{document}
