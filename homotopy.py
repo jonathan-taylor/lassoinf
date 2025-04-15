@@ -140,20 +140,21 @@ class HomotopyState(object):
 
     beta: np.ndarray
     subgrad: np.ndarray
+    signs: np.ndarray
     t: float
 
     def __copy__(self):
         return self.__class__(beta=self.beta.copy(),
                               subgrad=self.subgrad.copy(),
-                              t=self.t)
+                              t=self.t,
+                              signs=self.signs.copy())
 
     def __eq__(self, other):
-        val = ((self.t == other.t) and
-               np.allclose(self.beta, other.beta) and
-               np.allclose(self.subgrad, other.subgrad))
-        if not val:
-            stop
-        return val
+        return ((self.t == other.t) and
+                np.allclose(self.beta, other.beta) and
+                np.allclose(self.subgrad, other.subgrad) and
+                (self.signs == other.signs))
+
 
 @dataclass
 class HomotopyPath(object):
@@ -194,6 +195,7 @@ class HomotopyPath(object):
 
         _state = HomotopyState(beta=beta,
                                subgrad=S - self.Q_mat @ beta,
+                               signs=np.sign(beta)
                                t=0)
 
         if not _check_kkt(self,
@@ -201,7 +203,8 @@ class HomotopyPath(object):
             warn('initial KKT check not passing, refitting with adelie')
             _state.beta = self._adelie_solver.solve().betas[-1]
             _state.subgrad = S - self.Q_mat @ _state.beta
-        
+            _state.signs = np.sign(_state.beta)
+            
         self._state = _state
 
     def update(self, event_index: int, sign: int):
@@ -379,6 +382,7 @@ class HomotopyPath(object):
         if event_type == 'enter':
             self._last_event = ('enter', event_index, event_sign)
 
+
         # 4. update the active chol
         if event_type == "enter":
             self.update(event_index, event_sign)
@@ -388,8 +392,11 @@ class HomotopyPath(object):
 
         next_state = HomotopyState(beta=current_beta,
                                    subgrad=current_subgrad,
+                                   signs=self.active_signs.copy()
                                    t=next_event_t)
         
+        cur_signs = self.active_signs.copy()
+
         self._state.t = next_event_t
         self._state = next_state 
 
@@ -494,7 +501,7 @@ def homotopy_path(
         active_mask[hpath.active_indices] = 1
 
         if state.t < np.inf:
-            path.append((state.t, state.beta.copy(), active_mask.copy(), hpath.active_signs.copy(), (event_type, event_index)))
+            path.append((state.t, state.beta.copy(), active_mask.copy(), state.signs.copy(), (event_type, event_index)))
         current_t = state.t
 
     return path, hpath
