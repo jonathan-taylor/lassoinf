@@ -195,7 +195,7 @@ class HomotopyPath(object):
 
         _state = HomotopyState(beta=beta,
                                subgrad=S - self.Q_mat @ beta,
-                               signs=np.sign(beta)
+                               signs=np.sign(beta),
                                t=0)
 
         if not _check_kkt(self,
@@ -348,22 +348,23 @@ class HomotopyPath(object):
                 inact_path -= Q_IA @ self.solve_active()
 
             for i, inactive_idx in enumerate(inactive_indices):
-                t_zero_pos = current_t + (lambda_values[inactive_idx] - current_subgrad[inactive_idx]) / inact_path[i]
-                t_zero_neg = current_t + (-lambda_values[inactive_idx] - current_subgrad[inactive_idx]) / inact_path[i]
+                if abs(inact_path[i]) > 1e-9:
+                    t_zero_pos = current_t + (lambda_values[inactive_idx] - current_subgrad[inactive_idx]) / inact_path[i]
+                    t_zero_neg = current_t + (-lambda_values[inactive_idx] - current_subgrad[inactive_idx]) / inact_path[i]
 
-                if t_zero_pos > current_t + 1e-9 and t_zero_pos < next_event_t:
-                    if self._last_event != ('leave', inactive_idx, +1):
-                        next_event_t = t_zero_pos
-                        event_type = "enter"
-                        event_sign = 1
-                        event_index = inactive_idx
+                    if t_zero_pos > current_t + 1e-9 and t_zero_pos < next_event_t:
+                        if self._last_event != ('leave', inactive_idx, +1):
+                            next_event_t = t_zero_pos
+                            event_type = "enter"
+                            event_sign = 1
+                            event_index = inactive_idx
 
-                if t_zero_neg > current_t + 1e-9 and t_zero_neg < next_event_t:
-                    if self._last_event != ('leave', inactive_idx, -1):
-                        next_event_t = t_zero_neg
-                        event_type = "enter"
-                        event_sign = -1
-                        event_index = inactive_idx
+                    if t_zero_neg > current_t + 1e-9 and t_zero_neg < next_event_t:
+                        if self._last_event != ('leave', inactive_idx, -1):
+                            next_event_t = t_zero_neg
+                            event_type = "enter"
+                            event_sign = -1
+                            event_index = inactive_idx
                         
         # 3. update the beta and subgradient now that the time has been computed
         delta_t = next_event_t - current_t
@@ -392,11 +393,9 @@ class HomotopyPath(object):
 
         next_state = HomotopyState(beta=current_beta,
                                    subgrad=current_subgrad,
-                                   signs=self.active_signs.copy()
+                                   signs=self.active_signs.copy(),
                                    t=next_event_t)
         
-        cur_signs = self.active_signs.copy()
-
         self._state.t = next_event_t
         self._state = next_state 
 
