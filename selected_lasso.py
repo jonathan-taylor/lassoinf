@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from homotopy import (homotopy_path,
                       solve_lasso_adelie)
+from truncated_gaussian import truncated_gaussian
 
 '''
 Suppose out target is $\hat{\theta} = \eta'\bar{\beta}_E=\eta'Q_E^{-1}T_E$ with $T_E=X_E'y$ in OLS regression.
@@ -112,9 +113,7 @@ def truncation_path(restr_Q,
     return active_df
 
 
-def test_intervals(n_features=30):
-
-    n_features = 30
+def test_intervals(n_features=30, dispersion=1.5):
 
     sufficient_stat = rng.standard_normal(n_features)
     W = []
@@ -123,7 +122,7 @@ def test_intervals(n_features=30):
         W.append(0.7 * W[-1] + rng.standard_normal(2 * n_features))
     W = np.array(W)
     Q_mat = W @ W.T / n_features
-    lambda_val = 1.2 * np.ones(n_features)
+    lambda_val = 2 * np.ones(n_features)
 
     initial_soln = solve_lasso_adelie(sufficient_stat, 0, Q_mat, lambda_val)
     active_set = np.where(np.fabs(initial_soln) > 0)[0]
@@ -146,26 +145,17 @@ def test_intervals(n_features=30):
                                elem_basis,
                                restr_Qi=restr_Qi,
                                check_adelie=True)
-        paths.append(path)
+        obs = elem_basis @ unreg_soln
         path['weights'] = _approx_probability_signs(Q_mat, path)
-
-    #path = forward_path
-    
-    adelie_solns = [
-        (
-            t,
-            solve_lasso_adelie(restr_stat, direction, restr_Q, restr_lambda, t=t),
-        )
-        for t, _, _, _ in path
-    ]
-
-    H = np.array([beta for _, beta, _, _ in path])
-    A = np.array([beta for _, beta in adelie_solns])
-
-
-    print(np.linalg.norm(A - H) / max(np.linalg.norm(A), 1), np.linalg.norm(A))
-    if hasattr(hpath, "_flag"):
-        print('flagged a problem')
+        L = [i[0] for i in path['intervals']]
+        R = [i[1] for i in path['intervals']]
+        law = truncated_gaussian(left=L,
+                                 right=R,
+                                 weights=path['weights'],
+                                 scale=elem_basis @ restr_Qi @ elem_basis * dispersion)
+        print(path.shape)
+        print(law.equal_tailed_interval(obs, level=0.9))
+        paths.append((path, law))
 
 def _approx_probability_signs(Q, path):
     return np.ones(path.shape[0])
@@ -173,6 +163,6 @@ def _approx_probability_signs(Q, path):
 if __name__ == "__main__":
 
     rng = np.random.default_rng()# 0)
-    test_intervals()
+    test_intervals(n_features=200)
 
 
