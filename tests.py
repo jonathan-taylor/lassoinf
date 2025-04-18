@@ -7,10 +7,16 @@ import adelie as ad
 from selected_lasso import LassoInference
 
 
-def test_intervals(n_features=30, dispersion=2, level=0.9):
+def test_intervals(n_features=30, dispersion=10, level=0.9, method='chernoff'):
 
-    X = rng.standard_normal((5 * n_features, n_features))
-    Y = rng.standard_normal(X.shape[0]) * np.sqrt(dispersion)
+    n, p = 5 * n_features, n_features
+    X = [rng.standard_normal((n,))]
+    for _ in range(p - 1):
+        X.append(rng.standard_normal((n,)) + 0.5 * X[-1])
+    X = np.array(X).T
+    X += 0.2 * rng.standard_normal(n)[:,None]
+    
+    Y = rng.standard_normal(n) * np.sqrt(dispersion)
     weights = np.ones(X.shape[0])
     glm = ad.glm.gaussian(y=Y, weights=weights)
     lambda_max = np.fabs(X.T @ (Y * weights)).max() / weights.sum()
@@ -37,7 +43,7 @@ def test_intervals(n_features=30, dispersion=2, level=0.9):
     r_sel = sm.OLS(Y, X[:,active_set]).fit()
     nominal = summarize(r_sel, conf_int=True, level=level)
 
-    return lasso_inf.summary(dispersion=est_dispersion, level=level), nominal
+    return lasso_inf.summary(dispersion=est_dispersion, level=level, method=method), nominal
 
 
 
@@ -52,18 +58,20 @@ if __name__ == "__main__":
     level = 0.95
     df_sel = []
     df_nom = []
-    for _ in range(100):
-        sel, nominal = test_intervals(n_features=500, level=level)
+    for _ in range(20):
+        sel, nominal = test_intervals(n_features=200, level=level, method='MC')
         df_sel.append(sel)
         df_nom.append(nominal)
     df_sel = pd.concat(df_sel)
     df_nom = pd.concat(df_nom)
     L, U = df_nom.columns[-2:]
-    df_nom = df_nom.rename(columns={L:f'L ({100*level:0.1f}%)',
-                                     U:f'U ({100*level:0.1f}%)'})
-    print('coverage (selective):', ((df_sel['L (95.0%)'] < 0) * (df_sel['U (95.0%)'] > 0)).mean())
-    print('coverage (nominal):', ((df_nom['L (95.0%)'] < 0) * (df_nom['U (95.0%)'] > 0)).mean())
+    lower = f'L ({100*level:0.1f}%)'
+    upper = f'U ({100*level:0.1f}%)'
+    df_nom = df_nom.rename(columns={L:lower,
+                                    U:upper})
+    print('coverage (selective):', ((df_sel[lower] < 0) * (df_sel[upper] > 0)).mean())
+    print('coverage (nominal):', ((df_nom[lower] < 0) * (df_nom[upper] > 0)).mean())
     print('type I error at 5% (selective):', (df_sel['p-value (twosided)'] < 0.05).mean())
     print('type I error at 5% (nominal):', (df_nom['P>|t|'] < 0.05).mean())
-    print('mean length (selective):', (df_sel['U (95.0%)'] - df_sel['L (95.0%)']).mean())
-    print('mean length (nominal):', (df_nom['U (95.0%)'] - df_nom['L (95.0%)']).mean())
+    print('mean length (selective):', (df_sel[upper] - df_sel[lower]).mean())
+    print('mean length (nominal):', (df_nom[upper] - df_nom[lower]).mean())

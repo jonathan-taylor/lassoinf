@@ -125,7 +125,8 @@ class LassoInference(object):
     active_set: np.ndarray
     check_adelie: bool = False  # Default value
     B: int = 100000
-
+    seed: int = 0
+    
     def __post_init__(self):
         self.Q_mat = np.asfortranarray(self.Q_mat)
         self._restr_soln = self.initial_soln[self.active_set]
@@ -213,16 +214,26 @@ class LassoInference(object):
             chernoff, MC = self._approx_probability_signs(path,
                                                           dispersion=dispersion,
                                                           do_MC=method == 'MC')
+            chernoff /= chernoff.sum()
+            MC /= MC.sum()
+            
+            method = 'mix'
             if method == 'chernoff':
                 weights = chernoff
             elif method == 'MC':
                 weights = MC
+            elif method == 'mix':
+                if np.all(np.isfinite(MC)):
+                    weights = 0.1 * chernoff + 0.9 * MC
+                else:
+                    weights = chernoff
             else:
                 raise ValueError('method for weights should be in ["chernoff", "MC"]')
 
             L = [i[0] for i in path['intervals']]
             R = [i[1] for i in path['intervals']]
             scale = np.sqrt((contrast @ self._restr_Qi @ contrast) * dispersion)
+
             law = truncated_gaussian(left=L,
                                      right=R,
                                      weights=weights,
@@ -258,9 +269,13 @@ class LassoInference(object):
         linear_term = np.asfortranarray(np.zeros(Q_mat.shape[0]))
         inact_lambda = lambda_val[inactive_set]
 
+        rng = np.random.default_rng(self.seed)
         if do_MC: 
-            cond_cov = Q_mat - Q_mat[:,active_set] @ (Q_i @ Q_mat[active_set])
-            chol = np.linalg.cholesky(cond_cov[np.ix_(inactive_set, inactive_set)]) * np.sqrt(dispersion)
+            if not hasattr(self, "_chol"):
+                cond_cov = Q_mat - Q_mat[:,active_set] @ (Q_i @ Q_mat[active_set])
+                chol = self._chol = np.linalg.cholesky(cond_cov[np.ix_(inactive_set, inactive_set)]) * np.sqrt(dispersion)
+            else:
+                chol = self._chol
             N = rng.standard_normal((B, chol.shape[0])) @ chol.T
 
         for i in range(path.shape[0]):
@@ -283,6 +298,6 @@ class LassoInference(object):
             weights.append(weight)
             weights_MC.append(weight_MC)
             
-        return weights, weights_MC
+        return np.array(weights), np.array(weights_MC)
 
 
