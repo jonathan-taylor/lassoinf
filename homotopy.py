@@ -527,10 +527,10 @@ def solve_lasso_adelie(
         np.ndarray: The solution vector b.
     """
 
-    S = gaussian_cov(A=Q_mat, v=sufficient_stat + t * direction, lmda_path=[1],
+    S = gaussian_cov(A=Q_mat, v=sufficient_stat + t * direction, lmda_path=[1.],
                      penalty=lambda_val)
 
-    return np.asarray(S.betas.todense()[-1]).reshape(-1)
+    return np.asarray(S.betas.todense()[-1]).reshape(-1), S
 
 
 
