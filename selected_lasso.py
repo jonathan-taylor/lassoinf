@@ -31,6 +31,33 @@ def truncation_path(restr_Q,
                     restr_Qi=None,
                     check_adelie=False,
                     adelie_tol=1e-3):
+    """
+    Computes the truncation path for inference.
+
+    Parameters
+    ----------
+    restr_Q : ndarray
+        Restricted Q matrix.
+    restr_soln : ndarray
+        Restricted solution.
+    restr_stat : ndarray
+        Restricted sufficient statistic.
+    restr_lambda : ndarray
+        Restricted lambda values.
+    restr_dir : ndarray
+        Restriction direction.
+    restr_Qi : ndarray, optional
+        Inverse of restricted Q matrix, by default None.
+    check_adelie : bool, optional
+        Whether to check against Adelie solution, by default False.
+    adelie_tol : float, optional
+        Tolerance for Adelie check, by default 1e-3.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame containing the truncation path information.
+    """
     
     if restr_Qi is None:
         restr_Qi = np.linalg.inv(restr_Q)
@@ -117,6 +144,28 @@ def truncation_path(restr_Q,
 
 @dataclass
 class LassoInference(object):
+    """
+    Class for performing inference on Lasso estimates.
+
+    Attributes
+    ----------
+    initial_soln : ndarray
+        Initial solution vector.
+    sufficient_stat : ndarray
+        Sufficient statistic vector.
+    Q_mat : ndarray
+        Q matrix.
+    lambda_val : ndarray
+        Lambda values.
+    active_set : ndarray
+        Active set indices.
+    check_adelie : bool, optional
+        Whether to check against Adelie solution, by default False.
+    B : int, optional
+        Number of bootstrap iterations, by default 100000.
+    seed : int, optional
+        Random seed, by default 0.
+    """
 
     initial_soln: np.ndarray
     sufficient_stat: np.ndarray
@@ -146,6 +195,25 @@ class LassoInference(object):
                 method='chernoff',
                 level=0.95,
                 dispersion=1):
+        """
+        Computes confidence intervals for a linear contrast of the Lasso estimate.
+
+        Parameters
+        ----------
+        contrast : ndarray
+            Contrast vector.
+        method : str, optional
+            Method for computing confidence intervals, by default 'chernoff'.
+        level : float, optional
+            Confidence level, by default 0.95.
+        dispersion : float, optional
+            Dispersion parameter, by default 1.
+
+        Returns
+        -------
+        tuple
+            Lower and upper bounds of the confidence interval.
+        """
         
         obs = contrast @ self._unreg_soln
         law, scale = self._retrieve_law(contrast, method, dispersion)
@@ -158,6 +226,27 @@ class LassoInference(object):
                method='chernoff',
                dispersion=1,
                alternative='twosided'):
+        """
+        Computes the p-value for a hypothesis test on a linear contrast of the Lasso estimate.
+
+        Parameters
+        ----------
+        contrast : ndarray
+            Contrast vector.
+        null_value : float, optional
+            Null hypothesis value, by default 0.
+        method : str, optional
+            Method for computing the p-value, by default 'chernoff'.
+        dispersion : float, optional
+            Dispersion parameter, by default 1.
+        alternative : str, optional
+            Alternative hypothesis, by default 'twosided'.
+
+        Returns
+        -------
+        float
+            The p-value.
+        """
         law, scale = self._retrieve_law(contrast, method, dispersion)
         law.set_mu(null_value)
 
@@ -178,6 +267,25 @@ class LassoInference(object):
                 dispersion=1,
                 alternative='twosided',
                 level=0.95):
+        """
+        Computes a summary of confidence intervals and p-values for each active variable.
+
+        Parameters
+        ----------
+        method : str, optional
+            Method for inference, by default 'chernoff'.
+        dispersion : float, optional
+            Dispersion parameter, by default 1.
+        alternative : str, optional
+            Alternative hypothesis for p-values, by default 'twosided'.
+        level : float, optional
+            Confidence level, by default 0.95.
+
+        Returns
+        -------
+        DataFrame
+            DataFrame containing confidence intervals and p-values.
+        """
         
         L, U, pvals = [], [], []
         for elem_basis in np.eye(len(self.active_set)):
@@ -201,6 +309,23 @@ class LassoInference(object):
                       contrast,
                       method,
                       dispersion=1):
+        """
+        Retrieves the law (truncated Gaussian) for inference, computing it if necessary.
+
+        Parameters
+        ----------
+        contrast : ndarray
+            Contrast vector.
+        method : str
+            Method for approximating the distribution.
+        dispersion : float, optional
+            Dispersion parameter, by default 1.
+
+        Returns
+        -------
+        tuple
+            Tuple containing the truncated Gaussian distribution and scale.
+        """
 
         if (tuple(contrast), method, dispersion) not in self._cache:
             path = truncation_path(self._restr_Q,
@@ -245,6 +370,23 @@ class LassoInference(object):
                                   path,
                                   dispersion=1,
                                   do_MC=False):
+        """
+        Approximates the probability of sign patterns along the truncation path.
+
+        Parameters
+        ----------
+        path : DataFrame
+            Truncation path DataFrame.
+        dispersion : float, optional
+            Dispersion parameter, by default 1.
+        do_MC : bool, optional
+            Whether to perform Monte Carlo approximation, by default False.
+
+        Returns
+        -------
+        tuple
+            Tuple containing Chernoff and Monte Carlo weights.
+        """
 
         (Q_mat,
          active_set,
@@ -299,5 +441,4 @@ class LassoInference(object):
             weights_MC.append(weight_MC)
             
         return np.array(weights), np.array(weights_MC)
-
 
