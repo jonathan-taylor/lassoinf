@@ -170,6 +170,7 @@ class truncated_gaussian(object):
         np.ndarray
             An array containing the lower and upper bounds of the equal-tailed interval.
         """
+
         old_mu = self.mu
         lb = self.mu - 20. * self.scale
         ub = self.mu + 20. * self.scale

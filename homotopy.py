@@ -186,10 +186,11 @@ class HomotopyPath(object):
 
         self._adelie_solver = gaussian_cov(A=self.Q_mat,
                                            v=S, lmda_path=[1],
-                                           penalty=self.lambda_values)
+                                           penalty=self.lambda_values,
+                                           progress_bar=False)
 
         if self.initial_soln is None:
-            beta = self._adelie_solver.solve().betas[-1]
+            beta = self._adelie_solver.solve(progress_bar=False).betas[-1]
         else:
             beta = self.initial_soln.copy()
 
@@ -201,10 +202,9 @@ class HomotopyPath(object):
         if not _check_kkt(self,
                           _state):
             warn('initial KKT check not passing, refitting with adelie')
-            _state.beta = self._adelie_solver.solve().betas[-1]
+            _state.beta = self._adelie_solver.solve(progress_bar=False).betas[-1]
             _state.subgrad = S - self.Q_mat @ _state.beta
             _state.signs = np.sign(_state.beta)
-            
         self._state = _state
 
     def update(self, event_index: int, sign: int):
@@ -512,6 +512,7 @@ def solve_lasso_adelie(
     Q_mat: np.ndarray,
     lambda_val: np.ndarray,
     t: float = 0,
+    **kwargs
 ) -> np.ndarray:
     """
     Solves the optimization problem using adelie.
@@ -528,7 +529,7 @@ def solve_lasso_adelie(
     """
 
     S = gaussian_cov(A=Q_mat, v=sufficient_stat + t * direction, lmda_path=[1.],
-                     penalty=lambda_val)
+                     penalty=lambda_val, **kwargs)
 
     return np.asarray(S.betas.todense()[-1]).reshape(-1), S
 

@@ -1,9 +1,11 @@
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
+
 from homotopy import (homotopy_path,
                       solve_lasso_adelie)
 from truncated_gaussian import truncated_gaussian
-from scipy.stats import norm as normal_dbn
 
 '''
 Suppose out target is $\hat{\theta} = \eta'\bar{\beta}_E=\eta'Q_E^{-1}T_E$ with $T_E=X_E'y$ in OLS regression.
@@ -113,115 +115,174 @@ def truncation_path(restr_Q,
     active_df = pd.DataFrame({'intervals':active_ints, 'signs':active_signs, 'beta':betas, 'event':events})
     return active_df
 
+@dataclass
+class LassoInference(object):
 
-def test_intervals(n_features=30, dispersion=1):
+    initial_soln: np.ndarray
+    sufficient_stat: np.ndarray
+    Q_mat: np.ndarray
+    lambda_val: np.ndarray
+    active_set: np.ndarray
+    check_adelie: bool = False  # Default value
+    B: int = 100000
 
-    X = rng.standard_normal((5 * n_features, n_features))
-    Y = rng.standard_normal(X.shape[0])
-    # sufficient_stat = rng.standard_normal(n_features)
-    # W = []
-    # W = [rng.standard_normal(2 * n_features)]
-    # for i in range(n_features - 1):
-    #     W.append(0.7 * W[-1] + rng.standard_normal(2 * n_features))
-    # W = np.array(W)
-    Q_mat = X.T @ X 
-    sufficient_stat = X.T @ Y
-    lambda_max = np.fabs(sufficient_stat).max()
+    def __post_init__(self):
+        self.Q_mat = np.asfortranarray(self.Q_mat)
+        self._restr_soln = self.initial_soln[self.active_set]
+        self._restr_stat = self.sufficient_stat[self.active_set]
+        self._restr_Q = self.Q_mat[np.ix_(self.active_set, self.active_set)]
+        self._restr_lambda = self.lambda_val[self.active_set]
+        self._restr_Qi = np.linalg.inv(self._restr_Q)
+        self._unreg_soln = self._restr_Qi @ self._restr_stat
+        self._cache = {}
+        self._sign_cache = {}
+        self._inactive_set = np.ones(self.Q_mat.shape[0], bool)
+        self._inactive_set[self.active_set] = 0
+        self._irrep = self.Q_mat[np.ix_(self._inactive_set, self.active_set)] @ self._restr_Qi
 
-    lambda_val = 0.8 * lambda_max * np.ones(n_features)
-    
-    initial_soln = solve_lasso_adelie(sufficient_stat, 0, Q_mat, lambda_val)[0]
-    active_set = np.where(np.fabs(initial_soln) > 0)[0]
-    
-    # restrict the problem now
+    def confint(self,
+                contrast,
+                method='chernoff',
+                level=0.95,
+                dispersion=1):
+        
+        obs = contrast @ self._unreg_soln
+        law, scale = self._retrieve_law(contrast, method, dispersion)
 
-    restr_soln = initial_soln[active_set]
-    restr_stat = sufficient_stat[active_set]
-    restr_Q = Q_mat[np.ix_(active_set, active_set)]
-    restr_lambda = lambda_val[active_set]
-    restr_Qi = np.linalg.inv(restr_Q)
-    unreg_soln = restr_Qi @ restr_stat
-    
-    paths = []
-    for elem_basis in np.eye(restr_Q.shape[0]):
-        path = truncation_path(restr_Q,
-                               restr_soln,
-                               restr_stat,
-                               restr_lambda,
-                               elem_basis,
-                               restr_Qi=restr_Qi,
-                               check_adelie=False)
-        obs = elem_basis @ unreg_soln
-        print(path)
+        return law.equal_tailed_interval(obs, level=level)
 
-        path['weights'], MC = _approx_probability_signs(Q_mat,
-                                                        active_set,
-                                                        path,
-                                                        lambda_val)
-        L = [i[0] for i in path['intervals']]
-        R = [i[1] for i in path['intervals']]
-        scale = np.sqrt(elem_basis @ restr_Qi @ elem_basis * dispersion)
-        law = truncated_gaussian(left=L,
-                                 right=R,
-                                 weights=path['weights'],
-                                 scale=scale)
-        law_MC = truncated_gaussian(left=L,
-                                    right=R,
-                                    weights=MC,
-                                    scale=scale)
-        print(law.equal_tailed_interval(obs, level=0.9), law_MC.equal_tailed_interval(obs, level=0.9), (obs - normal_dbn.ppf(0.9) * scale, obs + normal_dbn.ppf(0.9) * scale))
-        paths.append((path, law))
+    def pvalue(self, 
+               contrast,
+               null_value=0,
+               method='chernoff',
+               dispersion=1,
+               alternative='twosided'):
+        law, scale = self._retrieve_law(contrast, method, dispersion)
+        law.set_mu(null_value)
 
-def _approx_probability_signs(Q_mat,
-                              active_set,
-                              path,
-                              lambda_val,
-                              B=100000,
-                              dispersion=1):
+        obs = contrast @ self._unreg_soln
+        pval = law.cdf(obs)
 
-    restr_lambda = lambda_val[active_set]
-    new_lambda = lambda_val.copy()
-    new_lambda[active_set] = 0
-    weights = []
-    weights_MC = []
-    # until adelie fixed ,we'll do it by simulation
+        if alternative == 'greater':
+            return 1 - pval
+        elif alternative == 'less':
+            return pval
+        elif alternative == 'twosided':
+            return 2 * min(pval, 1 - pval)
+        else:
+            raise ValueError('alternative should be one of ["greater", "less", "twosided"]')
+        
+    def summary(self,
+                method='chernoff',
+                dispersion=1,
+                alternative='twosided',
+                level=0.95):
+        
+        L, U, pvals = [], [], []
+        for elem_basis in np.eye(len(self.active_set)):
+            l, u = self.confint(elem_basis,
+                                dispersion=dispersion,
+                                method=method,
+                                level=level)
+            L.append(l); U.append(u)
+            pvals.append(self.pvalue(elem_basis,
+                                     method=method,
+                                     dispersion=dispersion))
+        df = pd.DataFrame({f'L ({100*level:0.1f}%)': L,
+                           f'U ({100*level:0.1f}%)': U,
+                           f'p-value ({alternative})':pvals,
+                           'ID':self.active_set})
+        return df.set_index('ID')
 
-    Q_i = np.linalg.inv(Q_mat[np.ix_(active_set, active_set)])
-    cond_cov = Q_mat - Q_mat[:,active_set] @ (Q_i @ Q_mat[active_set])
-    inactive_set = np.ones(Q_mat.shape[0], bool)
-    inactive_set[active_set] = 0
-    chol = np.linalg.cholesky(cond_cov[np.ix_(inactive_set, inactive_set)]) * np.sqrt(dispersion)
+    # Private API
 
-    irrep = Q_mat[np.ix_(inactive_set, active_set)] @ Q_i
-    linear_term = np.zeros(Q_mat.shape[0])
-    N = rng.standard_normal((B, chol.shape[0])) @ chol.T
-    inact_lambda = lambda_val[inactive_set]
-    for i in range(path.shape[0]):
-        bias = irrep @ (restr_lambda * path.loc[i, 'signs'])
-        linear_term[active_set] = -path.loc[i,'signs'] * restr_lambda
-        q_active = linear_term[active_set] @ Q_i @ linear_term[active_set] / 2 # \|v\|^2_2 / 2 
-        soln, S = solve_lasso_adelie(linear_term, 0, Q_mat, new_lambda)
+    def _retrieve_law(self,
+                      contrast,
+                      method,
+                      dispersion=1):
 
-        value = -linear_term @ soln + S.devs[0] / 2 + np.fabs(inact_lambda * soln[inactive_set]).sum()  
-        print(q_active, 'huh')
-        value += q_active 
-        print(value, 'value')
-        #print((np.fabs((N + bias) / inact_lambda[None,:]).max(1)))
-        weights.append(np.exp(-value)) # 
-        weights_MC.append((np.fabs((N + bias) / inact_lambda[None,:]).max(1) < 1).mean())
-    print(weights, weights_MC, 'weights')
-    return weights, weights_MC
+        if (tuple(contrast), method, dispersion) not in self._cache:
+            path = truncation_path(self._restr_Q,
+                                   self._restr_soln,
+                                   self._restr_stat,
+                                   self._restr_lambda,
+                                   contrast,
+                                   restr_Qi=self._restr_Qi,
+                                   check_adelie=False)
 
+            chernoff, MC = self._approx_probability_signs(path,
+                                                          dispersion=dispersion,
+                                                          do_MC=method == 'MC')
+            if method == 'chernoff':
+                weights = chernoff
+            elif method == 'MC':
+                weights = MC
+            else:
+                raise ValueError('method for weights should be in ["chernoff", "MC"]')
 
+            L = [i[0] for i in path['intervals']]
+            R = [i[1] for i in path['intervals']]
+            scale = np.sqrt((contrast @ self._restr_Qi @ contrast) * dispersion)
+            law = truncated_gaussian(left=L,
+                                     right=R,
+                                     weights=weights,
+                                     scale=scale)
+            self._cache[(tuple(contrast), method, dispersion)] = (law, scale)
+        return self._cache[(tuple(contrast), method, dispersion)]
 
+    def _approx_probability_signs(self,
+                                  path,
+                                  dispersion=1,
+                                  do_MC=False):
 
+        (Q_mat,
+         active_set,
+         inactive_set,
+         lambda_val,
+         B) = (self.Q_mat,
+               self.active_set,
+               self._inactive_set,
+               self.lambda_val,
+               self.B)
 
+        restr_lambda = self._restr_lambda
+        new_lambda = lambda_val.copy()
+        new_lambda[active_set] = 0
 
+        weights = []
+        weights_MC = []
 
+        Q_i = self._restr_Qi
 
-if __name__ == "__main__":
+        irrep = self._irrep
+        linear_term = np.asfortranarray(np.zeros(Q_mat.shape[0]))
+        inact_lambda = lambda_val[inactive_set]
 
-    rng = np.random.default_rng()# 0)
-    test_intervals(n_features=200)
+        if do_MC: 
+            cond_cov = Q_mat - Q_mat[:,active_set] @ (Q_i @ Q_mat[active_set])
+            chol = np.linalg.cholesky(cond_cov[np.ix_(inactive_set, inactive_set)]) * np.sqrt(dispersion)
+            N = rng.standard_normal((B, chol.shape[0])) @ chol.T
+
+        for i in range(path.shape[0]):
+            sign_tuple = tuple(path.loc[i, 'signs'])
+            if sign_tuple not in self._sign_cache:
+                bias = irrep @ (restr_lambda * path.loc[i, 'signs'])
+                linear_term[active_set] = -path.loc[i,'signs'] * restr_lambda
+                q_active = linear_term[active_set] @ Q_i @ linear_term[active_set] / 2 # \|v\|^2_2 / 2 
+                soln, S = solve_lasso_adelie(linear_term, 0, Q_mat, new_lambda, progress_bar=False)
+
+                value = -linear_term @ soln + S.devs[0] / 2 + np.fabs(inact_lambda * soln[inactive_set]).sum()  
+                value += q_active 
+                weight = np.exp(-value)
+                if do_MC:
+                    weight_MC = (np.fabs((N + bias) / inact_lambda[None,:]).max(1) < 1).mean()
+                else:
+                    weight_MC = np.nan
+                self._sign_cache[sign_tuple] = (weight, weight_MC)
+            weight, weight_MC = self._sign_cache[sign_tuple]
+            weights.append(weight)
+            weights_MC.append(weight_MC)
+            
+        return weights, weights_MC
 
 
