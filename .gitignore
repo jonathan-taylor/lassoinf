@@ -50,3 +50,4 @@ share/python-wheels/
 .vscode/
 .idea/
 
+*~

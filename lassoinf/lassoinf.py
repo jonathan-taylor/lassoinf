@@ -3,9 +3,9 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from homotopy import (homotopy_path,
-                      solve_lasso_adelie)
-from truncated_gaussian import truncated_gaussian
+from .homotopy import (homotopy_path,
+                       solve_lasso_adelie)
+from .truncated_gaussian import truncated_gaussian
 
 '''
 Suppose out target is $\hat{\theta} = \eta'\bar{\beta}_E=\eta'Q_E^{-1}T_E$ with $T_E=X_E'y$ in OLS regression.

@@ -4,11 +4,16 @@ from ISLP.models import summarize
 import statsmodels.api as sm
 
 import adelie as ad
-from selected_lasso import LassoInference
+from lassoinf import LassoInference
 
 
-def test_intervals(n_features=30, dispersion=10, level=0.9, method='chernoff'):
+def simulate(n_features=30,
+             dispersion=10,
+             level=0.9,
+             method='chernoff',
+             seed=0):
 
+    rng = np.random.default_rng(seed)
     n, p = 5 * n_features, n_features
     X = [rng.standard_normal((n,))]
     for _ in range(p - 1):
@@ -45,8 +50,17 @@ def test_intervals(n_features=30, dispersion=10, level=0.9, method='chernoff'):
 
     return lasso_inf.summary(dispersion=est_dispersion, level=level, method=method), nominal
 
+def test_simulate(n_features=30,
+                  dispersion=10,
+                  level=0.9,
+                  method='chernoff',
+                  seed=0):
 
-
+    simulate(n_features=n_features,
+             dispersion=dispersion,
+             level=level,
+             method=method,
+             seed=seed)
 
 
 
