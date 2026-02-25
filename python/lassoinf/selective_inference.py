@@ -54,6 +54,15 @@ class SelectiveInference:
             'bar_theta': bar_theta
         }
 
+    def data_splitting_estimator(self, v: np.ndarray):
+        """
+        Computes the data splitting estimator and its variance.
+        """
+        params = self.compute_params(v)
+        variance = (v.T @ self.Q @ v) + params['bar_s']**2
+        estimator = params['theta_hat'] - params['bar_theta']
+        return estimator, variance
+
     def get_interval(self, v: np.ndarray, t: float, A: np.ndarray, b: np.ndarray):
         params = self.compute_params(v)
         

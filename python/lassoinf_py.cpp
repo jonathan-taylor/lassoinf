@@ -23,6 +23,7 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
         .def(py::init<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::MatrixXd>(),
              py::arg("Z"), py::arg("Z_noisy"), py::arg("Q"), py::arg("Q_noise"))
         .def("compute_params", &lassoinf::SelectiveInference::compute_params, py::arg("v"))
+        .def("data_splitting_estimator", &lassoinf::SelectiveInference::data_splitting_estimator, py::arg("v"))
         .def("get_interval", &lassoinf::SelectiveInference::get_interval, py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
         .def("get_weight", &lassoinf::SelectiveInference::get_weight, py::arg("v"), py::arg("A"), py::arg("b"));
 }

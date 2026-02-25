@@ -25,6 +25,8 @@ $$
 N = Z - \Sigma \eta (\eta'\Sigma \eta)^{-1}\hat{\theta} = Z - \Gamma \hat{\theta} = RZ.
 $$
 
++++
+
 We can condition on more if convenient of course. Conditioning on too much leads to intervals that 
 may be too short even if selection is trivial. For instance, we can condition on $Z+\omega$ (this is
 "data splitting / thinning" but then we are left only with the "second half" of the data to form unbiased estimates.
@@ -40,6 +42,11 @@ $$
 Hence the variance of the "thinned" estimator is
 $$
 \eta'\Sigma \eta + \eta'\Sigma \bar{\Sigma}^{-1}\Sigma \eta.
+$$
+
+Let's verify the independence of $Z+\omega$ and $Z-\Sigma \bar{\Sigma}^{-1}\omega$
+$$
+\text{Cov}(Z+\omega, Z-\Sigma \bar{\Sigma}^{-1}\omega) = \Sigma - \bar{\Sigma}\bar{\Sigma}^{-1}\Sigma = 0.
 $$
 
 In general, we can condition on anything linear function of $(Z+\omega)$ (assuming invertibility of $\Sigma, \bar{\Sigma}$ where necessary). 
@@ -58,10 +65,19 @@ We see then, that the *maximal* contrast of $Z+\omega$ we can condition on witho
 $N=RZ$. Of course, conditioning on $\sigma(RZ, R(Z+\omega))$ is equivalent to conditioning on $\sigma(RZ,R\omega)$.
 
 Conditioning on this pair of vectors restricts variation in our original joint law of $(Z,\omega)$ to a 2-dimensional affine plane
-with "linear" part given by $\eta'Z$ and $c'\omega$ where $c$ is chosen such that $\text{Cov}(c'\omega, R\omega) = c'\bar{\Sigma}R=0$. Of course, $c$ is defined
-only up to scaling which we can choose.  It is not difficult to verify that  we can (and will) take
+with "linear" part given by $\eta'Z$ and $c'\omega$ where $c$ is chosen such that $\text{Cov}(c'\omega, R\omega) = c'\bar{\Sigma}R'=0$. Of course, $c$ is defined
+only up to scaling which we can choose.  We can (and will) take
 $$
 c = \bar{\Sigma}^{-1}\Sigma \eta.
+$$
+
+Let's verify this claim
+$$
+\begin{aligned}
+c'\bar{\Sigma}R' &= c'\bar{\Sigma}(I - (\eta'\Sigma\eta)^{-1}\eta\eta'\Sigma) \\
+&= \eta'\Sigma \bar{\Sigma}^{-1} \bar{\Sigma}(I - (\eta'\Sigma\eta)^{-1}\eta\eta'\Sigma) \\
+&= 0
+\end{aligned}
 $$
 
 The computational complexity here is the cost of solving for $c$ in a linear system $\bar{\Sigma}c=\Sigma \eta$.
@@ -97,7 +113,26 @@ $$
 $$
 with $\bar{N}$ a linear functional of $R\omega$.
 
-```{code-cell} python
++++
+
+## Data splitting estimator
+
+The "sample splitting" estimator of {cite}`TianTaylor`, sometimes referred to
+as the "data thinning" estimator is found by constructing the unbiased estimate after conditioning on the full $(Z+\omega)$. This can be done 
+using the corresponding "half" of $Z+\omega$, i.e. $Z-\Sigma \bar{\Sigma}^{-1}\omega$.
+
+
+
+Hence, our data splitting estimator is
+$$
+\cup{\theta} = \eta'(Z - \Sigma \bar{\Sigma}^{-1}\omega) = \hat{\theta} - \bar{\omega}
+$$
+with variance (as expected from above)
+$$
+\eta'\Sigma \eta + \eta' \Sigma \bar{\Sigma}^{-1}\Sigma \eta.
+$$
+
+```{code-cell} ipython3
 import inspect
 import numpy as np
 from lassoinf.selective_inference import SelectiveInference
@@ -134,14 +169,14 @@ $$
 \bar{b}(N,\bar{N},\hat{\theta}) = b - A( N +  \bar{N} + \Gamma \hat{\theta}).
 $$
 
-```{code-cell} python
+```{code-cell} ipython3
 # Compute the truncation interval [L, U]
 print(inspect.getsource(SelectiveInference.get_interval))
 ```
 
-The conclusion follows from the fact that, as discussed in {cite}`LeeLasso` $\left\{\bar{\omega}: \bar{A} \bar{\omega} \leq \bar{b}(N_o,\bar{N}_o,t)\right\}$ is an interval $[L(N_o,\bar{N}_o, t), U(N_o, \bar{N}_o, t)]$. 
+The conclusion follows from the fact that, as discussed in {cite}`LeeLasso` $\left\{\bar{\omega}: \bar{A} \bar{\omega} \leq \bar{b}(N_o,\bar{N}_o,t)\right\}$ is an interval $[L(N_o,\bar{N}_o, t), U(N_o, \bar{N}_o, t)]$.
 
-```{code-cell} python
+```{code-cell} ipython3
 # Calculate the selection probability (weight)
 print(inspect.getsource(SelectiveInference.get_weight))
 ```
@@ -150,7 +185,7 @@ print(inspect.getsource(SelectiveInference.get_weight))
 
 Below is a Python implementation of the framework described above.
 
-```{code-cell} python
+```{code-cell} ipython3
 # The core dataclass holding the problem parameters
 source = inspect.getsource(SelectiveInference)
 print(source[:source.find("    def compute_params")].strip())
@@ -160,7 +195,7 @@ print(source[:source.find("    def compute_params")].strip())
 
 We can demonstrate the computation by instantiating the class and looking at the intermediate results.
 
-```{code-cell} python
+```{code-cell} ipython3
 # Simulation setup
 np.random.seed(42)
 n = 10
@@ -188,7 +223,7 @@ print("Variance bar_s:", params['bar_s'])
 
 And computing the interval $[L, U]$ given some constraints $AZ_{noisy} \leq b$:
 
-```{code-cell} python
+```{code-cell} ipython3
 # Example constraints: Z_noisy > 0 (or -Z_noisy <= 0)
 A = -np.eye(n)
 b = np.zeros(n)
@@ -226,7 +261,7 @@ plt.show()
 
 For performance-critical applications, a C++ implementation using Eigen is also available. It is mirrored from the Python logic and exposed via `pybind11`.
 
-```{code-cell} python
+```{code-cell} ipython3
 from lassoinf.lassoinf_cpp import SelectiveInference as SelectiveInferenceCPP
 
 # Instantiate C++ class
@@ -258,4 +293,3 @@ $$
 t \mapsto \Phi((\bar{U}(Z+\omega)-t)/s) - \Phi((\bar{L}(Z+\omega)-t)/s)
 $$
 with $s = \text{Var}(\bar{\theta} | \hat{\theta})$. These upper and lower limits are exactly the truncation intervals of {cite}`LeeLasso` when applied to the noisy data $Z+\omega$!
-
