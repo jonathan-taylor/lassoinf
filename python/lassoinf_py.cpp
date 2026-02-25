@@ -7,11 +7,13 @@
 namespace py = pybind11;
 
 void init_discrete_family(py::module_ &m);
+void init_gaussian_family(py::module_ &m);
 
 PYBIND11_MODULE(lassoinf_cpp, m) {
     m.doc() = "C++ implementation of SelectiveInference using Eigen and pybind11";
 
     init_discrete_family(m);
+    init_gaussian_family(m);
 
     py::class_<lassoinf::Params>(m, "Params")
         .def_readonly("gamma", &lassoinf::Params::gamma)
