@@ -102,10 +102,41 @@ class SelectiveInference:
         params_fixed = self.compute_params(v)
         bar_s = params_fixed['bar_s']
         
-        def weight_func(t, si_obj, v_vec, A_mat, b_vec, s_val):
-            L, U = si_obj.get_interval(v_vec, t, A_mat, b_vec)
-            if np.isnan(L) or np.isnan(U):
-                return 0.0
-            return norm.cdf(U / s_val) - norm.cdf(L / s_val)
+        alpha = A @ params_fixed['bar_gamma']
+        beta_0 = b - A @ (params_fixed['n_o'] + params_fixed['bar_n_o'])
+        beta_1 = -A @ params_fixed['gamma']
+        
+        pos_mask = alpha > 1e-10
+        neg_mask = alpha < -1e-10
+        zero_mask = np.abs(alpha) <= 1e-10
+        
+        def weight_func(t):
+            t_arr = np.asarray(t)
+            is_scalar = t_arr.ndim == 0
+            t_1d = np.atleast_1d(t_arr)
+            
+            # Compute beta for all t at once
+            # beta shape: (len(t_1d), len(beta_0))
+            beta = beta_0[None, :] + t_1d[:, None] * beta_1[None, :]
+            
+            L = np.full(t_1d.shape, -np.inf)
+            U = np.full(t_1d.shape, np.inf)
+            valid = np.ones(t_1d.shape, dtype=bool)
+            
+            if np.any(pos_mask):
+                U = np.min(beta[:, pos_mask] / alpha[pos_mask], axis=1)
+            if np.any(neg_mask):
+                L = np.max(beta[:, neg_mask] / alpha[neg_mask], axis=1)
+            if np.any(zero_mask):
+                valid &= ~np.any(beta[:, zero_mask] < -1e-10, axis=1)
+                
+            valid &= (L <= U)
+            
+            prob = np.zeros_like(t_1d, dtype=float)
+            if np.any(valid):
+                prob[valid] = norm.cdf(U[valid] / bar_s) - norm.cdf(L[valid] / bar_s)
+                prob[valid] = np.maximum(prob[valid], 0.0)
+                
+            return prob[0] if is_scalar else prob
 
-        return partial(weight_func, si_obj=self, v_vec=v, A_mat=A, b_vec=b, s_val=bar_s)
+        return weight_func

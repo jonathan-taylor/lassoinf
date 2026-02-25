@@ -2,7 +2,7 @@
 #include <pybind11/eigen.h>
 #include <pybind11/functional.h>
 #include <pybind11/stl.h>
-#include "lassoinf.hpp"
+#include "selective_inference.hpp"
 
 namespace py = pybind11;
 
@@ -29,5 +29,16 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
         .def("compute_params", &lassoinf::SelectiveInference::compute_params, py::arg("v"))
         .def("data_splitting_estimator", &lassoinf::SelectiveInference::data_splitting_estimator, py::arg("v"))
         .def("get_interval", &lassoinf::SelectiveInference::get_interval, py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
-        .def("get_weight", &lassoinf::SelectiveInference::get_weight, py::arg("v"), py::arg("A"), py::arg("b"));
+        .def("get_weight", [](const lassoinf::SelectiveInference& si, const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
+            auto func = si.get_weight(v, A, b);
+            return py::cpp_function([func](py::object t) -> py::object {
+                if (py::isinstance<py::float_>(t) || py::isinstance<py::int_>(t)) {
+                    Eigen::VectorXd t_vec(1);
+                    t_vec(0) = t.cast<double>();
+                    return py::cast(func(t_vec)(0));
+                } else {
+                    return py::cast(func(t.cast<Eigen::VectorXd>()));
+                }
+            });
+        }, py::arg("v"), py::arg("A"), py::arg("b"));
 }

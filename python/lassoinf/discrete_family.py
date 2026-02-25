@@ -1,3 +1,4 @@
+# COPYRIGHT Will Fithian, Jonathan Taylor 2014
 """
 
 This module contains a class for discrete 

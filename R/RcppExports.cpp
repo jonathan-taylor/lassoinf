@@ -1,5 +1,5 @@
 #include <RcppEigen.h>
-#include "../cpp/include/lassoinf.hpp"
+#include "../cpp/include/selective_inference.hpp"
 
 // [[Rcpp::depends(RcppEigen)]]
 

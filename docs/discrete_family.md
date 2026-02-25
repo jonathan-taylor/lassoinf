@@ -1,3 +1,15 @@
+---
+jupytext:
+  main_language: python
+  cell_metadata_filter: -all
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.19.1
+  formats: ipynb,md:myst
+---
+
 # Discrete Family
 
 The `discrete_family` module provides tools for working with 1-dimensional discrete exponential families. These are often used for exact (post-selection) hypothesis tests and confidence intervals.
@@ -6,7 +18,7 @@ The `discrete_family` module provides tools for working with 1-dimensional discr
 
 Here is an example evaluating a normal density on a grid and using a selection weight from `SelectiveInference`.
 
-```python
+```{code-cell}
 import numpy as np
 from scipy.stats import norm
 from lassoinf.selective_inference import SelectiveInference

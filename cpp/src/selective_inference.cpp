@@ -1,4 +1,4 @@
-#include "lassoinf.hpp"
+#include "selective_inference.hpp"
 
 namespace lassoinf {
 
@@ -58,25 +58,48 @@ std::pair<double, double> SelectiveInference::get_interval(const Eigen::VectorXd
     return {lower, upper};
 }
 
-std::function<double(double)> SelectiveInference::get_weight(const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const {
+std::function<Eigen::VectorXd(const Eigen::VectorXd&)> SelectiveInference::get_weight(const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const {
     Params p = compute_params(v);
     double bar_s = p.bar_s;
     
-    auto obj = *this;
+    Eigen::VectorXd alpha = A * p.bar_gamma;
+    Eigen::VectorXd beta_0 = b - A * (p.n_o + p.bar_n_o);
+    Eigen::VectorXd beta_1 = -A * p.gamma;
     
-    return [obj, v, A, b, bar_s](double t) -> double {
-        auto interval = obj.get_interval(v, t, A, b);
-        double L = interval.first;
-        double U = interval.second;
-        if (std::isnan(L) || std::isnan(U)) {
-            return 0.0;
-        }
+    return [alpha, beta_0, beta_1, bar_s](const Eigen::VectorXd& t) -> Eigen::VectorXd {
+        Eigen::VectorXd prob(t.size());
         
         auto norm_cdf = [](double x) {
             return 0.5 * std::erfc(-x / std::sqrt(2.0));
         };
         
-        return norm_cdf(U / bar_s) - norm_cdf(L / bar_s);
+        for (int j = 0; j < t.size(); ++j) {
+            double tj = t(j);
+            double L = -std::numeric_limits<double>::infinity();
+            double U = std::numeric_limits<double>::infinity();
+            bool valid = true;
+            
+            for (int i = 0; i < alpha.size(); ++i) {
+                double a_i = alpha(i);
+                double b_i = beta_0(i) + tj * beta_1(i);
+                if (a_i > 1e-10) {
+                    U = std::min(U, b_i / a_i);
+                } else if (a_i < -1e-10) {
+                    L = std::max(L, b_i / a_i);
+                } else if (b_i < -1e-10) {
+                    valid = false;
+                    break;
+                }
+            }
+            
+            if (valid && L <= U) {
+                prob(j) = std::max(0.0, norm_cdf(U / bar_s) - norm_cdf(L / bar_s));
+            } else {
+                prob(j) = 0.0;
+            }
+        }
+        
+        return prob;
     };
 }
 

@@ -33,7 +33,7 @@ public:
     std::pair<double, double> get_interval(const Eigen::VectorXd& v, double t, 
                                            const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const;
 
-    std::function<double(double)> get_weight(const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const;
+    std::function<Eigen::VectorXd(const Eigen::VectorXd&)> get_weight(const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const;
 
 private:
     Eigen::VectorXd Z_;

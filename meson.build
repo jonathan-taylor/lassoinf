@@ -15,7 +15,7 @@ py.install_sources(
 
 py.extension_module(
   'lassoinf_cpp',
-  'cpp/src/lassoinf.cpp',
+  'cpp/src/selective_inference.cpp',
   'cpp/src/discrete_family.cpp',
   'python/discrete_family_py.cpp',
   'python/lassoinf_py.cpp',
