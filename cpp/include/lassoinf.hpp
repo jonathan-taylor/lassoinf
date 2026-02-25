@@ -28,6 +28,8 @@ public:
 
     Params compute_params(const Eigen::VectorXd& v) const;
 
+    std::pair<double, double> data_splitting_estimator(const Eigen::VectorXd& v) const;
+
     std::pair<double, double> get_interval(const Eigen::VectorXd& v, double t, 
                                            const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const;
 

@@ -26,6 +26,13 @@ Params SelectiveInference::compute_params(const Eigen::VectorXd& v) const {
     return p;
 }
 
+std::pair<double, double> SelectiveInference::data_splitting_estimator(const Eigen::VectorXd& v) const {
+    Params p = compute_params(v);
+    double variance = v.dot(Q_ * v) + p.bar_s * p.bar_s;
+    double estimator = p.theta_hat - p.bar_theta;
+    return {estimator, variance};
+}
+
 std::pair<double, double> SelectiveInference::get_interval(const Eigen::VectorXd& v, double t, 
                                                            const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const {
     Params p = compute_params(v);

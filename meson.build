@@ -8,6 +8,7 @@ pybind11_dep = dependency('pybind11')
 
 py.install_sources(
   'python/lassoinf/__init__.py',
+  'python/lassoinf/discrete_family.py',
   'python/lassoinf/selective_inference.py',
   subdir: 'lassoinf'
 )
@@ -15,6 +16,8 @@ py.install_sources(
 py.extension_module(
   'lassoinf_cpp',
   'cpp/src/lassoinf.cpp',
+  'cpp/src/discrete_family.cpp',
+  'python/discrete_family_py.cpp',
   'python/lassoinf_py.cpp',
   include_directories: include_directories('cpp/include', 'subprojects/eigen'),
   dependencies: [pybind11_dep],
