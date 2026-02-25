@@ -97,6 +97,14 @@ $$
 $$
 with $\bar{N}$ a linear functional of $R\omega$.
 
+```{code-cell} python
+import inspect
+import numpy as np
+from lassoinf.selective_inference import SelectiveInference
+
+# Compute the required parameters for inference
+print(inspect.getsource(SelectiveInference.compute_params))
+```
 
 We have decomposed the joint law $(Z,\omega)$ into 4 independent pieces $(\hat{\theta}, N, \bar{\omega}, \bar{N})$ such that $\text{Var}(\hat{\theta} | N, \bar{N}) = \text{Var}(\hat{\theta})$. Hence,
 when selection is trivial the corresponding confidence intervals and $p$-values for testing $H_0:\eta'\zeta^*=\theta_0$ will be essentially as if we had done no selection.
@@ -125,7 +133,94 @@ with
 $$
 \bar{b}(N,\bar{N},\hat{\theta}) = b - A( N +  \bar{N} + \Gamma \hat{\theta}).
 $$
+
+```{code-cell} python
+# Compute the truncation interval [L, U]
+print(inspect.getsource(SelectiveInference.get_interval))
+```
+
 The conclusion follows from the fact that, as discussed in {cite}`LeeLasso` $\left\{\bar{\omega}: \bar{A} \bar{\omega} \leq \bar{b}(N_o,\bar{N}_o,t)\right\}$ is an interval $[L(N_o,\bar{N}_o, t), U(N_o, \bar{N}_o, t)]$. 
+
+```{code-cell} python
+# Calculate the selection probability (weight)
+print(inspect.getsource(SelectiveInference.get_weight))
+```
+
+## Implementation
+
+Below is a Python implementation of the framework described above.
+
+```{code-cell} python
+# The core dataclass holding the problem parameters
+source = inspect.getsource(SelectiveInference)
+print(source[:source.find("    def compute_params")].strip())
+```
+
+### Step-by-Step Computation
+
+We can demonstrate the computation by instantiating the class and looking at the intermediate results.
+
+```{code-cell} python
+# Simulation setup
+np.random.seed(42)
+n = 10
+Z = np.random.randn(n)
+Q = np.eye(n)
+gamma_val = 0.5
+Q_noise = (gamma_val**2) * Q
+omega = np.random.multivariate_normal(np.zeros(n), Q_noise)
+Z_noisy = Z + omega
+
+# Instantiate class
+si = SelectiveInference(Z, Z_noisy, Q, Q_noise)
+
+# Define contrast eta (v)
+v = np.zeros(n)
+v[0] = 1.0  # target is Z[0]
+
+# Compute parameters
+params = si.compute_params(v)
+
+print("Target theta_hat:", params['theta_hat'])
+print("Contrast c (should be eta under well-specified):", params['c'][:3], "...")
+print("Variance bar_s:", params['bar_s'])
+```
+
+And computing the interval $[L, U]$ given some constraints $AZ_{noisy} \leq b$:
+
+```{code-cell} python
+# Example constraints: Z_noisy > 0 (or -Z_noisy <= 0)
+A = -np.eye(n)
+b = np.zeros(n)
+
+# Observed value of theta_hat
+theta_obs = params['theta_hat']
+
+# Compute interval for bar_theta
+L, U = si.get_interval(v, theta_obs, A, b)
+print(f"Interval [L, U] for bar_theta: [{L:.4f}, {U:.4f}]")
+print(f"Observed bar_theta: {params['bar_theta']:.4f}")
+
+# Compute selection weight function
+weight_f = si.get_weight(v, A, b)
+print(f"Selection weight at theta_obs: {weight_f(theta_obs):.4f}")
+
+# Evaluate over a range of t values
+t_grid = np.linspace(theta_obs - 5, theta_obs + 5, 100)
+weights = [weight_f(t) for t in t_grid]
+
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.plot(t_grid, weights, label="Selection Weight", color="blue")
+ax.axvline(theta_obs, color="red", linestyle="--", label="Observed $\hat{\\theta}$")
+ax.set_xlabel("Target value $t$")
+ax.set_ylabel("Selection Probability")
+ax.set_title("Selection Weight Function")
+ax.legend()
+fig.tight_layout()
+plt.show()
+```
 
 ### Post-selection density under the well-specified assumption
 
