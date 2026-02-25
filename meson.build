@@ -1,0 +1,23 @@
+project('lassoinf', 'cpp',
+  version : '0.1.0',
+  default_options : ['warning_level=3', 'cpp_std=c++14'])
+
+py = import('python').find_installation(pure: false)
+
+pybind11_dep = dependency('pybind11')
+
+py.install_sources(
+  'lassoinf/__init__.py',
+  'lassoinf/selective_inference.py',
+  subdir: 'lassoinf'
+)
+
+py.extension_module(
+  'lassoinf_cpp',
+  'cpp/src/lassoinf.cpp',
+  'cpp/src/lassoinf_py.cpp',
+  include_directories: include_directories('cpp/include', 'subprojects/eigen'),
+  dependencies: [pybind11_dep],
+  subdir: 'lassoinf',
+  install: true
+)

@@ -1,0 +1,28 @@
+#include <pybind11/pybind11.h>
+#include <pybind11/eigen.h>
+#include <pybind11/functional.h>
+#include <pybind11/stl.h>
+#include "lassoinf.hpp"
+
+namespace py = pybind11;
+
+PYBIND11_MODULE(lassoinf_cpp, m) {
+    m.doc() = "C++ implementation of SelectiveInference using Eigen and pybind11";
+
+    py::class_<lassoinf::Params>(m, "Params")
+        .def_readonly("gamma", &lassoinf::Params::gamma)
+        .def_readonly("c", &lassoinf::Params::c)
+        .def_readonly("bar_gamma", &lassoinf::Params::bar_gamma)
+        .def_readonly("bar_s", &lassoinf::Params::bar_s)
+        .def_readonly("n_o", &lassoinf::Params::n_o)
+        .def_readonly("bar_n_o", &lassoinf::Params::bar_n_o)
+        .def_readonly("theta_hat", &lassoinf::Params::theta_hat)
+        .def_readonly("bar_theta", &lassoinf::Params::bar_theta);
+
+    py::class_<lassoinf::SelectiveInference>(m, "SelectiveInference")
+        .def(py::init<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::MatrixXd>(),
+             py::arg("Z"), py::arg("Z_noisy"), py::arg("Q"), py::arg("Q_noise"))
+        .def("compute_params", &lassoinf::SelectiveInference::compute_params, py::arg("v"))
+        .def("get_interval", &lassoinf::SelectiveInference::get_interval, py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
+        .def("get_weight", &lassoinf::SelectiveInference::get_weight, py::arg("v"), py::arg("A"), py::arg("b"));
+}

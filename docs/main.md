@@ -222,6 +222,30 @@ fig.tight_layout()
 plt.show()
 ```
 
+## C++ Implementation via pybind11
+
+For performance-critical applications, a C++ implementation using Eigen is also available. It is mirrored from the Python logic and exposed via `pybind11`.
+
+```{code-cell} python
+from lassoinf.lassoinf_cpp import SelectiveInference as SelectiveInferenceCPP
+
+# Instantiate C++ class
+si_cpp = SelectiveInferenceCPP(Z, Z_noisy, Q, Q_noise)
+
+# Compute parameters using C++
+params_cpp = si_cpp.compute_params(v)
+print("C++ Target theta_hat:", params_cpp.theta_hat)
+
+# Compare selection weight function
+weight_f_cpp = si_cpp.get_weight(v, A, b)
+print(f"C++ Selection weight at theta_obs: {weight_f_cpp(theta_obs):.4f}")
+
+# Cross-check weights
+weights_cpp = [weight_f_cpp(t) for t in t_grid]
+diff = np.abs(np.array(weights) - np.array(weights_cpp)).max()
+print(f"Maximum difference between Python and C++ weights: {diff:.2e}")
+```
+
 ### Post-selection density under the well-specified assumption
 
 Under the well-specified assumption with $c=\eta$ and $\bar{\Gamma}=\Gamma$ we see that $N + \bar{N} = L(Z+\omega)$ and $\Gamma \hat{\theta}+\bar{\Gamma}\bar{\omega} = \Gamma \eta'(Z+\omega)$ with $\eta'(Z+\omega)$ which we might call $\bar{\theta}$, a noisy
