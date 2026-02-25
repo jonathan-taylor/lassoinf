@@ -92,12 +92,18 @@ class SelectiveInference:
                 # Infeasible
                 return (np.nan, np.nan)
         
+        if lower > upper:
+            return (np.nan, np.nan)
+            
         return lower, upper
 
     def get_weight(self, v: np.ndarray, A: np.ndarray, b: np.ndarray):
         """
         Returns a function of t that computes the selection probability.
         """
+        A = np.atleast_2d(A)
+        b = np.atleast_1d(b).ravel()
+        
         # Precompute parts that don't depend on t
         params_fixed = self.compute_params(v)
         bar_s = params_fixed['bar_s']

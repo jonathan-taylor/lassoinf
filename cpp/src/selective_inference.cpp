@@ -55,6 +55,10 @@ std::pair<double, double> SelectiveInference::get_interval(const Eigen::VectorXd
         }
     }
     
+    if (lower > upper) {
+        return {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN()};
+    }
+    
     return {lower, upper};
 }
 
