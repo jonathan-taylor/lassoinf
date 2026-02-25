@@ -1,0 +1,142 @@
+---
+jupytext:
+  formats: ipynb,md:myst
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.19.1
+kernelspec:
+  name: python3
+  display_name: Python 3 (ipykernel)
+  language: python
+---
+
+# Inference for $\hat{\theta}=\eta'Z$ conditioned on selection of $\bar{Z}=Z+\omega$
+
+Suppose $Z \sim N(\zeta^*, \Sigma)$ and $\omega|Z \sim N(0, \bar{\Sigma})$. We're interested in conditional inference 
+on a target $\hat{\theta}=\eta'Z$ based on the joint law of $(Z,\omega)$ truncated to $\{(Z,\omega):A(Z+\omega) \leq b\}$. We could consider
+some soft truncation of the form $\pi(Z+\omega)$.
+but affine constraints are perhaps the most tractable.
+
+As in {cite}`LeeLasso` we will condition on additional information to make the distribution tractable and to eliminate
+dependence on nuisance parameters. This means we are essentially forced to condition on
+$$
+N = Z - \Sigma \eta (\eta'\Sigma \eta)^{-1}\hat{\theta} = Z - \Gamma \hat{\theta} = RZ.
+$$
+
+We can condition on more if convenient of course. Conditioning on too much leads to intervals that 
+may be too short even if selection is trivial. For instance, we can condition on $Z+\omega$ (this is
+"data splitting / thinning" but then we are left only with the "second half" of the data to form unbiased estimates.
+
+This second half is easily seen to be
+$$
+Z - \Sigma \bar{\Sigma}^{-1}\omega
+$$
+with variance
+$$
+\Sigma + \Sigma \bar{\Sigma}^{-1}\Sigma > \Sigma.
+$$
+Hence the variance of the "thinned" estimator is
+$$
+\eta'\Sigma \eta + \eta'\Sigma \bar{\Sigma}^{-1}\Sigma \eta.
+$$
+
+In general, we can condition on anything linear function of $(Z+\omega)$ (assuming invertibility of $\Sigma, \bar{\Sigma}$ where necessary). 
+But which contrasts will keep the nominal variance under trivial selection the same as $\text{Var}(\hat{\theta})$?
+
+It is not hard to see that conditioning on any linear contrast $v'(Z+\omega)$ such that $\text{Cov}(v'(Z+\omega), \hat{\theta} | N)=0$ preserves
+this "best case variance". Well, as $\text{Cov}(\hat{\theta},N)=0$
+$$
+\begin{aligned}
+\text{Cov}(v'(Z+\omega), \hat{\theta}|N) &= \text{Cov}(v'(Z+\omega), \hat{\theta})\\
+&= \text{Cov}(v'Z, \hat{\theta}).
+\end{aligned}
+$$
+
+We see then, that the *maximal* contrast of $Z+\omega$ we can condition on without affecting this "best" case variance is $R(Z+\omega)$ where 
+$N=RZ$. Of course, conditioning on $\sigma(RZ, R(Z+\omega))$ is equivalent to conditioning on $\sigma(RZ,R\omega)$.
+
+Conditioning on this pair of vectors restricts variation in our original joint law of $(Z,\omega)$ to a 2-dimensional affine plane
+with "linear" part given by $\eta'Z$ and $c'\omega$ where $c$ is chosen such that $\text{Cov}(c'\omega, R\omega) = c'\bar{\Sigma}R=0$. Of course, $c$ is defined
+only up to scaling which we can choose.  It is not difficult to verify that  we can (and will) take
+$$
+c = \bar{\Sigma}^{-1}\Sigma \eta.
+$$
+
+The computational complexity here is the cost of solving for $c$ in a linear system $\bar{\Sigma}c=\Sigma \eta$.
+
++++
+
+#### Decomposition of $\omega$ given $c$
+
+Having computed $c$, we can decompose $\omega$ as
+$$
+\omega - \bar{\Gamma} \cdot c'\omega + \bar{\Gamma} \cdot c'\omega
+$$
+with
+$$
+\bar{\Gamma} = (c'\bar{\Sigma}c)^{-1} \text{Cov}(\omega, c'\omega) = (\eta'\Sigma \bar{\Sigma}^{-1} \Sigma \eta)^{-1} \Sigma \eta
+$$
+
++++
+
+#### Well-specified assumption
+
+In certain scenarios, such as classical data splitting or other resampling and inference procedures such as {cite}`AssumptionLean` it may be the case that for some $\gamma > 0$
+$$
+\bar{\Sigma} = \gamma^2 \cdot \Sigma.
+$$
+**In this case we can take $c=\eta$ which implies $\bar{\Gamma}=\Gamma$.**
+
+### Reduced affine constraints
+
+Given $c$, we'll write $\bar{\omega}=c'\omega$, a centered univariate Gaussian with variance $c'\bar{\Sigma}c=\eta'\Sigma \bar{\Sigma}^{-1}\Sigma \eta = \bar{s}^2$. We can always write
+$$
+\omega = \left(\omega - (c'\bar{\Sigma}c)^{-1}\bar{\Sigma}c \cdot \bar{\omega} \right) + (c'\bar{\Sigma}c)^{-1}\bar{\Sigma}c \cdot \bar{\omega} = \bar{N} + \bar{\Gamma} \bar{\omega}
+$$
+with $\bar{N}$ a linear functional of $R\omega$.
+
+
+We have decomposed the joint law $(Z,\omega)$ into 4 independent pieces $(\hat{\theta}, N, \bar{\omega}, \bar{N})$ such that $\text{Var}(\hat{\theta} | N, \bar{N}) = \text{Var}(\hat{\theta})$. Hence,
+when selection is trivial the corresponding confidence intervals and $p$-values for testing $H_0:\eta'\zeta^*=\theta_0$ will be essentially as if we had done no selection.
+
+Our selection event can be rewritten as
+$$
+\left\{(\hat{\theta}, N, \bar{\omega}, \bar{N}): A\left(N + \Gamma \hat{\theta} + \bar{N} + \bar{\Gamma} \bar{\omega}\right) \leq b \right\}.
+$$
+Equivalently, fixing $(N,\bar{N})$ at observed values $(N_o, \bar{N}_o)$ this is
+$$
+\left\{(\hat{\theta}, \bar{\omega}): A (\Gamma \hat{\theta} + \bar{\Gamma} \bar{\omega}) \leq b - A(N_o + \bar{N}_o) \right\}
+$$
+
++++
+
+### Post-selection density
+
+Fixing $\hat{\theta}$ at some nominal density argument $t$ we can now compute the selective adjustment to the marginal law $N(\eta'\zeta^*, \eta'\Sigma \eta)$:
+$$
+\begin{aligned}
+t &\mapsto \mathbb{P} \left( \bar{A} \bar{\omega}\leq \bar{b}(N,\bar{N}, \hat{\theta}) \biggl| \hat{\theta}=t, N=N_o, \bar{N}=N_o\right) \\
+&= \Phi(U(N_o, \bar{N}_o, t)/\bar{s}) - \Phi(L(N_o, \bar{N}_o, t)/\bar{s}).
+\end{aligned}
+$$
+with
+$$
+\bar{b}(N,\bar{N},\hat{\theta}) = b - A( N +  \bar{N} + \Gamma \hat{\theta}).
+$$
+The conclusion follows from the fact that, as discussed in {cite}`LeeLasso` $\left\{\bar{\omega}: \bar{A} \bar{\omega} \leq \bar{b}(N_o,\bar{N}_o,t)\right\}$ is an interval $[L(N_o,\bar{N}_o, t), U(N_o, \bar{N}_o, t)]$. 
+
+### Post-selection density under the well-specified assumption
+
+Under the well-specified assumption with $c=\eta$ and $\bar{\Gamma}=\Gamma$ we see that $N + \bar{N} = L(Z+\omega)$ and $\Gamma \hat{\theta}+\bar{\Gamma}\bar{\omega} = \Gamma \eta'(Z+\omega)$ with $\eta'(Z+\omega)$ which we might call $\bar{\theta}$, a noisy
+estimate of our target. In this case, it is more natural to consider the equivalent law of $\hat{\theta}, \bar{\theta}$: 
+$$
+\left\{(\hat{\theta}, \bar{\theta}): A\bar{\theta} \leq b - AL(Z+\omega) \right\} = \left\{(\hat{\theta}, \bar{\theta}): \bar{\theta} \in [L(Z+\omega), U(Z+\omega)]\right\}
+$$
+In this case the adjustment to the selection density takes the form
+$$
+t \mapsto \Phi((\bar{U}(Z+\omega)-t)/s) - \Phi((\bar{L}(Z+\omega)-t)/s)
+$$
+with $s = \text{Var}(\bar{\theta} | \hat{\theta})$. These upper and lower limits are exactly the truncation intervals of {cite}`LeeLasso` when applied to the noisy data $Z+\omega$!
+
