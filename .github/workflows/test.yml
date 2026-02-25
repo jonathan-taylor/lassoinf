@@ -1,0 +1,51 @@
+# Run all tests
+
+name: Run tests (Linux)
+
+# Controls when the workflow will run
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Set up Python  ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install lassoinf
+      run: |
+        pip install --upgrade pip
+        pip install meson-python ninja meson pybind11 setuptools_scm pytest pandas joblib
+        pip install .
+
+    - name: Verify installed source
+      run: |
+        cd /tmp
+        python -c "import lassoinf.selective_inference; import inspect; print(inspect.getsourcefile(lassoinf.selective_inference)); print(''.join(open(inspect.getsourcefile(lassoinf.selective_inference)).readlines()[:20]))"
+
+    - name: Debug Installation
+      run: |
+        cd /tmp
+        python -c "import lassoinf; print(f'Location: {lassoinf.__file__}'); import os; print(f'Contents: {os.listdir(os.path.dirname(lassoinf.__file__))}')"
+
+    - name: Test lassoinf
+      run: |
+        mkdir empty_dir
+        cd empty_dir
+        python -m pytest ../tests --test-size=100
