@@ -107,7 +107,8 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
         .def_readonly("index", &lassoinf::InferenceResult::index)
         .def_readonly("beta_hat", &lassoinf::InferenceResult::beta_hat)
         .def_readonly("lower_conf", &lassoinf::InferenceResult::lower_conf)
-        .def_readonly("upper_conf", &lassoinf::InferenceResult::upper_conf);
+        .def_readonly("upper_conf", &lassoinf::InferenceResult::upper_conf)
+        .def_readonly("p_value", &lassoinf::InferenceResult::p_value);
 
     py::class_<lassoinf::LassoInference>(m, "LassoInference")
         .def(py::init<Eigen::VectorXd, Eigen::VectorXd, std::shared_ptr<lassoinf::LinearOperator>, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, std::shared_ptr<lassoinf::LinearOperator>, std::shared_ptr<lassoinf::LinearOperator>>(),

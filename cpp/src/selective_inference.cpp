@@ -271,8 +271,9 @@ LassoInference::LassoInference(Eigen::VectorXd beta_hat,
             auto weight_f = si.get_weight(v, *constraints_.A, constraints_.b);
             WeightedGaussianFamily wgf(theta_hat, sigma, {weight_f});
             auto interval = wgf.interval(theta_hat, 0.95);
+            double p_val = wgf.pvalue(0.0, "twosided", theta_hat);
             
-            results_.push_back({idx, beta_hat_(idx), interval.first, interval.second});
+            results_.push_back({idx, beta_hat_(idx), interval.first, interval.second, p_val});
         }
     }
 }

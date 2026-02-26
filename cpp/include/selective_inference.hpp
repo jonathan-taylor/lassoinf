@@ -150,6 +150,7 @@ struct InferenceResult {
     double beta_hat;
     double lower_conf;
     double upper_conf;
+    double p_value;
 };
 
 class SelectiveInference {

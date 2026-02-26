@@ -360,7 +360,11 @@ class LassoInference:
                 
                 # Compute the 95% confidence interval
                 lower, upper = wgf.interval(level=0.95)
-                self.intervals[j] = (lower, upper)
+                
+                # Compute the p-value for H0: theta = 0
+                p_val = wgf.pvalue(null_value=0, alternative='twosided')
+                
+                self.intervals[j] = (lower, upper, p_val)
 
     def summary(self):
         """
@@ -372,18 +376,20 @@ class LassoInference:
         beta_vals = [self.beta_hat[j] for j in indices]
         lowers = [self.intervals[j][0] for j in indices]
         uppers = [self.intervals[j][1] for j in indices]
+        p_vals = [self.intervals[j][2] for j in indices]
         
         data = {
             'index': indices,
             'beta_hat': beta_vals,
             'lower_conf': lowers,
-            'upper_conf': uppers
+            'upper_conf': uppers,
+            'p_value': p_vals
         }
         
         try:
             return pd.DataFrame(data)
         except ImportError:
             # Fallback to numpy array if pandas is not installed
-            res = np.column_stack([indices, beta_vals, lowers, uppers])
+            res = np.column_stack([indices, beta_vals, lowers, uppers, p_vals])
             return res
 
