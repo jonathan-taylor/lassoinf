@@ -19,7 +19,8 @@ dependencies = [
 [project.optional-dependencies]
 test = ['pytest',
         'pandas',
-        "joblib"]
+        "joblib",
+	"cvxpy"]
 dev = [
     "pytest",
     "scipy",
@@ -33,5 +34,6 @@ doc = [
     "jupytext",
     "jupyter-book",
     "matplotlib",
-    "rpy2"
+    "rpy2",
+    "cvxpy"
 ]
