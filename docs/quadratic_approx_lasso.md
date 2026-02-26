@@ -36,14 +36,18 @@ $$
 \frac{1}{2}(\beta - \beta^*_F)'\nabla^2 \bar{\ell}(\beta^*_F)(\beta-\beta^*_F) + \|D\beta\|_1
 $$
 with $\nabla \bar{\ell}(\beta^*_F)$ approximately normally distributed (depending on 
-the model we are using).
+the statistical model we are using).
 
 It is straightforward to check
 that in the squared-error case the following identity holds **for all $\beta$:**
 $$
-Z=X'y = \nabla \bar{\ell}(\beta) + Q\beta.
+Z=X'y = -\nabla \bar{\ell}(\beta) + \nabla^2 \bar{\ell}(\beta)\beta.
 $$
-This is discussed in {cite}`https://purl.stanford.edu/sm283fq0116` (Jelena's thesis) among other places.
+
+The LASSO problem then takes the form
+$$
+\text{minimize}_{\beta} -\beta'Z + \frac{1}{2} \beta'Q\beta + \|D\beta\|_1.
+$$
 
 ## M-estimator form
 
@@ -54,27 +58,160 @@ $$
 $$
 for some sufficiently smooth $\ell$ with the classic lasso setting $\ell(r)=r^2$.
 
-Given a solution $\hat{\beta}$ we can find an equivalent quadratic LASSO problem that
-$\hat{\beta}$ similarly solves. Specifically, set
+Given a solution $\hat{\beta}$, set, as above
 $$
 \begin{aligned}
-Q &= Q(\hat{\beta}) \\
-&= \nabla^2 \left(\sum_{i=1}^n \ell(Y_i, X_i'\hat{\beta}) \right) \\
-\cup{Z} &= Z(\hat{\beta}) \\
-&= - \nabla \left(\sum_{i=1}^n \ell(Y_i, X_i'\hat{\beta}) \right) + Q \hat{\beta} \\
-&= - \nabla \left(\sum_{i=1}^n \ell(Y_i, X_i'\hat{\beta}) \right) + Q[:,E] \hat{\beta}_E
+Z &= Z(\hat{\beta}) \\
+& -\nabla \bar{\ell}(\hat{\beta}) + \nabla^2 \bar{\ell}(\hat{\beta})\hat{\beta} \\
+&= \hat{u} + \nabla^2 \bar{\ell}(\hat{\beta})\hat{\beta}.
 \end{aligned}
 $$
-with $E=E(\hat{\beta})$ the support of $\hat{\beta}$. 
-
-
-
-As in {cite}`CJS` set our one-step estimator of $\beta^*_E$ to be
+Fixing $Q=Q(\hat{\beta}) = \nabla^2 \bar{\ell}(\hat{\beta})$, $Z$ is an
+affine function of $(\hat{\beta}, \hat{u}) \equiv (\hat{\beta}_E, \hat{u}_{-E})$ with inverse
 $$
-\bar{\beta}_E = \hat{\beta}_E + Q[E,E]^{-1}D[E]
+\begin{aligned}
+\hat{\beta}_E &= Q_{E,E}^{-1}(Z_E - u_E) \\
+\hat{u}_{-E} &= Z_{-E} - Q_{-E,E}\hat{\beta}_E.
+\end{aligned}
+$$
+with $u_E=D[E] \cdot \text{sign}(\hat{\beta}_E)$.
+It is straightforward to verify that $\hat{\beta}$ solves the problem
+$$
+\text{minimize}_{\beta} - \beta'Z + \frac{1}{2}\beta'Q\beta+ \|D\beta\|_1.
 $$
 
-+++
+### Affine constraints
+
+Given $Q$, the affine constraints of {cite}`LeeLasso` can therefore be expressed in terms of $Z$
+as
+$$
+\begin{aligned}
+\text{sign}\left(Q_{E,E}^{-1}(Z_E - u_E)\right) &= \text{sign}(\hat{\beta}_E) \\
+\|D_{-E}^{-1}\left(Z_{-E} - Q_{-E,E}Q_{E,E}^{-1}Z_E + Q_{-E,E}Q_{E,E}^{-1}u_E\right) \|_{\infty} \leq 1
+\end{aligned}
+$$
+
+## Upper and lower limits
+
+Packages such as `glmnet` offer the additional possibility to impose hard constraints on $\beta_j$ of the form $\beta_j \in [L_j,U_j]$
+with $L_j \in [-\infty, 0]$ and $U_j \in [0, \infty]$. This leads to the (quadratic) problem
+$$
+\text{minimize}_{\beta: \beta \in [L, U]} -\beta'Z + \frac{1}{2} \beta'Q\beta + \|D\beta\|_{-1}.
+$$
+
+## Implementation
+
+This modifies the affine constraints of the KKT somewhat but not substantially. In this context,
+the usual notion of *active set* $E$ is best replaced with the notion of *free set* (i.e. those
+coordinates whose values are not in $\{L_j,O, U_j\}$. The function below
+takes a triple $(\hat{\beta}, \nabla \bar{\ell}(\hat{\beta}), \nabla^2 \bar{l}(\hat{\beta})$ as well
+as the problem specifications $D, U, L$ and constructs the corresponding set of affine constraints analogous
+to those in {cite}`LeeLasso`.
+
+```{code-cell}
+
+def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol=1e-6):
+    """
+    Derives the linear constraints AZ <= b characterizing the polytope where
+    the active set, signs, and bound-activations of the Lasso remain constant.
+    """
+
+    # reconstruct Z from solution, gradient and Hessian
+    
+    Z = -G + Q @ beta_hat
+    n = Q.shape[0]
+    L = np.full(n, -np.inf) if L is None else np.asarray(L)
+    U = np.full(n, np.inf) if U is None else np.asarray(U)
+
+    E = []
+    E_c = []
+    s_E = []
+    v_Ec = []
+    g_min = []
+    g_max = []
+
+    for j in range(n):
+        beta_val = beta_hat[j]
+        at_L = (beta_val <= L[j] + tol)
+        at_U = (beta_val >= U[j] - tol)
+        at_0 = (abs(beta_val) <= tol)
+
+        if not at_L and not at_U and not at_0:
+            E.append(j)
+            s_E.append(np.sign(beta_val))
+        else:
+            E_c.append(j)
+            if at_0: v_j = 0.0
+            elif at_U: v_j = U[j]
+            else: v_j = L[j]
+            v_Ec.append(v_j)
+
+            dj = D_diag[j]
+            gmin, gmax = -np.inf, np.inf
+            if at_0:
+                if L[j] < -tol: gmin = -dj
+                if U[j] > tol:  gmax = dj
+            elif at_U: gmin = dj
+            elif at_L: gmax = -dj
+
+            g_min.append(gmin)
+            g_max.append(gmax)
+
+    E = np.array(E, dtype=int)
+    E_c = np.array(E_c, dtype=int)
+    s_E = np.array(s_E)
+    v_Ec = np.array(v_Ec)
+    g_min = np.array(g_min)
+    g_max = np.array(g_max)
+
+    A_list, b_list = [], []
+    E_F = np.eye(n)[E_c] if len(E_c) > 0 else np.zeros((0, n))
+
+    if len(E) > 0:
+        Q_EE = Q[np.ix_(E, E)]
+        Q_EEc = Q[np.ix_(E, E_c)] if len(E_c) > 0 else np.zeros((len(E), 0))
+        W = np.linalg.inv(Q_EE)
+
+	#E_M = np.eye(n)[E] if len(E) > 0 else np.zeros((0, n))
+        H_E = W #@ E_M
+        c_E = W @ (Q_EEc @ v_Ec + D_diag[E] * s_E)
+
+        A_list.append(-np.diag(s_E) @ H_E)
+        b_list.append(-np.diag(s_E) @ c_E)
+
+        for k, j in enumerate(E):
+            if s_E[k] == 1 and U[j] < np.inf:
+                A_list.append(H_E[k:k+1, :])
+                b_list.append(np.array([U[j] + c_E[k]]))
+            elif s_E[k] == -1 and L[j] > -np.inf:
+                A_list.append(-H_E[k:k+1, :])
+                b_list.append(np.array([-L[j] - c_E[k]]))
+    else:
+        H_E = np.zeros((0, n))
+        c_E = np.zeros(0)
+
+    if len(E_c) > 0:
+        Q_EcE = Q[np.ix_(E_c, E)] if len(E) > 0 else np.zeros((len(E_c), 0))
+        Q_EcEc = Q[np.ix_(E_c, E_c)]
+
+        H_Ec = E_F - Q_EcE @ H_E
+        c_Ec = Q_EcE @ c_E - Q_EcEc @ v_Ec
+
+        for k, j in enumerate(E_c):
+            if g_max[k] < np.inf:
+                A_list.append(H_Ec[k:k+1, :])
+                b_list.append(np.array([g_max[k] - c_Ec[k]]))
+            if g_min[k] > -np.inf:
+                A_list.append(-H_Ec[k:k+1, :])
+                b_list.append(np.array([-g_min[k] + c_Ec[k]]))
+
+    A = np.vstack(A_list) if A_list else np.zeros((0, n))
+    b = np.concatenate(b_list) if b_list else np.zeros(0)
+
+    return A, b, E, E_c, s_E, v_Ec
+```
+
+
 
 We seek the residual of the stacked vector $X_{stack} = [Z, \bar{Z}]^\top$ after projecting onto the basis $V = [\hat{\theta}, W]^\top$.
 

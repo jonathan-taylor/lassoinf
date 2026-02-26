@@ -17,12 +17,14 @@ py.install_sources(
 py.install_sources(
   'python/lassoinf/operators/__init__.py',
   'python/lassoinf/operators/composite.py',
+  'python/lassoinf/operators/xtvx.py',
   subdir: 'lassoinf/operators'
 )
 
 py.extension_module(
   'lassoinf_cpp',
   'cpp/src/selective_inference.cpp',
+  'cpp/src/lasso_post_selection_constraints.cpp',
   'cpp/src/discrete_family.cpp',
   'cpp/src/gaussian_family.cpp',
   'python/discrete_family_py.cpp',

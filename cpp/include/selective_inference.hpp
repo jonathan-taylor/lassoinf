@@ -29,6 +29,7 @@ public:
     virtual Eigen::Index rows() const = 0;
     virtual Eigen::Index cols() const = 0;
     virtual Eigen::VectorXd multiply(const Eigen::VectorXd& x) const = 0;
+    virtual Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& x) const = 0;
 };
 
 // Wrapper for standard Dense Matrices
@@ -39,6 +40,9 @@ public:
     Eigen::Index cols() const override { return mat_.cols(); }
     Eigen::VectorXd multiply(const Eigen::VectorXd& x) const override {
         return mat_ * x;
+    }
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& x) const override {
+        return mat_.transpose() * x;
     }
     const Eigen::MatrixXd& mat() const { return mat_; }
 private:
@@ -56,14 +60,14 @@ struct CompositeComponent {
 // Matrix-Free operator wrapping a list of components
 class CompositeOperator : public LinearOperator {
 public:
-    CompositeOperator(Eigen::Index size, std::vector<CompositeComponent> components) 
-        : size_(size), components_(std::move(components)) {}
+    CompositeOperator(Eigen::Index rows, Eigen::Index cols, std::vector<CompositeComponent> components) 
+        : rows_(rows), cols_(cols), components_(std::move(components)) {}
 
-    Eigen::Index rows() const override { return size_; }
-    Eigen::Index cols() const override { return size_; }
+    Eigen::Index rows() const override { return rows_; }
+    Eigen::Index cols() const override { return cols_; }
 
     Eigen::VectorXd multiply(const Eigen::VectorXd& x) const override {
-        Eigen::VectorXd res = Eigen::VectorXd::Zero(size_);
+        Eigen::VectorXd res = Eigen::VectorXd::Zero(rows_);
         for (const auto& comp : components_) {
             if (comp.S.nonZeros() > 0) {
                 res += comp.S * x;
@@ -78,10 +82,68 @@ public:
         return res;
     }
 
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& x) const override {
+        Eigen::VectorXd res = Eigen::VectorXd::Zero(cols_);
+        for (const auto& comp : components_) {
+            if (comp.S.nonZeros() > 0) {
+                res += comp.S.transpose() * x;
+            }
+            if (comp.V.cols() > 0) {
+                res += comp.V * (comp.U.transpose() * x);
+            }
+            if (comp.b.size() > 0) {
+                res += comp.b.cwiseProduct(x);
+            }
+        }
+        return res;
+    }
+
 private:
-    Eigen::Index size_;
+    Eigen::Index rows_;
+    Eigen::Index cols_;
     std::vector<CompositeComponent> components_;
 };
+
+class XTVXOperator : public LinearOperator {
+public:
+    XTVXOperator(Eigen::MatrixXd X, std::shared_ptr<LinearOperator> V)
+        : X_(std::move(X)), V_(std::move(V)) {}
+
+    Eigen::Index rows() const override { return X_.cols(); }
+    Eigen::Index cols() const override { return X_.cols(); }
+
+    Eigen::VectorXd multiply(const Eigen::VectorXd& x) const override {
+        return X_.transpose() * V_->multiply(X_ * x);
+    }
+
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& x) const override {
+        // (X^T V X)^T = X^T V^T X
+        return X_.transpose() * V_->multiply_transpose(X_ * x);
+    }
+
+private:
+    Eigen::MatrixXd X_;
+    std::shared_ptr<LinearOperator> V_;
+};
+
+struct LassoConstraints {
+    std::shared_ptr<CompositeOperator> A;
+    Eigen::VectorXd b;
+    std::vector<int> E;
+    std::vector<int> E_c;
+    Eigen::VectorXd s_E;
+    Eigen::VectorXd v_Ec;
+};
+
+LassoConstraints lasso_post_selection_constraints(
+    const Eigen::VectorXd& beta_hat,
+    const Eigen::VectorXd& G,
+    std::shared_ptr<LinearOperator> Q,
+    const Eigen::VectorXd& D_diag,
+    const Eigen::VectorXd& L, // Empty vector means None
+    const Eigen::VectorXd& U, // Empty vector means None
+    double tol = 1e-6
+);
 
 class SelectiveInference {
 public:

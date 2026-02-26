@@ -167,3 +167,129 @@ class SelectiveInference:
             return prob[0] if is_scalar else prob
 
         return weight_func
+
+def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol=1e-6):
+    """
+    Derives the linear constraints AZ <= b characterizing the polytope where
+    the active set, signs, and bound-activations of the Lasso remain constant.
+    Returns A as a CompositeOperator to support matrix-free operations.
+    """
+    from .operators.composite import CompositeOperator
+    import scipy.sparse as sp
+
+    n = Q.shape[0] if hasattr(Q, 'shape') else len(beta_hat)
+    L_bound = np.full(n, -np.inf) if L is None else np.asarray(L)
+    U_bound = np.full(n, np.inf) if U is None else np.asarray(U)
+
+    E = []
+    E_c = []
+    s_E = []
+    v_Ec = []
+    g_min = []
+    g_max = []
+
+    for j in range(n):
+        beta_val = beta_hat[j]
+        at_L = (beta_val <= L_bound[j] + tol)
+        at_U = (beta_val >= U_bound[j] - tol)
+        at_0 = (abs(beta_val) <= tol)
+
+        if not at_L and not at_U and not at_0:
+            E.append(j)
+            s_E.append(np.sign(beta_val))
+        else:
+            E_c.append(j)
+            if at_0: v_j = 0.0
+            elif at_U: v_j = U_bound[j]
+            else: v_j = L_bound[j]
+            v_Ec.append(v_j)
+
+            dj = D_diag[j]
+            gmin, gmax = -np.inf, np.inf
+            if at_0:
+                if L_bound[j] < -tol: gmin = -dj
+                if U_bound[j] > tol:  gmax = dj
+            elif at_U: gmin = dj
+            elif at_L: gmax = -dj
+
+            g_min.append(gmin)
+            g_max.append(gmax)
+
+    E = np.array(E, dtype=int)
+    E_c = np.array(E_c, dtype=int)
+    s_E = np.array(s_E)
+    v_Ec = np.array(v_Ec)
+    g_min = np.array(g_min)
+    g_max = np.array(g_max)
+
+    S_list, U_list, b_list = [], [], []
+
+    if len(E) > 0:
+        E_M = np.zeros((n, len(E)))
+        for i, j in enumerate(E): E_M[j, i] = 1.0
+        
+        Q_E = Q @ E_M if not isinstance(Q, np.ndarray) else Q[:, E]
+        Q_EE = Q_E[E, :]
+        Q_EcE = Q_E[E_c, :]
+        
+        W = np.linalg.inv(Q_EE)
+        
+        c_E = W @ (Q_EcE.T @ v_Ec + D_diag[E] * s_E)
+        
+        U_list.append(-np.diag(s_E) @ W)
+        S_list.append(sp.csr_matrix((len(E), n)))
+        b_list.append(-np.diag(s_E) @ c_E)
+
+        for k, j in enumerate(E):
+            if s_E[k] == 1 and U_bound[j] < np.inf:
+                U_list.append(W[k:k+1, :])
+                S_list.append(sp.csr_matrix((1, n)))
+                b_list.append(np.array([U_bound[j] + c_E[k]]))
+            elif s_E[k] == -1 and L_bound[j] > -np.inf:
+                U_list.append(-W[k:k+1, :])
+                S_list.append(sp.csr_matrix((1, n)))
+                b_list.append(np.array([-L_bound[j] - c_E[k]]))
+    else:
+        Q_EcE = np.zeros((len(E_c), 0))
+        W = np.zeros((0, 0))
+        c_E = np.zeros(0)
+
+    if len(E_c) > 0:
+        V_vec = np.zeros(n)
+        V_vec[E_c] = v_Ec
+        Q_V = Q @ V_vec if not isinstance(Q, np.ndarray) else Q @ V_vec
+        Q_EcEc_v_Ec = Q_V[E_c]
+        
+        U_part = - Q_EcE @ W if len(E) > 0 else np.zeros((len(E_c), 0))
+        c_Ec = Q_EcE @ c_E - Q_EcEc_v_Ec if len(E) > 0 else - Q_EcEc_v_Ec
+
+        for k, j in enumerate(E_c):
+            if g_max[k] < np.inf:
+                U_list.append(U_part[k:k+1, :])
+                row = sp.csr_matrix(([1.0], ([0], [j])), shape=(1, n))
+                S_list.append(row)
+                b_list.append(np.array([g_max[k] - c_Ec[k]]))
+            if g_min[k] > -np.inf:
+                U_list.append(-U_part[k:k+1, :])
+                row = sp.csr_matrix(([-1.0], ([0], [j])), shape=(1, n))
+                S_list.append(row)
+                b_list.append(np.array([-g_min[k] + c_Ec[k]]))
+
+    if not U_list:
+        m = 0
+        S_final = sp.csr_matrix((0, n))
+        U_final = np.zeros((0, len(E)))
+        b_final = np.zeros(0)
+    else:
+        S_final = sp.vstack(S_list)
+        U_final = np.vstack(U_list)
+        b_final = np.concatenate(b_list)
+        m = S_final.shape[0]
+
+    V_final = np.zeros((n, len(E)))
+    for i, j in enumerate(E):
+        V_final[j, i] = 1.0
+
+    A = CompositeOperator((m, n), S=S_final, U=U_final, V=V_final)
+    return A, b_final, E, E_c, s_E, v_Ec
+    
