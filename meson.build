@@ -14,6 +14,12 @@ py.install_sources(
   subdir: 'lassoinf'
 )
 
+py.install_sources(
+  'python/lassoinf/operators/__init__.py',
+  'python/lassoinf/operators/composite.py',
+  subdir: 'lassoinf/operators'
+)
+
 py.extension_module(
   'lassoinf_cpp',
   'cpp/src/selective_inference.cpp',
@@ -24,6 +30,5 @@ py.extension_module(
   'python/lassoinf_py.cpp',
   include_directories: include_directories('cpp/include', 'subprojects/eigen'),
   dependencies: [pybind11_dep],
-  subdir: 'lassoinf',
   install: true
 )

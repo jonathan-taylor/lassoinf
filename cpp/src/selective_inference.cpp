@@ -1,21 +1,128 @@
 #include "selective_inference.hpp"
+#include <Eigen/IterativeLinearSolvers>
 
 namespace lassoinf {
 
 SelectiveInference::SelectiveInference(Eigen::VectorXd Z, 
                                        Eigen::VectorXd Z_noisy, 
+                                       std::shared_ptr<LinearOperator> Q, 
+                                       std::shared_ptr<LinearOperator> Q_noise)
+    : Z_(std::move(Z)), Z_noisy_(std::move(Z_noisy)), Q_(std::move(Q)), Q_noise_(std::move(Q_noise)) {}
+
+SelectiveInference::SelectiveInference(Eigen::VectorXd Z, 
+                                       Eigen::VectorXd Z_noisy, 
                                        Eigen::MatrixXd Q, 
                                        Eigen::MatrixXd Q_noise)
-    : Z_(std::move(Z)), Z_noisy_(std::move(Z_noisy)), Q_(std::move(Q)), Q_noise_(std::move(Q_noise)) {}
+    : Z_(std::move(Z)), Z_noisy_(std::move(Z_noisy)), 
+      Q_(std::make_shared<DenseOperator>(std::move(Q))), 
+      Q_noise_(std::make_shared<DenseOperator>(std::move(Q_noise))) {}
+
+} // namespace lassoinf
+
+namespace lassoinf {
+class EigenLinearOperatorProxy;
+}
+
+namespace Eigen {
+namespace internal {
+  template<>
+  struct traits<lassoinf::EigenLinearOperatorProxy> : public Eigen::internal::traits<Eigen::SparseMatrix<double>> {};
+}
+}
+
+namespace lassoinf {
+
+// A proxy class to allow Eigen's ConjugateGradient to work with our polymorphic LinearOperator
+class EigenLinearOperatorProxy : public Eigen::EigenBase<EigenLinearOperatorProxy> {
+public:
+    typedef double Scalar;
+    typedef double RealScalar;
+    typedef Eigen::Index StorageIndex;
+    enum {
+        ColsAtCompileTime = Eigen::Dynamic,
+        MaxColsAtCompileTime = Eigen::Dynamic,
+        IsRowMajor = false
+    };
+
+    using Index = Eigen::Index;
+    explicit EigenLinearOperatorProxy(const LinearOperator* op) : op_(op) {}
+
+    Index rows() const { return op_->rows(); }
+    Index cols() const { return op_->cols(); }
+
+    template<typename Rhs>
+    Eigen::Product<EigenLinearOperatorProxy, Rhs, Eigen::AliasFreeProduct> operator*(const Eigen::MatrixBase<Rhs>& x) const {
+        return Eigen::Product<EigenLinearOperatorProxy, Rhs, Eigen::AliasFreeProduct>(*this, x.derived());
+    }
+
+    Eigen::VectorXd multiply(const Eigen::VectorXd& x) const {
+        return op_->multiply(x);
+    }
+private:
+    const LinearOperator* op_;
+};
+
+} // namespace lassoinf
+
+namespace Eigen {
+namespace internal {
+  template<typename Rhs>
+  struct generic_product_impl<lassoinf::EigenLinearOperatorProxy, Rhs, SparseShape, DenseShape, GemvProduct>
+  : generic_product_impl_base<lassoinf::EigenLinearOperatorProxy, Rhs, generic_product_impl<lassoinf::EigenLinearOperatorProxy, Rhs>>
+  {
+    typedef typename Product<lassoinf::EigenLinearOperatorProxy, Rhs>::Scalar Scalar;
+
+    template<typename Dest>
+    static void scaleAndAddTo(Dest& dst, const lassoinf::EigenLinearOperatorProxy& lhs, const Rhs& rhs, const Scalar& alpha)
+    {
+      dst += alpha * lhs.multiply(rhs);
+    }
+  };
+}
+}
+
+namespace lassoinf {
+
+Eigen::VectorXd SelectiveInference::solve_contrast(const Eigen::VectorXd& v) const {
+    Eigen::VectorXd Q_v = Q_->multiply(v);
+
+    // If Q_noise is just a dense matrix, we can use a direct solver for efficiency
+    if (auto dense_op = dynamic_cast<const DenseOperator*>(Q_noise_.get())) {
+        return dense_op->mat().colPivHouseholderQr().solve(Q_v);
+    }
+
+    // Otherwise, use Conjugate Gradient for matrix-free / composite operators
+    EigenLinearOperatorProxy proxy(Q_noise_.get());
+    Eigen::ConjugateGradient<EigenLinearOperatorProxy, Eigen::Lower|Eigen::Upper, Eigen::IdentityPreconditioner> cg;
+    cg.compute(proxy);
+    Eigen::VectorXd c = cg.solve(Q_v);
+    
+    if (cg.info() != Eigen::Success) {
+        throw std::runtime_error("Conjugate Gradient did not converge in solve_contrast");
+    }
+    
+    return c;
+}
+
+std::pair<double, double> SelectiveInference::data_splitting_estimator(const Eigen::VectorXd& v) const {
+    Params p = compute_params(v);
+    double variance = v.dot(Q_->multiply(v)) + std::pow(p.bar_s, 2);
+    double estimator = p.theta_hat - p.bar_theta;
+    return {estimator, variance};
+}
 
 Params SelectiveInference::compute_params(const Eigen::VectorXd& v) const {
     Params p;
-    double v_sigma_v = v.dot(Q_ * v);
-    p.gamma = (Q_ * v) / v_sigma_v;
-    p.c = Q_noise_.colPivHouseholderQr().solve(Q_ * v);
-    double bar_s2 = p.c.dot(Q_noise_ * p.c);
+    Eigen::VectorXd Q_v = Q_->multiply(v);
+    double v_sigma_v = v.dot(Q_v);
+    
+    p.gamma = Q_v / v_sigma_v;
+    p.c = solve_contrast(v);
+    
+    Eigen::VectorXd Q_noise_c = Q_noise_->multiply(p.c);
+    double bar_s2 = p.c.dot(Q_noise_c);
     p.bar_s = std::sqrt(bar_s2);
-    p.bar_gamma = (Q_ * v) / bar_s2;
+    p.bar_gamma = Q_v / bar_s2;
     p.theta_hat = v.dot(Z_);
     p.n_o = Z_ - p.gamma * p.theta_hat;
     
@@ -24,13 +131,6 @@ Params SelectiveInference::compute_params(const Eigen::VectorXd& v) const {
     p.bar_n_o = omega - p.bar_gamma * p.bar_theta;
     
     return p;
-}
-
-std::pair<double, double> SelectiveInference::data_splitting_estimator(const Eigen::VectorXd& v) const {
-    Params p = compute_params(v);
-    double variance = v.dot(Q_ * v) + p.bar_s * p.bar_s;
-    double estimator = p.theta_hat - p.bar_theta;
-    return {estimator, variance};
 }
 
 std::pair<double, double> SelectiveInference::get_interval(const Eigen::VectorXd& v, double t, 
@@ -66,44 +166,25 @@ std::function<Eigen::VectorXd(const Eigen::VectorXd&)> SelectiveInference::get_w
     Params p = compute_params(v);
     double bar_s = p.bar_s;
     
-    Eigen::VectorXd alpha = A * p.bar_gamma;
-    Eigen::VectorXd beta_0 = b - A * (p.n_o + p.bar_n_o);
-    Eigen::VectorXd beta_1 = -A * p.gamma;
+    auto obj = *this;
     
-    return [alpha, beta_0, beta_1, bar_s](const Eigen::VectorXd& t) -> Eigen::VectorXd {
-        Eigen::VectorXd prob(t.size());
-        
+    return [obj, v, A, b, bar_s](const Eigen::VectorXd& t_vec) -> Eigen::VectorXd {
+        Eigen::VectorXd result(t_vec.size());
         auto norm_cdf = [](double x) {
             return 0.5 * std::erfc(-x / std::sqrt(2.0));
         };
-        
-        for (int j = 0; j < t.size(); ++j) {
-            double tj = t(j);
-            double L = -std::numeric_limits<double>::infinity();
-            double U = std::numeric_limits<double>::infinity();
-            bool valid = true;
-            
-            for (int i = 0; i < alpha.size(); ++i) {
-                double a_i = alpha(i);
-                double b_i = beta_0(i) + tj * beta_1(i);
-                if (a_i > 1e-10) {
-                    U = std::min(U, b_i / a_i);
-                } else if (a_i < -1e-10) {
-                    L = std::max(L, b_i / a_i);
-                } else if (b_i < -1e-10) {
-                    valid = false;
-                    break;
-                }
-            }
-            
-            if (valid && L <= U) {
-                prob(j) = std::max(0.0, norm_cdf(U / bar_s) - norm_cdf(L / bar_s));
+        for (int i = 0; i < t_vec.size(); ++i) {
+            double t = t_vec(i);
+            auto interval = obj.get_interval(v, t, A, b);
+            double L = interval.first;
+            double U = interval.second;
+            if (std::isnan(L) || std::isnan(U)) {
+                result(i) = 0.0;
             } else {
-                prob(j) = 0.0;
+                result(i) = norm_cdf(U / bar_s) - norm_cdf(L / bar_s);
             }
         }
-        
-        return prob;
+        return result;
     };
 }
 

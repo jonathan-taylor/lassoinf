@@ -2,36 +2,57 @@ import numpy as np
 from dataclasses import dataclass
 from scipy.stats import norm
 from functools import partial
+from scipy.sparse.linalg import cg, LinearOperator
 
 @dataclass
 class SelectiveInference:
     Z: np.ndarray
     Z_noisy: np.ndarray
-    Q: np.ndarray        # Sigma
-    Q_noise: np.ndarray  # Bar Sigma
+    Q: np.ndarray        # Sigma (can be np.ndarray or LinearOperator)
+    Q_noise: np.ndarray  # Bar Sigma (can be np.ndarray or LinearOperator)
+
+    def solve_contrast(self, v: np.ndarray) -> np.ndarray:
+        """
+        Computes c = BarSigma^-1 * Sigma * eta
+        This isolates the linear system solve so it can be optimized.
+        """
+        # Right hand side: Q_v = Sigma * eta
+        Q_v = self.Q @ v
+        
+        if isinstance(self.Q_noise, LinearOperator):
+            # Iterative solve for Matrix-Free / Sparse operators
+            c, info = cg(self.Q_noise, Q_v, rtol=1e-8)
+            if info != 0:
+                raise RuntimeError(f"Conjugate gradient did not converge (info={info})")
+            return c
+        else:
+            # Direct solve for dense matrices
+            return np.linalg.solve(self.Q_noise, Q_v)
 
     def compute_params(self, v: np.ndarray):
         """
         v is the contrast vector (eta in the doc).
         """
+        Q_v = self.Q @ v
+        
         # eta' * Sigma * eta
-        v_sigma_v = v.T @ self.Q @ v
+        v_sigma_v = v.T @ Q_v
         
         # Gamma = Sigma * eta * (eta' * Sigma * eta)^-1
-        gamma = (self.Q @ v) / v_sigma_v
+        gamma = Q_v / v_sigma_v
         
         # c = BarSigma^-1 * Sigma * eta
-        # Solving BarSigma * c = Sigma * eta
-        c = np.linalg.solve(self.Q_noise, self.Q @ v)
+        c = self.solve_contrast(v)
         
         # bar_s^2 = c' * BarSigma * c = eta' * Sigma * BarSigma^-1 * Sigma * eta
-        bar_s2 = c.T @ self.Q_noise @ c
+        Q_noise_c = self.Q_noise @ c
+        bar_s2 = c.T @ Q_noise_c
         bar_s = np.sqrt(bar_s2)
         
         # bar_Gamma = (c' * BarSigma * c)^-1 * Cov(omega, c'omega)
         # Cov(omega, c'omega) = BarSigma * c = Sigma * eta
         # So bar_Gamma = (Sigma * eta) / bar_s2
-        bar_gamma = (self.Q @ v) / bar_s2
+        bar_gamma = Q_v / bar_s2
         
         # N_o = Z - Gamma * (v' * Z)
         theta_hat = v.T @ self.Z
