@@ -1,0 +1,39 @@
+# lassoinf - Gemini AI Context
+
+## Project Overview
+`lassoinf` is a software package that provides Selective Inference tools. It is a hybrid codebase written in Python and C++ (using `pybind11` for bindings and `Eigen` for fast linear algebra). The C++ components are compiled as a Python extension module named `lassoinf_cpp`.
+
+## Key Technologies
+- **Python**: Primary user interface and high-level logic (>= 3.9).
+- **C++**: Core numerical implementations for performance, targeting C++14.
+- **pybind11**: Bridging Python and C++ (`cpp/src/lassoinf_py.cpp`).
+- **Eigen**: C++ template library for linear algebra (included via a git submodule in `subprojects/eigen`).
+- **Build System**: The project uses `meson-python` configured via `pyproject.toml` and `meson.build`. `ninja` is the underlying build tool.
+
+## Architecture & Directory Structure
+- `lassoinf/`: The main Python package directory containing the pure-Python implementations (e.g., `selective_inference.py`).
+- `cpp/`: The C++ source code.
+  - `include/lassoinf.hpp`: Header file defining the `SelectiveInference` class and `Params` struct.
+  - `src/lassoinf.cpp` & `src/lassoinf_py.cpp`: Implementations of the C++ logic and the `pybind11` wrapper for the Python module `lassoinf_cpp`.
+- `subprojects/eigen/`: Git submodule for the Eigen library used in C++ development.
+- `docs/`: Markdown and Jupyter Notebook documentation for the codebase.
+- `.github/workflows/workflows/`: CI/CD workflows for building wheels and testing.
+
+## Building and Running
+To install the package with its C++ extension:
+```bash
+# Typical installation via the PEP 517 backend
+pip install .
+```
+
+For an editable development install:
+```bash
+# Meson-python supports editable installs
+pip install --no-build-isolation -Csetup-args=-Dbuildtype=debug -e .
+```
+
+*Dependencies for building from source include `meson`, `ninja`, and `pybind11`.*
+
+## Development Conventions
+- **Dual Implementation:** The project includes logic both in pure Python (`lassoinf.selective_inference`) and fast C++ counterparts (`lassoinf_cpp`). Any architectural changes to inference routines usually require synchronization between these implementations.
+- **Testing/CI:** The current GitHub Actions tests seem to have been bootstrapped or heavily referenced from another project (`coxdev`). Be cautious about test setup paths and module names when updating CI files.

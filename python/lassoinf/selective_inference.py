@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from scipy.stats import norm
 from functools import partial
 from scipy.sparse.linalg import cg, LinearOperator
+from .gaussian_family import WeightedGaussianFamily
 
 @dataclass
 class SelectiveInference:
@@ -292,4 +293,97 @@ def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol
 
     A = CompositeOperator((m, n), S=S_final, U=U_final, V=V_final)
     return A, b_final, E, E_c, s_E, v_Ec
-    
+
+@dataclass
+class LassoInference:
+    beta_hat: np.ndarray
+    G_hat: np.ndarray
+    Q_hat: np.ndarray
+    D: np.ndarray
+    L: np.ndarray
+    U: np.ndarray
+    Z_full: np.ndarray
+    Sigma: np.ndarray
+    Sigma_noisy: np.ndarray
+
+    def __post_init__(self):
+        self.A, self.b, self.E, self.E_c, self.s_E, self.v_Ec = lasso_post_selection_constraints(
+            self.beta_hat, self.G_hat, self.Q_hat, self.D, self.L, self.U
+        )
+        
+        self.Z_noisy = -self.G_hat + self.Q_hat @ self.beta_hat
+        
+        self.si = SelectiveInference(
+            Z=self.Z_full,
+            Z_noisy=self.Z_noisy,
+            Q=self.Sigma,
+            Q_noise=self.Sigma_noisy
+        )
+        
+        self.intervals = {}
+        # compute confidence intervals for the parameters using the "free" variables from the constraints
+        if len(self.E) > 0:
+            n = self.Q_hat.shape[0] if hasattr(self.Q_hat, 'shape') else len(self.beta_hat)
+            
+            # Reconstruct W (inverse of Q_EE)
+            E_M = np.zeros((n, len(self.E)))
+            for i, j in enumerate(self.E): 
+                E_M[j, i] = 1.0
+            
+            if isinstance(self.Q_hat, np.ndarray):
+                Q_EE = self.Q_hat[self.E][:, self.E]
+            else:
+                Q_E = self.Q_hat @ E_M
+                Q_EE = Q_E[self.E, :]
+                
+            W = np.linalg.inv(Q_EE)
+            
+            for k, j in enumerate(self.E):
+                v = np.zeros(n)
+                v[self.E] = W[:, k]
+                
+                # The target estimate theta_hat
+                theta_hat = v.T @ self.Z_full
+                
+                # The variance of theta_hat is v^T Sigma v
+                if isinstance(self.Sigma, np.ndarray):
+                    variance = v.T @ self.Sigma @ v
+                else:
+                    variance = v.T @ (self.Sigma @ v)
+                sigma = np.sqrt(variance)
+                
+                # Get the selection weight function
+                weight_f = self.si.get_weight(v, self.A, self.b)
+                
+                # Initialize the weighted Gaussian family
+                wgf = WeightedGaussianFamily(estimate=float(theta_hat), sigma=float(sigma), weight_fns=[weight_f])
+                
+                # Compute the 95% confidence interval
+                lower, upper = wgf.interval(level=0.95)
+                self.intervals[j] = (lower, upper)
+
+    def summary(self):
+        """
+        Returns a summary of the inference results.
+        """
+        import pandas as pd
+        
+        indices = sorted(self.intervals.keys())
+        beta_vals = [self.beta_hat[j] for j in indices]
+        lowers = [self.intervals[j][0] for j in indices]
+        uppers = [self.intervals[j][1] for j in indices]
+        
+        data = {
+            'index': indices,
+            'beta_hat': beta_vals,
+            'lower_conf': lowers,
+            'upper_conf': uppers
+        }
+        
+        try:
+            return pd.DataFrame(data)
+        except ImportError:
+            # Fallback to numpy array if pandas is not installed
+            res = np.column_stack([indices, beta_vals, lowers, uppers])
+            return res
+

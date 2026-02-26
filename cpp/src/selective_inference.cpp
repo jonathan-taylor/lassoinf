@@ -1,4 +1,5 @@
 #include "selective_inference.hpp"
+#include "gaussian_family.hpp"
 #include <Eigen/IterativeLinearSolvers>
 
 namespace lassoinf {
@@ -134,11 +135,11 @@ Params SelectiveInference::compute_params(const Eigen::VectorXd& v) const {
 }
 
 std::pair<double, double> SelectiveInference::get_interval(const Eigen::VectorXd& v, double t, 
-                                                           const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const {
+                                                           const LinearOperator& A, const Eigen::VectorXd& b) const {
     Params p = compute_params(v);
     
-    Eigen::VectorXd alpha = A * p.bar_gamma;
-    Eigen::VectorXd beta = b - A * (p.n_o + p.bar_n_o + p.gamma * t);
+    Eigen::VectorXd alpha = A.multiply(p.bar_gamma);
+    Eigen::VectorXd beta = b - A.multiply(p.n_o + p.bar_n_o + p.gamma * t);
     
     double lower = -std::numeric_limits<double>::infinity();
     double upper = std::numeric_limits<double>::infinity();
@@ -162,20 +163,27 @@ std::pair<double, double> SelectiveInference::get_interval(const Eigen::VectorXd
     return {lower, upper};
 }
 
-std::function<Eigen::VectorXd(const Eigen::VectorXd&)> SelectiveInference::get_weight(const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const {
+std::pair<double, double> SelectiveInference::get_interval(const Eigen::VectorXd& v, double t, 
+                                                           const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const {
+    return get_interval(v, t, DenseOperator(A), b);
+}
+
+std::function<Eigen::VectorXd(const Eigen::VectorXd&)> SelectiveInference::get_weight(const Eigen::VectorXd& v, const LinearOperator& A, const Eigen::VectorXd& b) const {
     Params p = compute_params(v);
     double bar_s = p.bar_s;
     
-    auto obj = *this;
+    // We need a way to capture A. Since it's a reference, we might need a copy if it's used asynchronously,
+    // but here we assume it lives as long as the weight function is used for grid evaluation.
+    // Actually, A is often a shared_ptr elsewhere. For now, let's assume it's stable.
     
-    return [obj, v, A, b, bar_s](const Eigen::VectorXd& t_vec) -> Eigen::VectorXd {
+    return [this, v, &A, b, bar_s](const Eigen::VectorXd& t_vec) -> Eigen::VectorXd {
         Eigen::VectorXd result(t_vec.size());
         auto norm_cdf = [](double x) {
             return 0.5 * std::erfc(-x / std::sqrt(2.0));
         };
         for (int i = 0; i < t_vec.size(); ++i) {
             double t = t_vec(i);
-            auto interval = obj.get_interval(v, t, A, b);
+            auto interval = this->get_interval(v, t, A, b);
             double L = interval.first;
             double U = interval.second;
             if (std::isnan(L) || std::isnan(U)) {
@@ -188,4 +196,90 @@ std::function<Eigen::VectorXd(const Eigen::VectorXd&)> SelectiveInference::get_w
     };
 }
 
+std::function<Eigen::VectorXd(const Eigen::VectorXd&)> SelectiveInference::get_weight(const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const {
+    // Note: This creates a temporary DenseOperator which might be dangerous if captured by reference.
+    // However, get_weight above captures by reference. 
+    // Let's make a version that works safely.
+    
+    auto dense_A = std::make_shared<DenseOperator>(A);
+    Params p = compute_params(v);
+    double bar_s = p.bar_s;
+    
+    return [this, v, dense_A, b, bar_s](const Eigen::VectorXd& t_vec) -> Eigen::VectorXd {
+        Eigen::VectorXd result(t_vec.size());
+        auto norm_cdf = [](double x) {
+            return 0.5 * std::erfc(-x / std::sqrt(2.0));
+        };
+        for (int i = 0; i < t_vec.size(); ++i) {
+            double t = t_vec(i);
+            auto interval = this->get_interval(v, t, *dense_A, b);
+            double L = interval.first;
+            double U = interval.second;
+            if (std::isnan(L) || std::isnan(U)) {
+                result(i) = 0.0;
+            } else {
+                result(i) = norm_cdf(U / bar_s) - norm_cdf(L / bar_s);
+            }
+        }
+        return result;
+    };
+}
+
+LassoInference::LassoInference(Eigen::VectorXd beta_hat,
+                               Eigen::VectorXd G_hat,
+                               std::shared_ptr<LinearOperator> Q_hat,
+                               Eigen::VectorXd D,
+                               Eigen::VectorXd L,
+                               Eigen::VectorXd U,
+                               Eigen::VectorXd Z_full,
+                               std::shared_ptr<LinearOperator> Sigma,
+                               std::shared_ptr<LinearOperator> Sigma_noisy)
+    : beta_hat_(std::move(beta_hat)), G_hat_(std::move(G_hat)), Q_hat_(std::move(Q_hat)),
+      D_(std::move(D)), L_(std::move(L)), U_(std::move(U)), Z_full_(std::move(Z_full)),
+      Sigma_(std::move(Sigma)), Sigma_noisy_(std::move(Sigma_noisy))
+{
+    constraints_ = lasso_post_selection_constraints(beta_hat_, G_hat_, Q_hat_, D_, L_, U_);
+    
+    Eigen::VectorXd Z_noisy = -G_hat_ + Q_hat_->multiply(beta_hat_);
+    SelectiveInference si(Z_full_, Z_noisy, Sigma_, Sigma_noisy_);
+    
+    if (!constraints_.E.empty()) {
+        int n = Q_hat_->rows();
+        Eigen::MatrixXd Q_EE(constraints_.E.size(), constraints_.E.size());
+        for (size_t i = 0; i < constraints_.E.size(); ++i) {
+            Eigen::VectorXd e_i = Eigen::VectorXd::Zero(n);
+            e_i(constraints_.E[i]) = 1.0;
+            Eigen::VectorXd Q_ei = Q_hat_->multiply(e_i);
+            for (size_t j = 0; j < constraints_.E.size(); ++j) {
+                Q_EE(j, i) = Q_ei(constraints_.E[j]);
+            }
+        }
+        
+        Eigen::MatrixXd W = Q_EE.inverse();
+        
+        for (size_t k = 0; k < constraints_.E.size(); ++k) {
+            int idx = constraints_.E[k];
+            Eigen::VectorXd v = Eigen::VectorXd::Zero(n);
+            for (size_t i = 0; i < constraints_.E.size(); ++i) {
+                v(constraints_.E[i]) = W(i, k);
+            }
+            
+            double theta_hat = v.dot(Z_full_);
+            double variance = v.dot(Sigma_->multiply(v));
+            double sigma = std::sqrt(variance);
+            
+            auto weight_f = si.get_weight(v, *constraints_.A, constraints_.b);
+            WeightedGaussianFamily wgf(theta_hat, sigma, {weight_f});
+            auto interval = wgf.interval(theta_hat, 0.95);
+            
+            results_.push_back({idx, beta_hat_(idx), interval.first, interval.second});
+        }
+    }
+}
+
+std::vector<InferenceResult> LassoInference::summary() const {
+    return results_;
+}
+
 } // namespace lassoinf
+

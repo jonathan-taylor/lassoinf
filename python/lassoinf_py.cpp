@@ -88,7 +88,8 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
         .def("solve_contrast", &lassoinf::SelectiveInference::solve_contrast, py::arg("v"))
         .def("compute_params", &lassoinf::SelectiveInference::compute_params, py::arg("v"))
         .def("data_splitting_estimator", &lassoinf::SelectiveInference::data_splitting_estimator, py::arg("v"))
-        .def("get_interval", &lassoinf::SelectiveInference::get_interval, py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
+        .def("get_interval", py::overload_cast<const Eigen::VectorXd&, double, const Eigen::MatrixXd&, const Eigen::VectorXd&>(&lassoinf::SelectiveInference::get_interval, py::const_), py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
+        .def("get_interval", py::overload_cast<const Eigen::VectorXd&, double, const lassoinf::LinearOperator&, const Eigen::VectorXd&>(&lassoinf::SelectiveInference::get_interval, py::const_), py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
         .def("get_weight", [](const lassoinf::SelectiveInference& si, const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
             auto func = si.get_weight(v, A, b);
             return py::cpp_function([func](py::object t) -> py::object {
@@ -101,4 +102,15 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
                 }
             });
         }, py::arg("v"), py::arg("A"), py::arg("b"));
+
+    py::class_<lassoinf::InferenceResult>(m, "InferenceResult")
+        .def_readonly("index", &lassoinf::InferenceResult::index)
+        .def_readonly("beta_hat", &lassoinf::InferenceResult::beta_hat)
+        .def_readonly("lower_conf", &lassoinf::InferenceResult::lower_conf)
+        .def_readonly("upper_conf", &lassoinf::InferenceResult::upper_conf);
+
+    py::class_<lassoinf::LassoInference>(m, "LassoInference")
+        .def(py::init<Eigen::VectorXd, Eigen::VectorXd, std::shared_ptr<lassoinf::LinearOperator>, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, Eigen::VectorXd, std::shared_ptr<lassoinf::LinearOperator>, std::shared_ptr<lassoinf::LinearOperator>>(),
+             py::arg("beta_hat"), py::arg("G_hat"), py::arg("Q_hat"), py::arg("D"), py::arg("L"), py::arg("U"), py::arg("Z_full"), py::arg("Sigma"), py::arg("Sigma_noisy"))
+        .def("summary", &lassoinf::LassoInference::summary);
 }
