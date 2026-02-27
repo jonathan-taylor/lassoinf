@@ -96,7 +96,7 @@ grid = np.linspace(-2, 5, 500)
 # Reference measure is N(mu_null, 1) * weight_f(t)
 # We assume the null mu=0 for the reference distribution
 reference_pdf = normal_dbn.pdf(grid, loc=mu_null, scale=1.0)
-sel_weights = weight(grid)
+sel_weights = weight_f(grid)
 ```
 
 ```{code-cell} ipython3
@@ -152,4 +152,30 @@ print(f"95% Confidence Interval for mu (WeightedGaussianFamily): ({L:.3f}, {U:.3
 # P-value for H0: mu = 0
 p_val_wgf = wgf.pvalue(null_value=0, alternative='twosided')
 print(f"Two-sided p-value for H0 (mu=0) (WeightedGaussianFamily): {p_val_wgf:.4f}")
+```
+
+### Exact Computation using TruncBivariateNormal
+For this specific formulation (linear combination of normals constrained to an interval), we can use the `TruncBivariateNormal` class. Unlike `discrete_family` which relies on a discrete grid approximation, `TruncBivariateNormal` computes the conditional probabilities and moments analytically using exact continuous formulas, avoiding discretization errors.
+
+```{code-cell} ipython3
+from lassoinf.bivariate_normal import TruncBivariateNormal
+
+# Model: a * Z + b * omega in [threshold, inf]
+a_coeff = 1.0
+b_coeff = 1.0
+L = threshold
+U = np.inf
+
+# Since Z ~ N(mu, 1), the natural parameter theta = mu / sig_x^2 = mu
+# We test H0: mu = 0 (which means theta = 0)
+tbn = TruncBivariateNormal(a_coeff, b_coeff, L, U, sig_omega=gamma, sig_x=1.0, theta=0.0)
+
+# 95% Confidence Interval
+L_exact, U_exact = tbn.equal_tailed_interval(z_obs, alpha=0.05)
+print(f"95% Confidence Interval for mu (TruncBivariateNormal): ({L_exact:.3f}, {U_exact:.3f})")
+
+# P-value for H0: mu = 0
+p_val_tbn = tbn.cdf(0.0, z_obs)
+p_val_tbn_two_sided = 2 * min(p_val_tbn, 1 - p_val_tbn)
+print(f"Two-sided p-value for H0 (mu=0) (TruncBivariateNormal): {p_val_tbn_two_sided:.4f}")
 ```
