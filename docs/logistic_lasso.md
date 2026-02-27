@@ -31,7 +31,7 @@ from scipy.special import expit
 
 # 1. Generate data
 np.random.seed(42)
-n, p = 300, 10
+n, p = 500, 20
 X = np.random.randn(n, p)
 
 true_beta = np.zeros(p)
@@ -104,12 +104,20 @@ indices_noisy = np.random.choice(n, n, replace=True)
 X_noisy, y_noisy = X[indices_noisy], y[indices_noisy]
 
 beta_lasso = cp.Variable(p)
-lam = 5.0 # L1 penalty
+lam = 7.0 # L1 penalty
+D_weight = lam * np.ones(p)
+D_weight[2] = 0.0 # 3rd feature unpenalized
 
 loss_noisy = cp.sum(
     cp.logistic(X_noisy @ beta_lasso) - cp.multiply(y_noisy, X_noisy @ beta_lasso)
 )
-prob_lasso = cp.Problem(cp.Minimize(loss_noisy + lam * cp.norm1(beta_lasso)))
+penalty = cp.sum(cp.multiply(D_weight, cp.abs(beta_lasso)))
+constraints = [
+    beta_lasso[0] >= -2.0,
+    beta_lasso[0] <= 2.0,
+    beta_lasso[1] >= 0.0
+]
+prob_lasso = cp.Problem(cp.Minimize(loss_noisy + penalty), constraints)
 prob_lasso.solve(solver=cp.SCS)
 
 beta_hat = beta_lasso.value
@@ -128,9 +136,13 @@ With all ingredients gathered, we can pass the selection parameters, original co
 ```{code-cell} ipython3
 from lassoinf.selective_inference import LassoInference
 
-D = lam * np.ones(p)
+D = D_weight
 L_bound = np.full(p, -np.inf)
+L_bound[0] = -2.0
+L_bound[1] = 0.0
+
 U_bound = np.full(p, np.inf)
+U_bound[0] = 2.0
 
 # 5. Inference
 inference = LassoInference(
