@@ -1,3 +1,9 @@
+#' @useDynLib lassoinf, .registration=TRUE
+#' @importFrom Rcpp loadModule
+NULL
+
+loadModule("lassoinf_cpp", TRUE)
+
 #' Lasso Inference
 #'
 #' @description Computes post-selection inference for the lasso.
@@ -48,7 +54,7 @@ lasso_inference <- function(beta_hat, G_hat, Q_hat, D, L, U, Z_full, Sigma, Sigm
   W <- solve(Q_EE)
   
   # Extract dense A
-  A <- constraints$get_A_dense()
+  A <- constraints$A_dense
   b <- constraints$b
   
   results <- list()
