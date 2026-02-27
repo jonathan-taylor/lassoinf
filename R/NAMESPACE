@@ -1,0 +1,8 @@
+useDynLib(lassoinf, .registration = TRUE)
+importFrom(Rcpp, sourceCpp)
+importFrom(Rcpp, loadModule)
+export(lasso_inference)
+export(SelectiveInference)
+export(DiscreteFamily)
+export(TruncatedGaussian)
+export(WeightedGaussianFamily)

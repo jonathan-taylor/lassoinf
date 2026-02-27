@@ -1,0 +1,10 @@
+Package: lassoinf
+Title: Selective Inference Tools
+Version: 0.1.0
+Authors@R: person("Jonathan", "Taylor", email = "someone@example.com", role = c("aut", "cre"))
+Description: Computes post-selection inference for the lasso leveraging a high-performance C++ backend.
+License: BSD_3_clause + file LICENSE
+Encoding: UTF-8
+LinkingTo: Rcpp, RcppEigen
+Imports: Rcpp
+RoxygenNote: 7.2.3

@@ -10,6 +10,7 @@ py.install_sources(
   'python/lassoinf/__init__.py',
   'python/lassoinf/discrete_family.py',
   'python/lassoinf/gaussian_family.py',
+  'python/lassoinf/bivariate_normal.py',
   'python/lassoinf/selective_inference.py',
   subdir: 'lassoinf'
 )

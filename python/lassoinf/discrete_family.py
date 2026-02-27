@@ -838,3 +838,5 @@ class discrete_family(object):
             return -np.inf # observed, auxVar too small, no test rejects right
         return find_root(lambda theta: 1.*self._test2RejectsRight(theta, observed, alpha, auxVar), 0.5, -1., 1., tol)
 
+
+
