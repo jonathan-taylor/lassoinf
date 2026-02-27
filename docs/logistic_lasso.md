@@ -28,7 +28,6 @@ import numpy as np
 import cvxpy as cp
 import pandas as pd
 from scipy.special import expit
-from lassoinf.selective_inference import LassoInference
 
 # 1. Generate data
 np.random.seed(42)
@@ -41,9 +40,11 @@ true_beta[:3] = [2.0, -2.0, 1.0]
 logits = X @ true_beta
 probs = expit(logits)
 y = np.random.binomial(1, probs)
+```
 
+```{code-cell} ipython3
 # 2. Estimate Sigma via bootstrap
-B = 1000
+B = 30
 Z_boot = []
 
 print("Running bootstrap...")
@@ -122,9 +123,11 @@ Q_hat = X_noisy.T @ W_noisy @ X_noisy
 
 ## Post-Selection Inference
 
-With all ingredients gathered, we can pass the selection parameters, original constraints, and statistics into `LassoInference`. 
+With all ingredients gathered, we can pass the selection parameters, original constraints, and statistics into `LassoInference`.
 
 ```{code-cell} ipython3
+from lassoinf.selective_inference import LassoInference
+
 D = lam * np.ones(p)
 L_bound = np.full(p, -np.inf)
 U_bound = np.full(p, np.inf)
@@ -145,4 +148,8 @@ inference = LassoInference(
 # 6. View the summary of free (selected) variables
 summary_df = inference.summary()
 summary_df
+```
+
+```{code-cell} ipython3
+
 ```

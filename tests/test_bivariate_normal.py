@@ -50,27 +50,108 @@ def test_trunc_bivariate_normal_vs_discrete():
     a, b = 1.0, 1.0
     L, U = 0.0, 2.0
     sig_omega = 2.0
-    sig_x = 1.0
+    sig_x = 1.2
     theta = 0.5
     
     tbn = TruncBivariateNormal(a, b, L, U, sig_omega, sig_x=sig_x, theta=theta)
     
     # Create a dense discrete approximation
-    z_grid = np.linspace(-5, 5, 1000)
-    # Weight for discrete family: P(L <= a*z + b*omega <= U) * p(z)
-    # a*z + b*omega ~ N(a*z, (b*sig_omega)^2)
+    z_grid = np.linspace(-5, 5, 2000)
+    # Base weight function: P(L <= a*z + b*omega <= U) * exp(-0.5 * z^2 / sig_x^2)
     s_std = np.abs(b * sig_omega)
     weights = (norm.cdf((U - a * z_grid) / s_std) - norm.cdf((L - a * z_grid) / s_std)) * norm.pdf(z_grid, loc=0, scale=sig_x)
     df = discrete_family(z_grid, weights)
     
     x_test = 0.7
-    # Use theta=0 for discrete family because we already included p(z) in weights (which is N(0, sig_x^2))
-    # Actually discrete_family.cdf(theta) multiplies weights by exp(theta * x)
-    # Our tbn.cdf(theta) means Z ~ N(theta, sig_x^2)
-    # So if we use df with theta=theta, it should match if we correctly set the base weights.
-    # Base weights should be the weight function P(L <= a*z + b*omega <= U) * exp(-0.5 * z^2 / sig_x^2)
-    
+    # Both now use natural parameterization
     cdf_tbn = tbn.cdf(theta, x_test)
-    cdf_df = df.cdf(theta / (sig_x**2), x_test) # discrete_family uses exp(theta * x)
+    cdf_df = df.cdf(theta, x_test)
     
     np.testing.assert_allclose(cdf_tbn, cdf_df, atol=1e-3)
+
+def test_trunc_bivariate_normal_mle():
+    a, b = 1.0, 0.5
+    L, U = 0.0, 3.0
+    sig_omega = 1.0
+    sig_x = 1.0
+    theta_true = 0.5
+    
+    tbn = TruncBivariateNormal(a, b, L, U, sig_omega, sig_x=sig_x, theta=theta_true)
+    
+    # True mean under theta_true
+    mu_true = tbn.E(theta_true, lambda x: x)
+    
+    # If we observe exactly the mean, MLE should be theta_true
+    mle_est, _, _ = tbn.MLE(mu_true, initial=theta_true)
+    np.testing.assert_allclose(mle_est, theta_true, atol=1e-5)
+    
+    # Test with a different observation
+    obs = 1.2
+    mle_est, std_err, _ = tbn.MLE(obs)
+    # Check if E[X | mle_est] is close to obs
+    np.testing.assert_allclose(tbn.E(mle_est, lambda x: x), obs, atol=1e-5)
+
+def test_trunc_bivariate_normal_coverage_mean():
+    rng = np.random.default_rng(42)
+    
+    a_coeff, b_coeff = 1.0, 0.5
+    L, U = 0.0, 3.0
+    sig_omega = 1.0
+    sig_x = 2.0 # sig_x != 1 to distinguish mean from natural parameter
+    
+    mu_true = 1.5
+    theta_true = mu_true / sig_x**2
+    
+    tbn = TruncBivariateNormal(a_coeff, b_coeff, L, U, sig_omega, sig_x=sig_x, theta=theta_true)
+    
+    # Weight function for WeightedGaussianFamily
+    def tbn_weight(x):
+        s_std = np.abs(b_coeff * sig_omega)
+        return norm.cdf((U - a_coeff * x) / s_std) - norm.cdf((L - a_coeff * x) / s_std)
+    
+    from lassoinf.gaussian_family import WeightedGaussianFamily
+    
+    n_sim = 100
+    alpha = 0.1
+    coverage_tbn = 0
+    coverage_wgf = 0
+    
+    # Rejection sampling to simulate from the exact distribution
+    samples = []
+    while len(samples) < n_sim:
+        z = rng.normal(loc=mu_true, scale=sig_x, size=1000)
+        omega = rng.normal(loc=0.0, scale=sig_omega, size=1000)
+        s = a_coeff * z + b_coeff * omega
+        
+        valid_z = z[(s >= L) & (s <= U)]
+        samples.extend(valid_z)
+    
+    samples = samples[:n_sim]
+    
+    for x_obs in samples:
+        # TBN interval (returns natural parameter bounds)
+        lower_theta, upper_theta = tbn.equal_tailed_interval(x_obs, alpha=alpha)
+        
+        # Convert to mean space
+        lower_mean_tbn = lower_theta * sig_x**2
+        upper_mean_tbn = upper_theta * sig_x**2
+        
+        if lower_mean_tbn <= mu_true <= upper_mean_tbn:
+            coverage_tbn += 1
+            
+        # WGF interval (returns mean bounds directly)
+        wgf = WeightedGaussianFamily(estimate=x_obs, sigma=sig_x, weight_fns=[tbn_weight])
+        lower_mean_wgf, upper_mean_wgf = wgf.interval(level=1 - alpha)
+        
+        if lower_mean_wgf <= mu_true <= upper_mean_wgf:
+            coverage_wgf += 1
+            
+        # The intervals should be quite similar
+        np.testing.assert_allclose([lower_mean_tbn, upper_mean_tbn], 
+                                   [lower_mean_wgf, upper_mean_wgf], rtol=0.05, atol=0.5)
+            
+    cov_rate_tbn = coverage_tbn / n_sim
+    cov_rate_wgf = coverage_wgf / n_sim
+    
+    assert 0.85 <= cov_rate_tbn <= 0.95, f"TBN Coverage {cov_rate_tbn} is outside bounds"
+    assert 0.85 <= cov_rate_wgf <= 0.95, f"WGF Coverage {cov_rate_wgf} is outside bounds"

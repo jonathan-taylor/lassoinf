@@ -197,14 +197,18 @@ We can demonstrate the computation by instantiating the class and looking at the
 
 ```{code-cell} ipython3
 # Simulation setup
-np.random.seed(42)
+rng = np.random.default_rng()
 n = 10
-Z = np.random.randn(n)
+Z = rng.standard_normal(n)
 Q = np.eye(n)
 gamma_val = 0.5
 Q_noise = (gamma_val**2) * Q
-omega = np.random.multivariate_normal(np.zeros(n), Q_noise)
-Z_noisy = Z + omega
+omega = rng.multivariate_normal(np.zeros(n), Q_noise)
+# Example constraints: Z_noisy > 0 (or -Z_noisy <= 0)
+A = -np.eye(n)
+b = np.zeros(n)
+
+Z_noisy = np.fabs(Z + omega) # 
 
 # Instantiate class
 si = SelectiveInference(Z, Z_noisy, Q, Q_noise)
@@ -215,7 +219,7 @@ v[0] = 1.0  # target is Z[0]
 
 # Compute parameters
 params = si.compute_params(v)
-
+print(params)
 print("Target theta_hat:", params['theta_hat'])
 print("Contrast c (should be eta under well-specified):", params['c'][:3], "...")
 print("Variance bar_s:", params['bar_s'])
@@ -224,9 +228,6 @@ print("Variance bar_s:", params['bar_s'])
 And computing the interval $[L, U]$ given some constraints $AZ_{noisy} \leq b$:
 
 ```{code-cell} ipython3
-# Example constraints: Z_noisy > 0 (or -Z_noisy <= 0)
-A = -np.eye(n)
-b = np.zeros(n)
 
 # Observed value of theta_hat
 theta_obs = params['theta_hat']
@@ -248,7 +249,7 @@ import matplotlib.pyplot as plt
 
 fig, ax = plt.subplots(figsize=(8, 5))
 ax.plot(t_grid, weights, label="Selection Weight", color="blue")
-ax.axvline(theta_obs, color="red", linestyle="--", label="Observed $\hat{\\theta}$")
+ax.axvline(theta_obs, color="red", linestyle="--", label=r"Observed $\hat{\theta}$")
 ax.set_xlabel("Target value $t$")
 ax.set_ylabel("Selection Probability")
 ax.set_title("Selection Weight Function")
@@ -262,7 +263,7 @@ plt.show()
 For performance-critical applications, a C++ implementation using Eigen is also available. It is mirrored from the Python logic and exposed via `pybind11`.
 
 ```{code-cell} ipython3
-from lassoinf.lassoinf_cpp import SelectiveInference as SelectiveInferenceCPP
+from lassoinf_cpp import SelectiveInference as SelectiveInferenceCPP
 
 # Instantiate C++ class
 si_cpp = SelectiveInferenceCPP(Z, Z_noisy, Q, Q_noise)
@@ -293,3 +294,7 @@ $$
 t \mapsto \Phi((\bar{U}(Z+\omega)-t)/s) - \Phi((\bar{L}(Z+\omega)-t)/s)
 $$
 with $s = \text{Var}(\bar{\theta} | \hat{\theta})$. These upper and lower limits are exactly the truncation intervals of {cite}`LeeLasso` when applied to the noisy data $Z+\omega$!
+
+```{code-cell} ipython3
+
+```

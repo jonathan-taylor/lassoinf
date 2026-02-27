@@ -119,20 +119,35 @@ class SelectiveInference:
             
         return lower, upper
 
-    def get_weight(self, v: np.ndarray, A: np.ndarray, b: np.ndarray):
+    def get_weight(self, v: np.ndarray, A, b: np.ndarray):
         """
         Returns a function of t that computes the selection probability.
         """
-        A = np.atleast_2d(A)
+        # Ensure A is handled as a linear operator if possible
+        if not isinstance(A, LinearOperator) and hasattr(A, 'matvec'):
+             # it might be our CompositeOperator but isinstance failed due to imports
+             pass 
+
         b = np.atleast_1d(b).ravel()
         
         # Precompute parts that don't depend on t
         params_fixed = self.compute_params(v)
         bar_s = params_fixed['bar_s']
         
-        alpha = A @ params_fixed['bar_gamma']
-        beta_0 = b - A @ (params_fixed['n_o'] + params_fixed['bar_n_o'])
-        beta_1 = -A @ params_fixed['gamma']
+        bar_gamma = np.atleast_1d(params_fixed['bar_gamma'])
+        n_o = np.atleast_1d(params_fixed['n_o'])
+        bar_n_o = np.atleast_1d(params_fixed['bar_n_o'])
+        gamma = np.atleast_1d(params_fixed['gamma'])
+
+        if hasattr(A, 'matvec'):
+            alpha = A.matvec(bar_gamma)
+            beta_0 = b - A.matvec(n_o + bar_n_o)
+            beta_1 = -A.matvec(gamma)
+        else:
+            A_arr = np.atleast_2d(np.asarray(A))
+            alpha = A_arr.dot(bar_gamma)
+            beta_0 = b - A_arr.dot(n_o + bar_n_o)
+            beta_1 = -A_arr.dot(gamma)
         
         pos_mask = alpha > 1e-10
         neg_mask = alpha < -1e-10

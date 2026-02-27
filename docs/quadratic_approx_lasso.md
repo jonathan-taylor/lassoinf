@@ -1,6 +1,6 @@
 ---
 jupytext:
-  formats: md:myst,ipynb
+  formats: ipynb,md:myst
   text_representation:
     extension: .md
     format_name: myst
@@ -108,8 +108,7 @@ takes a triple $(\hat{\beta}, \nabla \bar{\ell}(\hat{\beta}), \nabla^2 \bar{l}(\
 as the problem specifications $D, U, L$ and constructs the corresponding set of affine constraints analogous
 to those in {cite}`LeeLasso`.
 
-```{code-cell}
-
+```{code-cell} ipython3
 def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol=1e-6):
     """
     Derives the linear constraints AZ <= b characterizing the polytope where
@@ -210,8 +209,6 @@ def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol
 
     return A, b, E, E_c, s_E, v_Ec
 ```
-
-
 
 We seek the residual of the stacked vector $X_{stack} = [Z, \bar{Z}]^\top$ after projecting onto the basis $V = [\hat{\theta}, W]^\top$.
 

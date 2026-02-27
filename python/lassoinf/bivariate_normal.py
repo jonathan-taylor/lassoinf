@@ -87,7 +87,7 @@ def compute_gaussian_conditional_stats(mu_x, sig_x, sig_omega, cx, comega, a, b,
     var_s_cond = var_s * (1 + ratio_var - ratio_mean**2)
     explained_var_cond = (cov_xs / var_s)**2 * var_s_cond
 
-    var_x_cond = residual_var + explained_var_cond
+    var_x_cond = max(0.0, residual_var + explained_var_cond)
 
     return {
         "params": {
@@ -107,12 +107,14 @@ def compute_gaussian_conditional_stats(mu_x, sig_x, sig_omega, cx, comega, a, b,
 class TruncBivariateNormal(discrete_family):
     def __init__(self, a_coeff, b_coeff, L, U, sig_omega, sig_x=1.0, theta=0.):
         """
-        TruncBivariateNormal models a continuous random variable Z ~ N(theta, sig_x^2)
-        conditioned on the event L <= a_coeff * Z + b_coeff * omega <= U,
-        where omega ~ N(0, sig_omega^2).
+        TruncBivariateNormal models a continuous random variable Z 
+        whose base measure is N(0, sig_x^2), conditioned on the event 
+        L <= a_coeff * Z + b_coeff * omega <= U, where omega ~ N(0, sig_omega^2).
         
-        This overrides the discrete_family methods to use exact continuous formulas
-        from gaussian_conditional_moments.py.
+        The parameter theta is the natural parameter, so that the underlying 
+        normal (before truncation) has mean theta * sig_x^2.
+
+        This overrides the discrete_family methods to use exact continuous formulas.
         """
         self.a_coeff = a_coeff
         self.b_coeff = b_coeff
@@ -126,7 +128,7 @@ class TruncBivariateNormal(discrete_family):
 
     def _get_stats(self, theta, x=None):
         return compute_gaussian_conditional_stats(
-            mu_x=theta, sig_x=self.sig_x, sig_omega=self.sig_omega,
+            mu_x=theta * self.sig_x**2, sig_x=self.sig_x, sig_omega=self.sig_omega,
             cx=self.a_coeff, comega=self.b_coeff, a=self.L, b=self.U, t=x
         )
 
@@ -135,7 +137,12 @@ class TruncBivariateNormal(discrete_family):
             raise NotImplementedError("ccdf requires an observation x for TruncBivariateNormal")
         stats = self._get_stats(theta, x)
         if "error" in stats:
-            return np.nan
+            # If theta is extreme, probability mass is far away from x
+            mu_x = theta * self.sig_x**2
+            if mu_x > x:
+                return 1.0
+            else:
+                return 0.0
         return stats['stats']['p_x_gt_t_cond']
 
     def cdf(self, theta, x=None, gamma=1):
@@ -145,33 +152,64 @@ class TruncBivariateNormal(discrete_family):
         return 1.0 - ccdf_val if not np.isnan(ccdf_val) else np.nan
 
     def E(self, theta, func):
-        dummy = np.array([1.0, 2.0])
-        try:
-            val = func(dummy)
-            is_identity = np.allclose(val, dummy)
-        except Exception:
-            is_identity = False
+        stats = self._get_stats(theta)
+        if "error" in stats:
+            return np.nan
+        
+        # We need to detect what func is. 
+        # For MLE, it is often: lambda x: np.array([x, x**2]).T
+        # For other methods, it might be: lambda x: x
+        
+        # Test on a dummy value to see the output shape/type
+        test_val = np.array([0.0, 1.0])
+        f_val = np.asarray(func(test_val))
+        
+        mean = stats['stats']['e_x_cond']
+        variance = stats['stats']['var_x_cond']
 
-        if is_identity:
-            stats = self._get_stats(theta)
-            if "error" in stats:
-                return np.nan
-            return stats['stats']['e_x_cond']
-        else:
-            raise NotImplementedError("TruncBivariateNormal.E only supports the identity function")
+        if f_val.ndim == 1:
+            if np.allclose(f_val, test_val): # identity
+                return mean
+        elif f_val.ndim == 2:
+            if f_val.shape == (2, 2) and np.allclose(f_val[:, 0], test_val) and np.allclose(f_val[:, 1], test_val**2):
+                # This is the first two moments [E[X], E[X^2]]
+                return np.array([mean, variance + mean**2])
+            
+        raise NotImplementedError("TruncBivariateNormal.E only supports identity or [x, x^2] functions.")
 
     def Var(self, theta, func):
-        dummy = np.array([1.0, 2.0])
-        try:
-            val = func(dummy)
-            is_identity = np.allclose(val, dummy)
-        except Exception:
-            is_identity = False
+        stats = self._get_stats(theta)
+        if "error" in stats:
+            return np.nan
 
-        if is_identity:
-            stats = self._get_stats(theta)
-            if "error" in stats:
-                return np.nan
+        test_val = np.array([0.0, 1.0])
+        f_val = np.asarray(func(test_val))
+
+        if f_val.ndim == 1 and np.allclose(f_val, test_val): # identity
             return stats['stats']['var_x_cond']
-        else:
-            raise NotImplementedError("TruncBivariateNormal.Var only supports the identity function")
+            
+        raise NotImplementedError("TruncBivariateNormal.Var only supports the identity function.")
+
+    def equal_tailed_interval(self, observed, alpha=0.05, randomize=True, auxVar=None, tol=1e-6):
+        """
+        Form interval by inverting equal-tailed test.
+        Overrides discrete_family method to compute bounds correctly 
+        in the natural parameter space.
+        """
+        # A reasonable range for theta based on the observed value
+        # Since E[X] ~ theta * sig_x^2, theta is roughly X / sig_x^2
+        # We will search in a generous window around observed / sig_x^2
+        theta_est = observed / self.sig_x**2
+        
+        # A conservative standard error for theta is 1 / sig_x (since Var(X) <= sig_x^2)
+        # We use a large multiplier to ensure we bracket the root
+        margin = 40.0 / self.sig_x
+        lb = theta_est - margin
+        ub = theta_est + margin
+        
+        from .discrete_family import find_root
+        
+        F = lambda th: self.cdf(th, observed)
+        L = find_root(F, 1.0 - 0.5 * alpha, lb, ub, tol=tol)
+        U = find_root(F, 0.5 * alpha, lb, ub, tol=tol)
+        return L, U
