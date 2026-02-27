@@ -88,7 +88,6 @@ ax.grid(True)
 ```
 
 ```{code-cell} ipython3
-
 # 5. Form the Discrete Family
 # We use a grid for the sufficient statistic (observed Z)
 grid = np.linspace(-2, 5, 500)
@@ -107,7 +106,7 @@ family = discrete_family(grid, reference_weights)
 
 # 6. Inference
 # 95% Confidence Interval
-lower, upper = family.interval(z_obs, alpha=0.05, randomize=False)
+lower, upper = family.equal_tailed_interval(z_obs, alpha=0.05, randomize=False)
 print(f"95% Confidence Interval for mu: ({lower:.3f}, {upper:.3f})")
 
 # P-value for H0: mu = 0
@@ -178,4 +177,68 @@ print(f"95% Confidence Interval for mu (TruncBivariateNormal): ({L_exact:.3f}, {
 p_val_tbn = tbn.cdf(0.0, z_obs)
 p_val_tbn_two_sided = 2 * min(p_val_tbn, 1 - p_val_tbn)
 print(f"Two-sided p-value for H0 (mu=0) (TruncBivariateNormal): {p_val_tbn_two_sided:.4f}")
+```
+
+### Coverage Simulation
+
+To verify the theoretical properties of our `TruncBivariateNormal` confidence intervals, we can run a simulation. We will generate $Z \sim N(\mu, \sigma_Z^2)$ where $\mu = 1$ and $\sigma_Z = \sqrt{2}$. We will add noise $\omega \sim N(0, \sigma_\omega^2)$ with $\sigma_\omega = \sqrt{1.5}$, and apply the selection rule $Z + \omega > 2$.
+
+Then, for each simulated and selected observation, we will compute a 90% confidence interval for $\mu$ and check if the true $\mu = 1$ falls within the interval. Over many simulations, the coverage proportion should be approximately 90%.
+
+```{code-cell} ipython3
+import numpy as np
+from lassoinf.bivariate_normal import TruncBivariateNormal
+
+np.random.seed(42)
+
+# True parameters
+mu_true = 1.0
+sig_z = np.sqrt(2.0)
+sig_omega = np.sqrt(1.5)
+threshold = 2.0
+
+n_sim = 1000
+alpha = 0.1
+coverage = 0
+
+# Set up the TruncBivariateNormal object
+# The base measure is N(theta * sig_z^2, sig_z^2), so theta_true = mu_true / sig_z^2
+theta_true = mu_true / sig_z**2
+tbn_sim = TruncBivariateNormal(a_coeff=1.0, b_coeff=1.0, L=threshold, U=np.inf, 
+                               sig_omega=sig_omega, sig_x=sig_z, theta=theta_true)
+
+# Rejection sampling to simulate the exact conditioned distribution
+samples = []
+while len(samples) < n_sim:
+    # Z ~ N(mu_true, sig_z^2)
+    z = np.random.normal(loc=mu_true, scale=sig_z, size=5000)
+    # omega ~ N(0, sig_omega^2)
+    omega = np.random.normal(loc=0.0, scale=sig_omega, size=5000)
+    
+    # Selection rule
+    s = z + omega
+    valid_z = z[s > threshold]
+    samples.extend(valid_z)
+
+# Take exactly n_sim samples
+samples = samples[:n_sim]
+
+# Compute intervals and check coverage
+for z_obs in samples:
+    # equal_tailed_interval returns bounds for the natural parameter theta
+    lower_theta, upper_theta = tbn_sim.equal_tailed_interval(z_obs, alpha=alpha)
+    
+    # Convert theta bounds back to the mean parameter space (mu = theta * sig_z^2)
+    lower_mu = lower_theta * sig_z**2
+    upper_mu = upper_theta * sig_z**2
+    
+    if lower_mu <= mu_true <= upper_mu:
+        coverage += 1
+
+coverage_rate = coverage / n_sim
+print(f"Coverage of 90% confidence interval over {n_sim} simulations: {coverage_rate * 100:.1f}%")
+```
+
+```{code-cell} ipython3
+
 ```
