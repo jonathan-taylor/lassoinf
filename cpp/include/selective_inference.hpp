@@ -145,14 +145,6 @@ LassoConstraints lasso_post_selection_constraints(
     double tol = 1e-6
 );
 
-struct InferenceResult {
-    int index;
-    double beta_hat;
-    double lower_conf;
-    double upper_conf;
-    double p_value;
-};
-
 class SelectiveInference {
 public:
     SelectiveInference(Eigen::VectorXd Z, 
@@ -187,35 +179,6 @@ private:
     Eigen::VectorXd Z_noisy_;
     std::shared_ptr<LinearOperator> Q_;
     std::shared_ptr<LinearOperator> Q_noise_;
-};
-
-class LassoInference {
-public:
-    LassoInference(Eigen::VectorXd beta_hat,
-                   Eigen::VectorXd G_hat,
-                   std::shared_ptr<LinearOperator> Q_hat,
-                   Eigen::VectorXd D,
-                   Eigen::VectorXd L,
-                   Eigen::VectorXd U,
-                   Eigen::VectorXd Z_full,
-                   std::shared_ptr<LinearOperator> Sigma,
-                   std::shared_ptr<LinearOperator> Sigma_noisy);
-
-    std::vector<InferenceResult> summary() const;
-
-private:
-    Eigen::VectorXd beta_hat_;
-    Eigen::VectorXd G_hat_;
-    std::shared_ptr<LinearOperator> Q_hat_;
-    Eigen::VectorXd D_;
-    Eigen::VectorXd L_;
-    Eigen::VectorXd U_;
-    Eigen::VectorXd Z_full_;
-    std::shared_ptr<LinearOperator> Sigma_;
-    std::shared_ptr<LinearOperator> Sigma_noisy_;
-
-    LassoConstraints constraints_;
-    std::vector<InferenceResult> results_;
 };
 
 } // namespace lassoinf
