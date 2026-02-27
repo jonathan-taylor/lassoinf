@@ -1,2 +1,2 @@
 CXX_STD = CXX14
-PKG_CPPFLAGS = -I../cpp/include
+PKG_CPPFLAGS = -I../../cpp/include

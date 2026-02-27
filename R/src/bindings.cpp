@@ -3,16 +3,16 @@
 // [[Rcpp::depends(RcppEigen)]]
 
 // 1. Include the headers
-#include "../cpp/include/selective_inference.hpp"
-#include "../cpp/include/discrete_family.h"
-#include "../cpp/include/gaussian_family.hpp"
+#include "../../cpp/include/selective_inference.hpp"
+#include "../../cpp/include/discrete_family.h"
+#include "../../cpp/include/gaussian_family.hpp"
 
 // 2. Unity build: include the C++ sources directly to avoid duplicate symbols
 //    and bypass the need for a complex Makefile to compile them individually.
-#include "../cpp/src/selective_inference.cpp"
-#include "../cpp/src/lasso_post_selection_constraints.cpp"
-#include "../cpp/src/discrete_family.cpp"
-#include "../cpp/src/gaussian_family.cpp"
+#include "../../cpp/src/selective_inference.cpp"
+#include "../../cpp/src/lasso_post_selection_constraints.cpp"
+#include "../../cpp/src/discrete_family.cpp"
+#include "../../cpp/src/gaussian_family.cpp"
 
 using namespace Rcpp;
 
