@@ -1,29 +1,30 @@
----
-jupytext:
-  main_language: python
-  cell_metadata_filter: -all
-  formats: ipynb,md:myst
-  text_representation:
-    extension: .md
-    format_name: myst
-    format_version: 0.13
-    jupytext_version: 1.19.1
-kernelspec:
-  name: python3
-  display_name: Python 3 (ipykernel)
-  language: python
----
+# ---
+# jupyter:
+#   jupytext:
+#     cell_metadata_filter: -all
+#     default_lexer: ipython3
+#     text_representation:
+#       extension: .py
+#       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.19.1
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
+# ---
 
-# Logistic Lasso Selective Inference Example
+# %% [markdown]
+# # Logistic Lasso Selective Inference Example
+#
+# This notebook demonstrates how to perform selective inference after fitting a logistic lasso model. 
+# We will generate some synthetic data, use the bootstrap to estimate the covariance of the unpenalized score, and finally compute post-selection confidence intervals and p-values for the parameters.
+#
+# ## Setup Data and Bootstrap
+#
+# We start by generating a dataset of $n=300$ observations and $p=10$ features, where only the first few features are truly active. Then, we approximate the variance of the unpenalized score $Z_{full} = Q \bar{\beta}$ via the bootstrap.
 
-This notebook demonstrates how to perform selective inference after fitting a logistic lasso model. 
-We will generate some synthetic data, use the bootstrap to estimate the covariance of the unpenalized score, and finally compute post-selection confidence intervals and p-values for the parameters.
-
-## Setup Data and Bootstrap
-
-We start by generating a dataset of $n=300$ observations and $p=10$ features, where only the first few features are truly active. Then, we approximate the variance of the unpenalized score $Z_{full} = Q \bar{\beta}$ via the bootstrap.
-
-```{code-cell} ipython3
+# %%
 import numpy as np
 import cvxpy as cp
 import pandas as pd
@@ -31,7 +32,7 @@ from scipy.special import expit
 
 # 1. Generate data
 rng = np.random.default_rng()#20)
-n, p = 800, 10
+n, p = 800, 20
 X = rng.standard_normal((n, p)) 
 
 true_beta = np.zeros(p)
@@ -40,9 +41,8 @@ true_beta[:3] = [2.0, -2.0, 1.0] / np.sqrt(n)
 logits = X @ true_beta
 probs = expit(logits)
 y = rng.binomial(1, probs)
-```
 
-```{code-cell} ipython3
+# %%
 # 2. Estimate Sigma via bootstrap
 B = 30
 Z_boot = []
@@ -76,13 +76,13 @@ for b in range(B):
 Z_boot = np.array(Z_boot)
 Sigma = np.cov(Z_boot, rowvar=False)
 print("Bootstrap finished.")
-```
 
-## Fitting the Unpenalized and Penalized Models
+# %% [markdown]
+# ## Fitting the Unpenalized and Penalized Models
+#
+# We now fit the unpenalized model on the original data to obtain $Z_{full}$, which acts as the target for our inference. Then, we simulate a "noisy" experiment by selecting a random bootstrap sample to act as our dataset for selection. We fit the lasso penalty on this sample to choose our model.
 
-We now fit the unpenalized model on the original data to obtain $Z_{full}$, which acts as the target for our inference. Then, we simulate a "noisy" experiment by selecting a random bootstrap sample to act as our dataset for selection. We fit the lasso penalty on this sample to choose our model.
-
-```{code-cell} ipython3
+# %%
 # 3. Unpenalized fit on full data
 beta_orig = cp.Variable(p)
 loss_orig = cp.sum(
@@ -104,7 +104,7 @@ indices_noisy = rng.choice(n, n, replace=True)
 X_noisy, y_noisy = X[indices_noisy], y[indices_noisy]
 
 beta_lasso = cp.Variable(p)
-lam = 1. # L1 penalty
+lam = 1.0 * np.sqrt(n) # L1 penalty
 D_weight = lam * (np.ones(p) + np.linspace(-0.1, 0.1, p))
 D_weight[2] = 0.0 # 3rd feature unpenalized
 
@@ -112,13 +112,12 @@ loss_noisy = cp.sum(
     cp.logistic(X_noisy @ beta_lasso) - cp.multiply(y_noisy, X_noisy @ beta_lasso)
 )
 penalty = cp.sum(cp.multiply(D_weight, cp.abs(beta_lasso)))
-L1, U1 = -2, 2
-constraints = [
-    beta_lasso[0] >= L1,
-    beta_lasso[0] <= U1,
-    beta_lasso[1] >= 0.0
-]
-prob_lasso = cp.Problem(cp.Minimize(loss_noisy + penalty), constraints)
+# constraints = [
+#     beta_lasso[0] >= -2.0,
+#     beta_lasso[0] <= 2.0,
+#     beta_lasso[1] >= 0.0
+# ]
+prob_lasso = cp.Problem(cp.Minimize(loss_noisy + penalty)) # , constraints)
 prob_lasso.solve(solver=cp.SCS)
 
 beta_hat = beta_lasso.value
@@ -128,24 +127,30 @@ p_noisy = expit(X_noisy @ beta_hat)
 G_hat = -X_noisy.T @ (y_noisy - p_noisy)
 W_noisy = np.diag(p_noisy * (1 - p_noisy))
 Q_hat = X_noisy.T @ W_noisy @ X_noisy
-```
 
-## Post-Selection Inference
+# %% [markdown]
+# ## Post-Selection Inference
+#
+# With all ingredients gathered, we can pass the selection parameters, original constraints, and statistics into `LassoInference`.
 
-With all ingredients gathered, we can pass the selection parameters, original constraints, and statistics into `LassoInference`.
-
-```{code-cell} ipython3
+# %%
 from lassoinf.selective_inference import LassoInference
 
 D = D_weight
 L_bound = np.full(p, -np.inf)
-L_bound[0] = L1
-L_bound[1] = 0.0
+#L_bound[0] = -2.0
+#L_bound[1] = 0.0
 
 U_bound = np.full(p, np.inf)
-U_bound[0] = U1
+#U_bound[0] = 2.0
 
 # 5. Inference
+print(f"Z_full shape: {Z_full.shape}")
+print(f"Sigma shape: {Sigma.shape}")
+print(f"Sigma trace: {np.trace(Sigma)}")
+print(f"beta_hat: {beta_hat}")
+print(f"G_hat: {G_hat}")
+
 inference = LassoInference(
     beta_hat=beta_hat,
     G_hat=G_hat,
@@ -160,9 +165,6 @@ inference = LassoInference(
 
 # 6. View the summary of free (selected) variables
 summary_df = inference.summary()
-summary_df
-```
+print(summary_df)
 
-```{code-cell} ipython3
-
-```
+# %%

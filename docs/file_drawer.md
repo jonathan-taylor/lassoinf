@@ -35,6 +35,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm as normal_dbn
 from lassoinf.selective_inference import SelectiveInference
 from lassoinf.discrete_family import discrete_family
+from lassoinf.bivariate_normal import TruncBivariateNormal
 
 # 1. Parameters
 mu_null = 0
@@ -186,16 +187,12 @@ To verify the theoretical properties of our `TruncBivariateNormal` confidence in
 Then, for each simulated and selected observation, we will compute a 90% confidence interval for $\mu$ and check if the true $\mu = 1$ falls within the interval. Over many simulations, the coverage proportion should be approximately 90%.
 
 ```{code-cell} ipython3
-import numpy as np
-from lassoinf.bivariate_normal import TruncBivariateNormal
-
-np.random.seed(42)
-
+rng = np.random.default_rng(42)
 # True parameters
 mu_true = 1.0
 sig_z = np.sqrt(2.0)
 sig_omega = np.sqrt(1.5)
-threshold = 2.0
+threshold = 1.6
 
 n_sim = 1000
 alpha = 0.1
@@ -211,9 +208,9 @@ tbn_sim = TruncBivariateNormal(a_coeff=1.0, b_coeff=1.0, L=threshold, U=np.inf,
 samples = []
 while len(samples) < n_sim:
     # Z ~ N(mu_true, sig_z^2)
-    z = np.random.normal(loc=mu_true, scale=sig_z, size=5000)
+    z = rng.normal(loc=mu_true, scale=sig_z, size=5000)
     # omega ~ N(0, sig_omega^2)
-    omega = np.random.normal(loc=0.0, scale=sig_omega, size=5000)
+    omega = rng.normal(loc=0.0, scale=sig_omega, size=5000)
     
     # Selection rule
     s = z + omega
@@ -222,7 +219,9 @@ while len(samples) < n_sim:
 
 # Take exactly n_sim samples
 samples = samples[:n_sim]
+```
 
+```{code-cell} ipython3
 # Compute intervals and check coverage
 for z_obs in samples:
     # equal_tailed_interval returns bounds for the natural parameter theta
@@ -237,6 +236,11 @@ for z_obs in samples:
 
 coverage_rate = coverage / n_sim
 print(f"Coverage of 90% confidence interval over {n_sim} simulations: {coverage_rate * 100:.1f}%")
+```
+
+```{code-cell} ipython3
+%%timeit
+lower_theta, upper_theta = tbn_sim.equal_tailed_interval(samples[0], alpha=alpha)
 ```
 
 ```{code-cell} ipython3

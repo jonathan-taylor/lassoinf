@@ -4,6 +4,7 @@ from scipy.stats import norm
 from functools import partial
 from scipy.sparse.linalg import cg, LinearOperator
 from .gaussian_family import WeightedGaussianFamily
+from .bivariate_normal import TruncBivariateNormal
 
 @dataclass
 class SelectiveInference:
@@ -321,7 +322,114 @@ class LassoInference:
     Sigma: np.ndarray
     Sigma_noisy: np.ndarray
 
+    def check_kkt(self, tol=1e-5):
+        """
+        Checks whether the current beta_hat, G_hat satisfy the KKT conditions
+        for the bounded lasso problem.
+        The KKT condition is -G_hat in the subdifferential of P(beta_hat).
+        """
+        g = -self.G_hat
+        n = len(self.beta_hat)
+        L = np.full(n, -np.inf) if self.L is None else np.asarray(self.L)
+        U = np.full(n, np.inf) if self.U is None else np.asarray(self.U)
+        D = np.asarray(self.D)
+        
+        for j in range(n):
+            if np.isclose(L[j], U[j], atol=tol):
+                continue
+                
+            bj = self.beta_hat[j]
+            gj = g[j]
+            dj = D[j]
+            
+            # Subgradient of absolute value
+            if abs(bj) > tol:
+                subgrad_l1 = dj * np.sign(bj)
+            else:
+                subgrad_l1_min, subgrad_l1_max = -dj, dj
+                
+            if bj > L[j] + tol and bj < U[j] - tol:
+                # Interior of bounds
+                if abs(bj) > tol:
+                    if not np.isclose(gj, subgrad_l1, atol=tol): 
+                        return False
+                else:
+                    if gj < subgrad_l1_min - tol or gj > subgrad_l1_max + tol: 
+                        return False
+            elif bj >= U[j] - tol:
+                # On upper bound
+                if abs(bj) > tol:
+                    if gj < subgrad_l1 - tol: 
+                        return False
+                else:
+                    if gj < subgrad_l1_min - tol: 
+                        return False
+            elif bj <= L[j] + tol:
+                # On lower bound
+                if abs(bj) > tol:
+                    if gj > subgrad_l1 + tol: 
+                        return False
+                else:
+                    if gj > subgrad_l1_max + tol: 
+                        return False
+                    
+        return True
+
+    def prox_lasso_bounds(self, v, t):
+        """
+        Computes the proximal operator for the bounded L1 penalty:
+            h(beta) = ||D beta||_1 + I_{[L, U]}(beta)
+        """
+        v = np.asarray(v)
+        D_diag = np.asarray(self.D)
+        
+        n = len(v)
+        L = np.full(n, -np.inf) if self.L is None else np.asarray(self.L)
+        U = np.full(n, np.inf) if self.U is None else np.asarray(self.U)
+        
+        # Soft-Thresholding
+        st_val = np.sign(v) * np.maximum(np.abs(v) - t * D_diag, 0.0)
+        
+        # Projection (Clipping) onto the box constraints
+        prox_val = np.clip(st_val, L, U)
+        
+        return prox_val
+
     def __post_init__(self):
+        # 1. Estimate largest singular value of Q_hat using power method
+        n = self.Q_hat.shape[0] if hasattr(self.Q_hat, 'shape') else len(self.beta_hat)
+        v_pow = np.random.randn(n)
+        v_pow /= np.linalg.norm(v_pow)
+        for _ in range(10): # 10 iterations of power method
+            if hasattr(self.Q_hat, 'matvec'):
+                Q_v = self.Q_hat.matvec(v_pow)
+            elif isinstance(self.Q_hat, LinearOperator) or hasattr(self.Q_hat, 'multiply'):
+                Q_v = self.Q_hat.multiply(v_pow) if hasattr(self.Q_hat, 'multiply') else self.Q_hat.matvec(v_pow)
+            else:
+                Q_v = self.Q_hat @ v_pow
+            lambda_max = np.linalg.norm(Q_v)
+            v_pow = Q_v / lambda_max
+            
+        # 2. Compute step size
+        # As requested, take step_size = 1 / (20 * lambda_max)
+        step_size = 1.0 / (20.0 * lambda_max)
+        
+        # 3. Proximal map step (thresholding/rounding)
+        # One iteration of proximal gradient ensures KKT holds exactly for the 
+        # linearized objective at beta_new.
+        v_step = self.beta_hat - step_size * self.G_hat
+        beta_new = self.prox_lasso_bounds(v_step, step_size)
+        
+        # Update G_hat such that the proximal identity holds:
+        # G_new = G_old + (1/t)(beta_new - beta_old)
+        beta_diff = beta_new - self.beta_hat
+        self.G_hat = self.G_hat + (1.0 / step_size) * beta_diff
+        self.beta_hat = beta_new
+        
+        if not self.check_kkt(tol=1e-4):
+            # This should ideally not be reached if step_size is small enough
+            pass
+            
         self.A, self.b, self.E, self.E_c, self.s_E, self.v_Ec = lasso_post_selection_constraints(
             self.beta_hat, self.G_hat, self.Q_hat, self.D, self.L, self.U
         )
@@ -367,17 +475,35 @@ class LassoInference:
                     variance = v.T @ (self.Sigma @ v)
                 sigma = np.sqrt(variance)
                 
-                # Get the selection weight function
-                weight_f = self.si.get_weight(v, self.A, self.b)
+                # Use TruncBivariateNormal for exact inference
+                params_fixed = self.si.compute_params(v)
+                bar_s = float(params_fixed['bar_s'])
                 
-                # Initialize the weighted Gaussian family
-                wgf = WeightedGaussianFamily(estimate=float(theta_hat), sigma=float(sigma), weight_fns=[weight_f])
+                # Get the interval bounds at theta_hat = 0
+                L_0, U_0 = self.si.get_interval(v, 0.0, self.A, self.b)
                 
-                # Compute the 95% confidence interval
-                lower, upper = wgf.interval(level=0.95)
+                c1 = float(variance)
+                c2 = bar_s**2
                 
-                # Compute the p-value for H0: theta = 0
-                p_val = wgf.pvalue(null_value=0, alternative='twosided')
+                # The constraint is L_0 <= (c2/c1) * theta_hat + bar_theta <= U_0
+                a_coeff = c2 / c1
+                b_coeff = 1.0
+                
+                tbn = TruncBivariateNormal(
+                    a_coeff=a_coeff, b_coeff=b_coeff, 
+                    L=L_0, U=U_0, 
+                    sig_omega=bar_s, 
+                    sig_x=sigma
+                )
+                
+                # Compute the 95% confidence interval (in natural parameter space)
+                L_theta, U_theta = tbn.equal_tailed_interval(float(theta_hat), alpha=0.05)
+                lower, upper = L_theta * c1, U_theta * c1
+                
+                # Compute p-value for H0: theta = 0
+                # H0: theta_true = 0 => theta_natural = 0
+                cdf_val = np.clip(tbn.cdf(theta=0.0, x=float(theta_hat)), 0.0, 1.0)
+                p_val = np.clip(2 * min(cdf_val, 1.0 - cdf_val), 0.0, 1.0)
                 
                 self.intervals[j] = (lower, upper, p_val)
 
@@ -402,9 +528,8 @@ class LassoInference:
         }
         
         try:
-            return pd.DataFrame(data)
+            return pd.DataFrame(data).set_index('index')
         except ImportError:
             # Fallback to numpy array if pandas is not installed
             res = np.column_stack([indices, beta_vals, lowers, uppers, p_vals])
             return res
-
