@@ -6,5 +6,5 @@ Description: Computes post-selection inference for the lasso leveraging a high-p
 License: BSD_3_clause + file LICENSE
 Encoding: UTF-8
 LinkingTo: Rcpp, RcppEigen
-Imports: Rcpp
+Imports: Rcpp, mvtnorm, R6
 RoxygenNote: 7.2.3
