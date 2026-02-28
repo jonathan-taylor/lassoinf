@@ -8,6 +8,10 @@ jupytext:
     format_version: 0.13
     jupytext_version: 1.19.1
   formats: ipynb,md:myst
+kernelspec:
+  name: python3
+  display_name: Python 3 (ipykernel)
+  language: python
 ---
 
 # Discrete Family
@@ -18,7 +22,7 @@ The `discrete_family` module provides tools for working with 1-dimensional discr
 
 Here is an example evaluating a normal density on a grid and using a selection weight from `SelectiveInference`.
 
-```{code-cell}
+```{code-cell} ipython3
 import numpy as np
 from scipy.stats import norm
 from lassoinf.selective_inference import SelectiveInference
@@ -32,7 +36,7 @@ Q = np.eye(n)
 gamma_val = 0.5
 Q_noise = (gamma_val**2) * Q
 omega = np.random.multivariate_normal(np.zeros(n), Q_noise)
-Z_noisy = Z + omega
+Z_noisy = np.fabs(Z + omega)
 
 si = SelectiveInference(Z, Z_noisy, Q, Q_noise)
 
@@ -48,7 +52,7 @@ b = np.zeros(n)
 weight_f = si.get_weight(v, A, b)
 
 # 3. Create a grid of sufficient statistics (e.g. possible values of theta_hat)
-grid = np.linspace(-5, 5, 200)
+grid = np.linspace(-15, 15, 1000)
 
 # 4. The reference measure is the unselected normal distribution for theta_hat
 # In this case, theta_hat ~ N(0, v'Qv) -> N(0, 1) under the null
