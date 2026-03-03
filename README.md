@@ -40,14 +40,26 @@ pip install --no-build-isolation -Csetup-args=-Dbuildtype=debug -e .
 
 ### R
 
-The R package bindings are located in the `R_pkg/` directory. You can install the R package from the terminal using `R CMD INSTALL`:
+The R package `lassoinf` requires `Rcpp`, `RcppEigen`, and `R6`. You can install the package from the terminal or directly from the source directory.
+
+**From the terminal:**
 
 ```bash
-cd R_pkg
-R CMD INSTALL .
+# Build and install the package
+R CMD INSTALL R_pkg
 ```
 
-Or from within an R session using `devtools`:
+**From within an R session:**
+
+```R
+# Install required dependencies if not already present
+install.packages(c("Rcpp", "RcppEigen", "R6", "mvtnorm"))
+
+# Install the package from the source directory
+install.packages("R_pkg", repos = NULL, type = "source")
+```
+
+Or using `devtools`:
 
 ```R
 devtools::install("R_pkg")
@@ -64,7 +76,13 @@ Rscript -e 'testthat::test_dir("tests/testthat")'
 
 ## Documentation
 
-For more information, refer to the documentation in the `docs/` folder.
+For more information, refer to the documentation in the `docs/` folder. For the R package, you can view the vignette:
+
+```R
+vignette("gaussian_lasso_boot", package = "lassoinf")
+```
+
+Alternatively, you can browse the `pkgdown` documentation site in `R_pkg/docs/index.html`.
 
 ## License
 

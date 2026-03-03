@@ -7,4 +7,4 @@ License: BSD_3_clause + file LICENSE
 Encoding: UTF-8
 LinkingTo: Rcpp, RcppEigen
 Imports: Rcpp, mvtnorm, R6
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.3
