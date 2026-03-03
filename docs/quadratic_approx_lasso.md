@@ -114,7 +114,6 @@ takes a triple $(\hat{\beta}, \nabla \bar{\ell}(\hat{\beta}), \nabla^2 \bar{\ell
 as the problem specifications $D, U, L$ and constructs the corresponding set of affine constraints analogous
 to those in {cite}`LeeLasso`.
 
-
 ```{code-cell} ipython3
 import inspect
 from lassoinf.lasso import lasso_post_selection_constraints
