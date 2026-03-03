@@ -92,7 +92,7 @@ Sigma = sigma2_est * (X.T @ X)
 
 sigma2_boot = ((1 - pi_selection) / pi_selection) * sigma2_est
 # Covariance of the noisy score
-Sigma_noisy = sigma2_boot * (X.T @ X) # equivalent to Sigma / pi_selection
+Sigma_noise = sigma2_boot * (X.T @ X) # equivalent to Sigma / pi_selection
 print(f"Estimated noise variance (using parametric model): {sigma2_est:.4f}")
 print(f"Parametric bootstrap error variance: {sigma2_boot:.4f}")
 # Generate noisy response for selection
@@ -148,7 +148,7 @@ inference = LassoInference(
     U=U_bound,
     Z_full=Z_full,
     Sigma=Sigma,
-    Sigma_noisy=Sigma_noisy
+    Sigma_noise=Sigma_noise
 )
 
 # 5. View the summary of free (selected) variables

@@ -13,102 +13,39 @@ from .bivariate_normal import TruncBivariateNormal
 from .operators.composite import CompositeOperator
 
 
-def spec_from_glmnet(glmnet_obj,
-                     data,
-                     lambda_val,
-                     state,
-                     proportion,
-                     dispersion=None):
-    G = glmnet_obj
-    X_full, Df_full = data
-    _, _, Y_full, _, weight_full = G.get_data_arrays(X_full, Df_full)
-    ridge_coef = (1 - G.alpha) * lambda_val * weight_full.sum()
-
-    active_set = np.nonzero(state.coef != 0)[0]
-
-    if active_set.shape[0] == 0:
-        return None
-
-    unreg_GLM = glmnet_obj.get_GLM(ridge_coef=ridge_coef)
-    unreg_GLM.summarize = True
-    unreg_GLM.fit(X_full[:, active_set], Df_full, dispersion=dispersion)
-
-    D_active = glmnet_obj.get_design(X_full[:, active_set],
-                                     weight_full,
-                                     standardize=glmnet_obj.standardize,
-                                     intercept=glmnet_obj.fit_intercept)
-
-    info = unreg_GLM._information
-    P_active = D_active.quadratic_form(info, transformed=True)
-
-    D0 = np.ones(D_active.shape[1])
-    if G.fit_intercept:
-        D0[0] = 0
-    DIAG_active = np.diag(D0) * ridge_coef
-
-    if not G.fit_intercept:
-        if G.penalty_factor is not None:
-            penfac = G.penalty_factor[active_set]
-        else:
-            penfac = np.ones_like(active_set)
-        P_active = P_active[1:, 1:]
-        DIAG_active = DIAG_active[1:, 1:]
-    else:
-        penfac = np.ones(active_set.shape[0])
-
-    hessian = P_active + DIAG_active
-    Q_active = np.linalg.inv(hessian)
-    
-    signs = np.sign(state.coef[active_set])
-
-    if G.fit_intercept:
-        penfac = np.hstack([0, penfac])
-        signs = np.hstack([0, signs])
-        stacked = np.hstack([state.intercept, state.coef[active_set]])
-    else:
-        stacked = state.coef[active_set]
-
-    penalized = penfac > 0
-    n_penalized = penalized.sum()
-    n_coef = penalized.shape[0]
-    row_idx = np.arange(n_penalized)
-    col_idx = np.nonzero(penalized)[0]
-    data = -signs[penalized]
-    sel_active = scipy.sparse.coo_matrix((data, (row_idx, col_idx)), shape=(n_penalized, n_coef))
-
-    linear = sel_active
-    offset = np.zeros(sel_active.shape[0])
-
-    return {'D': D_active,
-            'L': linear,
-            'U': offset,
-            'gradient': -Q_active @ (penfac * lambda_val * signs) * weight_full.sum(),
-            'hessian': hessian}
-
 @dataclass
 class AffineConstraints:
     Z: np.ndarray
     Z_noisy: np.ndarray
     Q: np.ndarray        # Sigma (can be np.ndarray or LinearOperator)
     Q_noise: np.ndarray  # Bar Sigma (can be np.ndarray or LinearOperator)
-
+    scalar_noise: float = np.nan # if > 0 and Q_noise is None, it is assumed that Q_noise = scalar_noise * Q
+    
     def solve_contrast(self, v: np.ndarray) -> np.ndarray:
         """
         Computes c = BarSigma^-1 * Sigma * eta
         This isolates the linear system solve so it can be optimized.
         """
-        # Right hand side: Q_v = Sigma * eta
-        Q_v = self.Q @ v
-        
-        if isinstance(self.Q_noise, LinearOperator):
-            # Iterative solve for Matrix-Free / Sparse operators
-            c, info = cg(self.Q_noise, Q_v, rtol=1e-8)
-            if info != 0:
-                raise RuntimeError(f"Conjugate gradient did not converge (info={info})")
-            return c
+        if self.Q_noise is not None:
+            # Right hand side: Q_v = Sigma * eta
+            Q_v = self.Q @ v
+
+            if isinstance(self.Q_noise, LinearOperator):
+                # Iterative solve for Matrix-Free / Sparse operators
+                c, info = cg(self.Q_noise, Q_v, rtol=1e-8)
+                if info != 0:
+                    raise RuntimeError(f"Conjugate gradient did not converge (info={info})")
+                return c
+            else:
+                # Direct solve for dense matrices
+                return np.linalg.solve(self.Q_noise, Q_v)
         else:
-            # Direct solve for dense matrices
-            return np.linalg.solve(self.Q_noise, Q_v)
+            if self.scalar_noise > 0:
+                # minimum of 0.001 for stability
+                scalar = max(self.scalar_noise, 0.001)
+                return v / scalar
+            else:
+                raise ValueError('if Q_noise is None, scalar_noise must be > 0')
 
     def compute_params(self, v: np.ndarray):
         """
@@ -126,8 +63,16 @@ class AffineConstraints:
         c = self.solve_contrast(v)
         
         # bar_s^2 = c' * BarSigma * c = eta' * Sigma * BarSigma^-1 * Sigma * eta
-        Q_noise_c = self.Q_noise @ c
-        bar_s2 = c.T @ Q_noise_c
+        if self.Q_noise is not None:
+            Q_noise_c = self.Q_noise @ c
+        else:
+            if self.scalar_noise > 0:
+                scalar = max(self.scalar_noise, 0.001)
+                Q_noise_c = scalar * self.Q @ c
+            else:
+                raise ValueError('if Q_noise is None, scalar_noise must be > 0')
+
+        bar_s2 = c.T  @ Q_noise_c
         bar_s = np.sqrt(bar_s2)
         
         # bar_Gamma = (c' * BarSigma * c)^-1 * Cov(omega, c'omega)
@@ -145,6 +90,8 @@ class AffineConstraints:
         bar_theta = c.T @ omega
         bar_n_o = omega - bar_gamma * bar_theta
         
+        naive_var = (v.T @ self.Q @ v)
+
         return {
             'gamma': gamma,
             'c': c,
@@ -153,17 +100,11 @@ class AffineConstraints:
             'n_o': n_o,
             'bar_n_o': bar_n_o,
             'theta_hat': theta_hat,
-            'bar_theta': bar_theta
+            'bar_theta': bar_theta,
+            'splitting_variance': naive_var + bar_s**2,
+            'splitting_estimator': theta_hat - bar_theta,
+            'naive_variance': naive_var
         }
-
-    def data_splitting_estimator(self, v: np.ndarray):
-        """
-        Computes the data splitting estimator and its variance.
-        """
-        params = self.compute_params(v)
-        variance = (v.T @ self.Q @ v) + params['bar_s']**2
-        estimator = params['theta_hat'] - params['bar_theta']
-        return estimator, variance
 
     def get_interval(self, v: np.ndarray, t: float, A: np.ndarray, b: np.ndarray):
         params = self.compute_params(v)
@@ -397,8 +338,9 @@ class LassoInference:
     U: np.ndarray
     Z_full: np.ndarray
     Sigma: np.ndarray
-    Sigma_noisy: np.ndarray
-
+    Sigma_noise: np.ndarray
+    scalar_noise: float = np.nan
+    
     def check_kkt(self, tol=1e-5):
         """
         Checks whether the current beta_hat, G_hat satisfy the KKT conditions
@@ -508,7 +450,8 @@ class LassoInference:
             Z=self.Z_full,
             Z_noisy=self.Z_noisy,
             Q=self.Sigma,
-            Q_noise=self.Sigma_noisy
+            Q_noise=self.Sigma_noise,
+            scalar_noise=self.scalar_noise,
         )
         
         self.intervals = {}
@@ -578,9 +521,8 @@ class LassoInference:
                 p_val = np.clip(2 * min(cdf_val, 1.0 - cdf_val), 0.0, 1.0)
                 
                 self.intervals[j] = (lower, upper, p_val)
-                est, var = self.si.data_splitting_estimator(v)
-                self.splitting[j] = (est, var)
-                self.naive[j] = (theta_hat, (v * (self.Sigma @ v)).sum())
+                self.splitting[j] = (params_fixed['splitting_estimator'], params_fixed['splitting_variance'])
+                self.naive[j] = (params_fixed['theta_hat'], params_fixed['naive_variance'])
                 self.contrasts[j] = v
 
     def summary(self):

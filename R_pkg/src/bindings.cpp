@@ -54,11 +54,6 @@ NumericVector get_interval_wrapper(lassoinf::AffineConstraints* si, const Eigen:
     return NumericVector::create(res.first, res.second);
 }
 
-NumericVector data_splitting_estimator_wrapper(lassoinf::AffineConstraints* si, const Eigen::VectorXd& v) {
-    auto res = si->data_splitting_estimator(v);
-    return NumericVector::create(res.first, res.second);
-}
-
 Rcpp::List compute_params_wrapper(lassoinf::AffineConstraints* si, const Eigen::VectorXd& v) {
     auto p = si->compute_params(v);
     Rcpp::Environment env = Rcpp::Environment::empty_env();
@@ -70,7 +65,10 @@ Rcpp::List compute_params_wrapper(lassoinf::AffineConstraints* si, const Eigen::
         Rcpp::Named("n_o") = p.n_o,
         Rcpp::Named("bar_n_o") = p.bar_n_o,
         Rcpp::Named("theta_hat") = p.theta_hat,
-        Rcpp::Named("bar_theta") = p.bar_theta
+        Rcpp::Named("bar_theta") = p.bar_theta,
+        Rcpp::Named("splitting_variance") = p.splitting_variance,
+        Rcpp::Named("splitting_estimator") = p.splitting_estimator,
+        Rcpp::Named("naive_variance") = p.naive_variance
     );
     return list; // returning list is easier
 }
@@ -139,7 +137,6 @@ RCPP_MODULE(lassoinf_cpp) {
         .constructor<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::MatrixXd>()
         .method("solve_contrast", &lassoinf::AffineConstraints::solve_contrast)
         .method("compute_params", &compute_params_wrapper)
-        .method("data_splitting_estimator", &data_splitting_estimator_wrapper)
         .method("get_interval", &get_interval_wrapper)
         ;
 
