@@ -50,7 +50,7 @@ We generate $n=100$ observations and $p=20$ features. We include 1 strong effect
 import numpy as np
 import cvxpy as cp
 import pandas as pd
-from lassoinf.selective_inference import LassoInference
+from lassoinf import LassoInference
 ```
 
 ```{code-cell} ipython3

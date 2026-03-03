@@ -25,10 +25,10 @@ Here is an example evaluating a normal density on a grid and using a selection w
 ```{code-cell} ipython3
 import numpy as np
 from scipy.stats import norm
-from lassoinf.selective_inference import SelectiveInference
+from lassoinf.affine_constraints import AffineConstraints
 from lassoinf.discrete_family import discrete_family
 
-# 1. Setup a SelectiveInference problem
+# 1. Setup a AffineConstraints problem
 np.random.seed(42)
 n = 10
 Z = np.random.randn(n)
@@ -38,7 +38,7 @@ Q_noise = (gamma_val**2) * Q
 omega = np.random.multivariate_normal(np.zeros(n), Q_noise)
 Z_noisy = np.fabs(Z + omega)
 
-si = SelectiveInference(Z, Z_noisy, Q, Q_noise)
+si = AffineConstraints(Z, Z_noisy, Q, Q_noise)
 
 # Define contrast eta (v)
 v = np.zeros(n)

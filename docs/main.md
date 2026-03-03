@@ -135,10 +135,10 @@ $$
 ```{code-cell} ipython3
 import inspect
 import numpy as np
-from lassoinf.selective_inference import SelectiveInference
+from lassoinf.affine_constraints import AffineConstraints
 
 # Compute the required parameters for inference
-print(inspect.getsource(SelectiveInference.compute_params))
+print(inspect.getsource(AffineConstraints.compute_params))
 ```
 
 We have decomposed the joint law $(Z,\omega)$ into 4 independent pieces $(\hat{\theta}, N, \bar{\omega}, \bar{N})$ such that $\text{Var}(\hat{\theta} | N, \bar{N}) = \text{Var}(\hat{\theta})$. Hence,
@@ -171,14 +171,14 @@ $$
 
 ```{code-cell} ipython3
 # Compute the truncation interval [L, U]
-print(inspect.getsource(SelectiveInference.get_interval))
+print(inspect.getsource(AffineConstraints.get_interval))
 ```
 
 The conclusion follows from the fact that, as discussed in {cite}`LeeLasso` $\left\{\bar{\omega}: \bar{A} \bar{\omega} \leq \bar{b}(N_o,\bar{N}_o,t)\right\}$ is an interval $[L(N_o,\bar{N}_o, t), U(N_o, \bar{N}_o, t)]$.
 
 ```{code-cell} ipython3
 # Calculate the selection probability (weight)
-print(inspect.getsource(SelectiveInference.get_weight))
+print(inspect.getsource(AffineConstraints.get_weight))
 ```
 
 ## Implementation
@@ -187,7 +187,7 @@ Below is a Python implementation of the framework described above.
 
 ```{code-cell} ipython3
 # The core dataclass holding the problem parameters
-source = inspect.getsource(SelectiveInference)
+source = inspect.getsource(AffineConstraints)
 print(source[:source.find("    def compute_params")].strip())
 ```
 
@@ -211,7 +211,7 @@ b = np.zeros(n)
 Z_noisy = np.fabs(Z + omega) # 
 
 # Instantiate class
-si = SelectiveInference(Z, Z_noisy, Q, Q_noise)
+si = AffineConstraints(Z, Z_noisy, Q, Q_noise)
 
 # Define contrast eta (v)
 v = np.zeros(n)
@@ -262,10 +262,10 @@ plt.show()
 For performance-critical applications, a C++ implementation using Eigen is also available. It is mirrored from the Python logic and exposed via `pybind11`.
 
 ```{code-cell} ipython3
-from lassoinf_cpp import SelectiveInference as SelectiveInferenceCPP
+from lassoinf_cpp import AffineConstraints as AffineConstraintsCPP
 
 # Instantiate C++ class
-si_cpp = SelectiveInferenceCPP(Z, Z_noisy, Q, Q_noise)
+si_cpp = AffineConstraintsCPP(Z, Z_noisy, Q, Q_noise)
 
 # Compute parameters using C++
 params_cpp = si_cpp.compute_params(v)

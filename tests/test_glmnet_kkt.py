@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from glmnet.glmnet import GLMNet
 from lassoinf import spec_from_glmnet
-from lassoinf.affine_constraints import LassoInference
+from lassoinf import LassoInference
 
 @pytest.mark.skipif(True, reason='glmnet needs update')
 def test_kkt_conditions():

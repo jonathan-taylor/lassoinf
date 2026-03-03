@@ -28,6 +28,7 @@ import numpy as np
 import cvxpy as cp
 import pandas as pd
 from scipy.special import expit
+from lassoinf import LassoInference
 
 # 1. Generate data
 rng = np.random.default_rng()#20)
@@ -135,8 +136,6 @@ Q_hat = X_noisy.T @ W_noisy @ X_noisy
 With all ingredients gathered, we can pass the selection parameters, original constraints, and statistics into `LassoInference`.
 
 ```{code-cell} ipython3
-from lassoinf.selective_inference import LassoInference
-
 D = D_weight
 L_bound = np.full(p, -np.inf)
 L_bound[0] = L1

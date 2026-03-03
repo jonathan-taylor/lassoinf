@@ -1,17 +1,17 @@
 ---
 jupytext:
-  main_language: python
   cell_metadata_filter: -all
   formats: ipynb,md:myst
+  main_language: python
   text_representation:
     extension: .md
     format_name: myst
     format_version: 0.13
     jupytext_version: 1.19.1
 kernelspec:
-  name: python3
   display_name: Python 3 (ipykernel)
   language: python
+  name: python3
 ---
 
 # File Drawer Example
@@ -33,17 +33,18 @@ with poor coverage and $p$-values with poor Type I error. Selective inference al
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm as normal_dbn
-from lassoinf.selective_inference import SelectiveInference
+from lassoinf.affine_constraints import AffineConstraints
 from lassoinf.discrete_family import discrete_family
 from lassoinf.bivariate_normal import TruncBivariateNormal
-
 # 1. Parameters
 mu_null = 0
 gamma = 0.5
 threshold = 2.0
 z_obs = 1.73
+```
 
-# SelectiveInference expects arrays
+```{code-cell} ipython3
+# AffineConstraints expects arrays
 Z = np.array([z_obs])
 Q = np.eye(1)
 Q_noise = np.array([[gamma**2]])
@@ -51,9 +52,8 @@ Q_noise = np.array([[gamma**2]])
 # Z_noisy is Z + omega. 
 # For the weight function calculation, the specific value of omega doesn't change 
 # the probability P(Z + omega > threshold | Z=t), but we need to provide a Z_noisy.
-Z_noisy = Z.copy() 
-
-si = SelectiveInference(Z, Z_noisy, Q, Q_noise)
+Z_noisy = Z.copy()
+si = AffineConstraints(Z, Z_noisy, Q, Q_noise)
 
 # 2. Define target and constraints
 v = np.array([1.0])  # Target is Z itself

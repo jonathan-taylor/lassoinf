@@ -12,6 +12,7 @@ py.install_sources(
   'python/lassoinf/gaussian_family.py',
   'python/lassoinf/bivariate_normal.py',
   'python/lassoinf/affine_constraints.py',
+  'python/lassoinf/lasso.py',
   subdir: 'lassoinf'
 )
 

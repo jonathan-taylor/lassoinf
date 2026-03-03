@@ -57,11 +57,9 @@ jobs:
 
       - name: Install package
         run: |
-          python -m pip install --upgrade pip
-          pip install .[dev]
-          pip install .[doc]
-          pip install -e . --no-build-isolation
-          pip install jupyterlab
+          pip install --upgrade pip
+          pip install meson-python ninja meson pybind11 setuptools_scm pytest pandas joblib jupyterlab
+          pip install .[test]
 
       - name: Build HTML Assets
         run: cd docs && myst build --html --execute
