@@ -37,7 +37,7 @@ jobs:
     - name: Verify installed source
       run: |
         cd /tmp
-        python -c "import lassoinf.selective_inference; import inspect; print(inspect.getsourcefile(lassoinf.selective_inference)); print(''.join(open(inspect.getsourcefile(lassoinf.selective_inference)).readlines()[:20]))"
+        python -c "import lassoinf.affine_constraints; import inspect; print(inspect.getsourcefile(lassoinf.affine_constraints)); print(''.join(open(inspect.getsourcefile(lassoinf.affine_constraints)).readlines()[:20]))"
 
     - name: Debug Installation
       run: |
