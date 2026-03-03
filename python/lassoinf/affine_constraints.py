@@ -80,7 +80,7 @@ def spec_from_glmnet(glmnet_obj,
             'hessian': hessian}
 
 @dataclass
-class SelectiveInference:
+class AffineConstraints:
     Z: np.ndarray
     Z_noisy: np.ndarray
     Q: np.ndarray        # Sigma (can be np.ndarray or LinearOperator)
@@ -500,7 +500,7 @@ class LassoInference:
         
         self.Z_noisy = -self.G_hat + self.Q_hat @ self.beta_hat
         
-        self.si = SelectiveInference(
+        self.si = AffineConstraints(
             Z=self.Z_full,
             Z_noisy=self.Z_noisy,
             Q=self.Sigma,

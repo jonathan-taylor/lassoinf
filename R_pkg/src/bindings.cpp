@@ -3,13 +3,13 @@
 // [[Rcpp::depends(RcppEigen)]]
 
 // 1. Include the headers
-#include "../../cpp/include/selective_inference.hpp"
+#include "../../cpp/include/affine_constraints.hpp"
 #include "../../cpp/include/discrete_family.h"
 #include "../../cpp/include/gaussian_family.hpp"
 
 // 2. Unity build: include the C++ sources directly to avoid duplicate symbols
 //    and bypass the need for a complex Makefile to compile them individually.
-#include "../../cpp/src/selective_inference.cpp"
+#include "../../cpp/src/affine_constraints.cpp"
 #include "../../cpp/src/lasso_post_selection_constraints.cpp"
 #include "../../cpp/src/discrete_family.cpp"
 #include "../../cpp/src/gaussian_family.cpp"
@@ -49,17 +49,17 @@ Eigen::MatrixXd get_A_dense(const lassoinf::LassoConstraints& constraints) {
 }
 
 // Helper to convert std::pair to NumericVector
-NumericVector get_interval_wrapper(lassoinf::SelectiveInference* si, const Eigen::VectorXd& v, double t, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
+NumericVector get_interval_wrapper(lassoinf::AffineConstraints* si, const Eigen::VectorXd& v, double t, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
     auto res = si->get_interval(v, t, A, b);
     return NumericVector::create(res.first, res.second);
 }
 
-NumericVector data_splitting_estimator_wrapper(lassoinf::SelectiveInference* si, const Eigen::VectorXd& v) {
+NumericVector data_splitting_estimator_wrapper(lassoinf::AffineConstraints* si, const Eigen::VectorXd& v) {
     auto res = si->data_splitting_estimator(v);
     return NumericVector::create(res.first, res.second);
 }
 
-Rcpp::List compute_params_wrapper(lassoinf::SelectiveInference* si, const Eigen::VectorXd& v) {
+Rcpp::List compute_params_wrapper(lassoinf::AffineConstraints* si, const Eigen::VectorXd& v) {
     auto p = si->compute_params(v);
     Rcpp::Environment env = Rcpp::Environment::empty_env();
     Rcpp::List list = Rcpp::List::create(
@@ -135,9 +135,9 @@ RCPP_MODULE(lassoinf_cpp) {
     function("lasso_post_selection_constraints", &lasso_post_selection_constraints_wrapper, 
              List::create(_["beta_hat"], _["G"], _["Q"], _["D_diag"], _["L"], _["U"], _["tol"] = 1e-6));
 
-    class_<lassoinf::SelectiveInference>("SelectiveInference")
+    class_<lassoinf::AffineConstraints>("AffineConstraints")
         .constructor<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::MatrixXd>()
-        .method("solve_contrast", &lassoinf::SelectiveInference::solve_contrast)
+        .method("solve_contrast", &lassoinf::AffineConstraints::solve_contrast)
         .method("compute_params", &compute_params_wrapper)
         .method("data_splitting_estimator", &data_splitting_estimator_wrapper)
         .method("get_interval", &get_interval_wrapper)

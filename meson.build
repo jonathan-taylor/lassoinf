@@ -11,7 +11,7 @@ py.install_sources(
   'python/lassoinf/discrete_family.py',
   'python/lassoinf/gaussian_family.py',
   'python/lassoinf/bivariate_normal.py',
-  'python/lassoinf/selective_inference.py',
+  'python/lassoinf/affine_constraints.py',
   subdir: 'lassoinf'
 )
 
@@ -24,7 +24,7 @@ py.install_sources(
 
 py.extension_module(
   'lassoinf_cpp',
-  'cpp/src/selective_inference.cpp',
+  'cpp/src/affine_constraints.cpp',
   'cpp/src/lasso_post_selection_constraints.cpp',
   'cpp/src/discrete_family.cpp',
   'cpp/src/gaussian_family.cpp',

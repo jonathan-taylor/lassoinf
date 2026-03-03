@@ -4,8 +4,8 @@
 
 ## Features
 
-- **Selective Inference**: Core numerical tools for inference tasks.
-- **Dual Implementation**: Logic provided in pure Python (`lassoinf.selective_inference`) and fast C++ counterparts (`lassoinf_cpp`).
+- **Affine Constraints**: Core numerical tools for inference tasks.
+- **Dual Implementation**: Logic provided in pure Python (`lassoinf.affine_constraints`) and fast C++ counterparts (`lassoinf_cpp`).
 - **High Performance**: The C++ extensions target C++14 and integrate seamlessly with numpy and scipy.
 
 ## Requirements

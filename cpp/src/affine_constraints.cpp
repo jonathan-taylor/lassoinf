@@ -1,16 +1,16 @@
-#include "selective_inference.hpp"
+#include "affine_constraints.hpp"
 #include "gaussian_family.hpp"
 #include <Eigen/IterativeLinearSolvers>
 
 namespace lassoinf {
 
-SelectiveInference::SelectiveInference(Eigen::VectorXd Z, 
+AffineConstraints::AffineConstraints(Eigen::VectorXd Z, 
                                        Eigen::VectorXd Z_noisy, 
                                        std::shared_ptr<LinearOperator> Q, 
                                        std::shared_ptr<LinearOperator> Q_noise)
     : Z_(std::move(Z)), Z_noisy_(std::move(Z_noisy)), Q_(std::move(Q)), Q_noise_(std::move(Q_noise)) {}
 
-SelectiveInference::SelectiveInference(Eigen::VectorXd Z, 
+AffineConstraints::AffineConstraints(Eigen::VectorXd Z, 
                                        Eigen::VectorXd Z_noisy, 
                                        Eigen::MatrixXd Q, 
                                        Eigen::MatrixXd Q_noise)
@@ -84,7 +84,7 @@ namespace internal {
 
 namespace lassoinf {
 
-Eigen::VectorXd SelectiveInference::solve_contrast(const Eigen::VectorXd& v) const {
+Eigen::VectorXd AffineConstraints::solve_contrast(const Eigen::VectorXd& v) const {
     Eigen::VectorXd Q_v = Q_->multiply(v);
 
     // If Q_noise is just a dense matrix, we can use a direct solver for efficiency
@@ -105,14 +105,14 @@ Eigen::VectorXd SelectiveInference::solve_contrast(const Eigen::VectorXd& v) con
     return c;
 }
 
-std::pair<double, double> SelectiveInference::data_splitting_estimator(const Eigen::VectorXd& v) const {
+std::pair<double, double> AffineConstraints::data_splitting_estimator(const Eigen::VectorXd& v) const {
     Params p = compute_params(v);
     double variance = v.dot(Q_->multiply(v)) + std::pow(p.bar_s, 2);
     double estimator = p.theta_hat - p.bar_theta;
     return {estimator, variance};
 }
 
-Params SelectiveInference::compute_params(const Eigen::VectorXd& v) const {
+Params AffineConstraints::compute_params(const Eigen::VectorXd& v) const {
     Params p;
     Eigen::VectorXd Q_v = Q_->multiply(v);
     double v_sigma_v = v.dot(Q_v);
@@ -134,7 +134,7 @@ Params SelectiveInference::compute_params(const Eigen::VectorXd& v) const {
     return p;
 }
 
-std::pair<double, double> SelectiveInference::get_interval(const Eigen::VectorXd& v, double t, 
+std::pair<double, double> AffineConstraints::get_interval(const Eigen::VectorXd& v, double t, 
                                                            const LinearOperator& A, const Eigen::VectorXd& b) const {
     Params p = compute_params(v);
     
@@ -163,12 +163,12 @@ std::pair<double, double> SelectiveInference::get_interval(const Eigen::VectorXd
     return {lower, upper};
 }
 
-std::pair<double, double> SelectiveInference::get_interval(const Eigen::VectorXd& v, double t, 
+std::pair<double, double> AffineConstraints::get_interval(const Eigen::VectorXd& v, double t, 
                                                            const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const {
     return get_interval(v, t, DenseOperator(A), b);
 }
 
-std::function<Eigen::VectorXd(const Eigen::VectorXd&)> SelectiveInference::get_weight(const Eigen::VectorXd& v, const LinearOperator& A, const Eigen::VectorXd& b) const {
+std::function<Eigen::VectorXd(const Eigen::VectorXd&)> AffineConstraints::get_weight(const Eigen::VectorXd& v, const LinearOperator& A, const Eigen::VectorXd& b) const {
     Params p = compute_params(v);
     double bar_s = p.bar_s;
     
@@ -196,7 +196,7 @@ std::function<Eigen::VectorXd(const Eigen::VectorXd&)> SelectiveInference::get_w
     };
 }
 
-std::function<Eigen::VectorXd(const Eigen::VectorXd&)> SelectiveInference::get_weight(const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const {
+std::function<Eigen::VectorXd(const Eigen::VectorXd&)> AffineConstraints::get_weight(const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const {
     // Note: This creates a temporary DenseOperator which might be dangerous if captured by reference.
     // However, get_weight above captures by reference. 
     // Let's make a version that works safely.

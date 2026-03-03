@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from lassoinf.selective_inference import SelectiveInference
+from lassoinf.affine_constraints import AffineConstraints
 from lassoinf.discrete_family import discrete_family
 from scipy.stats import norm
 
@@ -15,7 +15,7 @@ def test_file_drawer():
     threshold = 2.0
     z_obs = 1.73
 
-    # SelectiveInference expects arrays
+    # AffineConstraints expects arrays
     Z = np.array([z_obs])
     Q = np.eye(1)
     Q_noise = np.array([[gamma**2]])
@@ -24,7 +24,7 @@ def test_file_drawer():
     # the probability P(Z + omega > threshold | Z=t) analytically but we need Z_noisy to instantiate.
     Z_noisy = Z.copy() 
 
-    si = SelectiveInference(Z, Z_noisy, Q, Q_noise)
+    si = AffineConstraints(Z, Z_noisy, Q, Q_noise)
 
     # Define target and constraints
     v = np.array([1.0])  # Target is Z itself

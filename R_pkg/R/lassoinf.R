@@ -46,8 +46,8 @@ lasso_inference <- function(beta_hat, G_hat, Q_hat, D, L, U, Z_full, Sigma, Sigm
   # Construct Z_noisy = -G_hat + Q_hat %*% beta_hat
   Z_noisy <- -G_hat + as.vector(Q_hat %*% beta_hat)
   
-  # Initialize SelectiveInference C++ object from module
-  si <- new(SelectiveInference, Z_full, Z_noisy, Sigma, Sigma_noisy)
+  # Initialize AffineConstraints C++ object from module
+  si <- new(AffineConstraints, Z_full, Z_noisy, Sigma, Sigma_noisy)
   
   # Compute W = inverse(Q_EE)
   Q_EE <- Q_hat[E_r, E_r, drop=FALSE]
