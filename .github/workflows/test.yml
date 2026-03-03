@@ -48,4 +48,4 @@ jobs:
       run: |
         mkdir empty_dir
         cd empty_dir
-        python -m pytest ../tests --test-size=100
+        python -m pytest ../tests
