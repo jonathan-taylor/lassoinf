@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import pandas as pd
 from glmnet.glmnet import GLMNet
-from lassoinf.selective_inference import spec_from_glmnet, LassoInference
+from lassoinf.affine_constraints import spec_from_glmnet, LassoInference
 
 @pytest.mark.skipif(True, reason='glmnet needs update')
 def test_kkt_conditions():
@@ -21,7 +21,7 @@ def test_kkt_conditions():
     glmnet.fit(df.drop('y', axis=1), df['y'])
     
     state = glmnet.state_
-    lambda_val = glmnet.lambda_val
+    lambda_val = glmnet.lambda_values_[0]
 
     # Get spec from glmnet
     spec = spec_from_glmnet(glmnet,

@@ -32,7 +32,7 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install meson-python ninja meson pybind11 setuptools_scm pytest pandas joblib
-        pip install .
+        pip install .[test]
 
     - name: Verify installed source
       run: |

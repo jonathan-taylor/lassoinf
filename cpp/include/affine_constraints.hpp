@@ -145,15 +145,15 @@ LassoConstraints lasso_post_selection_constraints(
     double tol = 1e-6
 );
 
-class SelectiveInference {
+class AffineConstraints {
 public:
-    SelectiveInference(Eigen::VectorXd Z, 
+    AffineConstraints(Eigen::VectorXd Z, 
                        Eigen::VectorXd Z_noisy, 
                        std::shared_ptr<LinearOperator> Q, 
                        std::shared_ptr<LinearOperator> Q_noise);
 
     // Provide a convenience constructor for backwards compatibility
-    SelectiveInference(Eigen::VectorXd Z, 
+    AffineConstraints(Eigen::VectorXd Z, 
                        Eigen::VectorXd Z_noisy, 
                        Eigen::MatrixXd Q, 
                        Eigen::MatrixXd Q_noise);

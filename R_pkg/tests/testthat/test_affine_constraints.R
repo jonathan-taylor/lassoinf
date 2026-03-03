@@ -1,7 +1,7 @@
 library(testthat)
 library(lassoinf)
 
-test_that("selective_inference consistency", {
+test_that("affine_constraints consistency", {
   set.seed(42)
   Z <- rnorm(5)
   Z_noisy <- Z + rnorm(5) * 0.5
@@ -12,7 +12,7 @@ test_that("selective_inference consistency", {
   Q_noise <- diag(5) * 0.25 + 0.05 * Q_noise_base
   Q_noise <- t(Q_noise) %*% Q_noise
 
-  si_cpp <- new(SelectiveInference, Z, Z_noisy, Q, Q_noise)
+  si_cpp <- new(AffineConstraints, Z, Z_noisy, Q, Q_noise)
 
   v <- c(1.0, -0.5, 0.2, 0.0, 0.0)
 
@@ -40,7 +40,7 @@ test_that("selective_inference consistency", {
   }
 })
 
-test_that("selective_inference infeasible interval", {
+test_that("affine_constraints infeasible interval", {
   Z <- rep(0, 2)
   Z_noisy <- rep(0, 2)
   Q <- diag(2)
@@ -50,7 +50,7 @@ test_that("selective_inference infeasible interval", {
   A <- matrix(c(1.0, 0.0, -1.0, 0.0), nrow = 2, byrow = TRUE)
   b <- c(-1.0, -1.0)
   
-  si_cpp <- new(SelectiveInference, Z, Z_noisy, Q, Q_noise)
+  si_cpp <- new(AffineConstraints, Z, Z_noisy, Q, Q_noise)
   interval <- si_cpp$get_interval(v, 0.0, A, b)
   
   expect_true(is.nan(interval[1]))

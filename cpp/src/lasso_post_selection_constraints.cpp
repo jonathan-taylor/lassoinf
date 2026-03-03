@@ -1,4 +1,4 @@
-#include "selective_inference.hpp"
+#include "affine_constraints.hpp"
 
 namespace lassoinf {
 

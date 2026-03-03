@@ -20,7 +20,9 @@ dependencies = [
 test = ['pytest',
         'pandas',
         "joblib",
-	"cvxpy"]
+	"cvxpy",
+	"coxdev==0.1.4",
+	"glmstar"]
 dev = [
     "pytest",
     "scipy",

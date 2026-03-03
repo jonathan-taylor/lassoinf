@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from lassoinf.gaussian_family import WeightedGaussianFamily, TruncatedGaussian
-from lassoinf.selective_inference import SelectiveInference
+from lassoinf.affine_constraints import AffineConstraints
 import lassoinf_cpp
 
 def test_truncated_gaussian():
@@ -69,14 +69,14 @@ def test_file_drawer_with_gaussian_family():
     Q_noise = np.array([[gamma**2]])
     Z_noisy = Z.copy() 
 
-    si = SelectiveInference(Z, Z_noisy, Q, Q_noise)
+    si = AffineConstraints(Z, Z_noisy, Q, Q_noise)
     v = np.array([1.0])
     A = np.array([[-1.0]])
     b = np.array([[-threshold]])
 
     weight_f_py = si.get_weight(v, A, b)
     
-    si_cpp = lassoinf_cpp.SelectiveInference(Z, Z_noisy, Q, Q_noise)
+    si_cpp = lassoinf_cpp.AffineConstraints(Z, Z_noisy, Q, Q_noise)
     weight_f_cpp = si_cpp.get_weight(v, A, b)
 
     wgf_py = WeightedGaussianFamily(z_obs, 1.0, [weight_f_py], seed=0)

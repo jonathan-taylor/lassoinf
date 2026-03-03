@@ -3,7 +3,7 @@
 #include <pybind11/functional.h>
 #include <pybind11/stl.h>
 #include <memory>
-#include "selective_inference.hpp"
+#include "affine_constraints.hpp"
 
 namespace py = pybind11;
 
@@ -80,17 +80,17 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
           py::arg("beta_hat"), py::arg("G"), py::arg("Q"), py::arg("D_diag"),
           py::arg("L") = Eigen::VectorXd(), py::arg("U") = Eigen::VectorXd(), py::arg("tol") = 1e-6);
 
-    py::class_<lassoinf::SelectiveInference>(m, "SelectiveInference")
+    py::class_<lassoinf::AffineConstraints>(m, "AffineConstraints")
         .def(py::init<Eigen::VectorXd, Eigen::VectorXd, std::shared_ptr<lassoinf::LinearOperator>, std::shared_ptr<lassoinf::LinearOperator>>(),
              py::arg("Z"), py::arg("Z_noisy"), py::arg("Q"), py::arg("Q_noise"))
         .def(py::init<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::MatrixXd>(),
              py::arg("Z"), py::arg("Z_noisy"), py::arg("Q"), py::arg("Q_noise"))
-        .def("solve_contrast", &lassoinf::SelectiveInference::solve_contrast, py::arg("v"))
-        .def("compute_params", &lassoinf::SelectiveInference::compute_params, py::arg("v"))
-        .def("data_splitting_estimator", &lassoinf::SelectiveInference::data_splitting_estimator, py::arg("v"))
-        .def("get_interval", py::overload_cast<const Eigen::VectorXd&, double, const Eigen::MatrixXd&, const Eigen::VectorXd&>(&lassoinf::SelectiveInference::get_interval, py::const_), py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
-        .def("get_interval", py::overload_cast<const Eigen::VectorXd&, double, const lassoinf::LinearOperator&, const Eigen::VectorXd&>(&lassoinf::SelectiveInference::get_interval, py::const_), py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
-        .def("get_weight", [](const lassoinf::SelectiveInference& si, const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
+        .def("solve_contrast", &lassoinf::AffineConstraints::solve_contrast, py::arg("v"))
+        .def("compute_params", &lassoinf::AffineConstraints::compute_params, py::arg("v"))
+        .def("data_splitting_estimator", &lassoinf::AffineConstraints::data_splitting_estimator, py::arg("v"))
+        .def("get_interval", py::overload_cast<const Eigen::VectorXd&, double, const Eigen::MatrixXd&, const Eigen::VectorXd&>(&lassoinf::AffineConstraints::get_interval, py::const_), py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
+        .def("get_interval", py::overload_cast<const Eigen::VectorXd&, double, const lassoinf::LinearOperator&, const Eigen::VectorXd&>(&lassoinf::AffineConstraints::get_interval, py::const_), py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
+        .def("get_weight", [](const lassoinf::AffineConstraints& si, const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
             auto func = si.get_weight(v, A, b);
             return py::cpp_function([func](py::object t) -> py::object {
                 if (py::isinstance<py::float_>(t) || py::isinstance<py::int_>(t)) {

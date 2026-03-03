@@ -134,7 +134,7 @@ Q_hat = X_noisy.T @ W_noisy @ X_noisy
 # With all ingredients gathered, we can pass the selection parameters, original constraints, and statistics into `LassoInference`.
 
 # %%
-from lassoinf.selective_inference import LassoInference
+from lassoinf.affine_constraints import LassoInference
 
 D = D_weight
 L_bound = np.full(p, -np.inf)

@@ -2,7 +2,7 @@ import numpy as np
 import scipy.sparse as sp
 import pytest
 from lassoinf.operators.composite import CompositeOperator
-from lassoinf.selective_inference import SelectiveInference
+from lassoinf.affine_constraints import AffineConstraints
 
 def test_composite_operator_dense_equivalence():
     n = 10
@@ -34,7 +34,7 @@ def test_composite_operator_dense_equivalence():
     y_op = Q_op @ x
     np.testing.assert_allclose(y_op, y_dense)
 
-def test_selective_inference_solve_contrast_with_operator():
+def test_affine_constraints_solve_contrast_with_operator():
     n = 15
     np.random.seed(42)
     
@@ -54,18 +54,18 @@ def test_selective_inference_solve_contrast_with_operator():
     v = np.random.randn(n)
     
     # Dense Inference
-    si_dense = SelectiveInference(Z, Z_noisy, Q_dense, Q_noise_dense)
+    si_dense = AffineConstraints(Z, Z_noisy, Q_dense, Q_noise_dense)
     c_dense = si_dense.solve_contrast(v)
     
     # Operator Inference
-    si_op = SelectiveInference(Z, Z_noisy, Q_dense, Q_noise_op)
+    si_op = AffineConstraints(Z, Z_noisy, Q_dense, Q_noise_op)
     c_op = si_op.solve_contrast(v)
     
     # c = Q_noise^-1 * Q * v
     # Both should yield the same vector 'c'
     np.testing.assert_allclose(c_op, c_dense, rtol=1e-5, atol=1e-5)
 
-def test_selective_inference_full_params_with_operator():
+def test_affine_constraints_full_params_with_operator():
     n = 15
     np.random.seed(42)
     
@@ -83,8 +83,8 @@ def test_selective_inference_full_params_with_operator():
     Z_noisy = Z + np.random.randn(n)
     v = np.ones(n)
     
-    si_dense = SelectiveInference(Z, Z_noisy, Q_dense, Q_noise_dense)
-    si_op = SelectiveInference(Z, Z_noisy, Q_op, Q_noise_op)
+    si_dense = AffineConstraints(Z, Z_noisy, Q_dense, Q_noise_dense)
+    si_op = AffineConstraints(Z, Z_noisy, Q_op, Q_noise_op)
     
     params_dense = si_dense.compute_params(v)
     params_op = si_op.compute_params(v)

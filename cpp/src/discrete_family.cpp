@@ -3,6 +3,7 @@
 #include <numeric>
 #include <algorithm>
 #include <stdexcept>
+#include <limits>
 
 namespace lassoinf {
 

@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from lassoinf.selective_inference import SelectiveInference
+from lassoinf.affine_constraints import AffineConstraints
 import lassoinf_cpp
 
 def test_get_weight_vectorized():
@@ -21,7 +21,7 @@ def test_get_weight_vectorized():
     b = np.array([2.0, 2.0]) 
 
     # 1. Python implementation
-    si_py = SelectiveInference(Z, Z_noisy, Q, Q_noise)
+    si_py = AffineConstraints(Z, Z_noisy, Q, Q_noise)
     wf_py = si_py.get_weight(v, A, b)
     
     t_scalar = 0.5
@@ -31,7 +31,7 @@ def test_get_weight_vectorized():
     py_vector = wf_py(t_vector)
     
     # 2. C++ implementation
-    si_cpp = lassoinf_cpp.SelectiveInference(Z, Z_noisy, Q, Q_noise)
+    si_cpp = lassoinf_cpp.AffineConstraints(Z, Z_noisy, Q, Q_noise)
     wf_cpp = si_cpp.get_weight(v, A, b)
     
     cpp_scalar = wf_cpp(t_scalar)
@@ -70,10 +70,10 @@ def test_get_weight_random_data():
     A = np.random.randn(3, 5)
     b = np.random.randn(3)
 
-    si_py = SelectiveInference(Z, Z_noisy, Q, Q_noise)
+    si_py = AffineConstraints(Z, Z_noisy, Q, Q_noise)
     wf_py = si_py.get_weight(v, A, b)
     
-    si_cpp = lassoinf_cpp.SelectiveInference(Z, Z_noisy, Q, Q_noise)
+    si_cpp = lassoinf_cpp.AffineConstraints(Z, Z_noisy, Q, Q_noise)
     wf_cpp = si_cpp.get_weight(v, A, b)
     
     t_vector = np.array([-2.0, -1.0, 0.0, 1.0, 2.0])

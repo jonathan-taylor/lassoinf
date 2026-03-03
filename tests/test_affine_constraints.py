@@ -1,12 +1,12 @@
 import numpy as np
 import pytest
 
-from lassoinf.selective_inference import SelectiveInference
+from lassoinf.affine_constraints import AffineConstraints
 import lassoinf_cpp
 
-def test_selective_inference_consistency():
+def test_affine_constraints_consistency():
     """
-    Test that the Python and C++ implementations of SelectiveInference
+    Test that the Python and C++ implementations of AffineConstraints
     produce perfectly consistent outputs across all core methods.
     """
     np.random.seed(42)
@@ -17,8 +17,8 @@ def test_selective_inference_consistency():
     Q_noise = np.eye(5) * 0.25 + 0.05 * np.random.randn(5, 5)
     Q_noise = Q_noise.T @ Q_noise
 
-    si_py = SelectiveInference(Z, Z_noisy, Q, Q_noise)
-    si_cpp = lassoinf_cpp.SelectiveInference(Z, Z_noisy, Q, Q_noise)
+    si_py = AffineConstraints(Z, Z_noisy, Q, Q_noise)
+    si_cpp = lassoinf_cpp.AffineConstraints(Z, Z_noisy, Q, Q_noise)
 
     v = np.array([1.0, -0.5, 0.2, 0.0, 0.0])
 
@@ -57,7 +57,7 @@ def test_selective_inference_consistency():
         else:
             np.testing.assert_allclose(interval_py, interval_cpp, atol=1e-10)
 
-def test_selective_inference_infeasible_interval():
+def test_affine_constraints_infeasible_interval():
     """
     Test explicitly that infeasible intervals are handled similarly.
     """
@@ -71,8 +71,8 @@ def test_selective_inference_infeasible_interval():
     A = np.array([[1.0, 0.0], [-1.0, 0.0]])
     b = np.array([-1.0, -1.0])  # x1 <= -1 AND -x1 <= -1  => x1 <= -1 AND x1 >= 1 => Infeasible
     
-    si_py = SelectiveInference(Z, Z_noisy, Q, Q_noise)
-    si_cpp = lassoinf_cpp.SelectiveInference(Z, Z_noisy, Q, Q_noise)
+    si_py = AffineConstraints(Z, Z_noisy, Q, Q_noise)
+    si_cpp = lassoinf_cpp.AffineConstraints(Z, Z_noisy, Q, Q_noise)
     
     interval_py = si_py.get_interval(v, 0.0, A, b)
     interval_cpp = si_cpp.get_interval(v, 0.0, A, b)
