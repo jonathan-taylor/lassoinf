@@ -155,7 +155,7 @@ inference = LassoInference(
     U=U_bound,
     Z_full=Z_full,
     Sigma=Sigma,
-    Sigma_noisy=Sigma  # Re-use bootstrap covariance
+    Sigma_noise=Sigma  # Re-use bootstrap covariance
 )
 
 # 6. View the summary of free (selected) variables

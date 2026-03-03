@@ -159,7 +159,6 @@ for _ in range(B):
 M_1 /= B
 M_2 /= B
 Sigma = M_2 - np.multiply.outer(M_1, M_1)
-Sigma_noisy = frac_m_of_n * Sigma
 ```
 
 ## Post-Selection Inference
@@ -182,7 +181,7 @@ inference = LassoInference(
     U=U_bound,
     Z_full=Z_full,
     Sigma=Sigma,
-    Sigma_noisy=Sigma_noisy
+    scalar_noise=frac_m_of_n
 )
 
 # 5. View the summary of free (selected) variables

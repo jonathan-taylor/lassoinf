@@ -50,7 +50,7 @@ We generate $n=100$ observations and $p=20$ features. We include 1 strong effect
 import numpy as np
 import cvxpy as cp
 import pandas as pd
-from lassoinf.selective_inference import LassoInference
+from lassoinf.affine_constraints import LassoInference
 ```
 
 ```{code-cell} ipython3
@@ -173,14 +173,45 @@ inference = LassoInference(
     U=U_bound,
     Z_full=Z_full,
     Sigma=Sigma,
-    Sigma_noisy=Sigma_noisy
+    Sigma_noise=Sigma_noisy
 )
-
-# 5. View the summary of free (selected) variables
-df = inference.summary()
-df
-df['length'] = df['upper_conf'] - df['lower_conf']
 ```
+
+### Using `scalar_noise`
+
+The "well specified" assumption essentially assumes that
+`Sigma_noisy` is proportional to `Sigma`. It simplifies
+some calculations,  by avoiding a $p \times p$ solve. It is used via the
+`scalar_noise` parameter which is used when `Sigma_noisy` is `None`:
+
+```{code-cell} ipython3
+inference_scalar = LassoInference(
+    beta_hat=beta_hat,
+    G_hat=G_hat,
+    Q_hat=Q_hat,
+    D=D,
+    L=L_bound,
+    U=U_bound,
+    Z_full=Z_full,
+    Sigma=Sigma,
+    Sigma_noise=None,
+    scalar_noise=frac_m_of_n
+)
+```
+
+The results agree exactly with `carve_df`.
+
+```{code-cell} ipython3
+scalar_df = inference_scalar.summary()
+scalar_df
+```
+
+```{code-cell} ipython3
+carve_df = inference.summary()
+carve_df
+carve_df['length'] = carve_df['upper_conf'] - carve_df['lower_conf']
+```
+
 
 ### Finding the true parameter
 
@@ -190,14 +221,14 @@ The contrasts are retained, which allow us to compute
 ```{code-cell} ipython3
 true_Z = X.T @ (X @ true_beta)
 X_sel = X[:,df.index]
-df['truth'] = np.linalg.inv(X_sel.T @ X_sel) @ true_Z[df.index]
+carve_df['truth'] = np.linalg.inv(X_sel.T @ X_sel) @ true_Z[df.index]
 ```
 
 ### Checking coverage
 
 ```{code-cell} ipython3
-df['cover'] = (df['lower_conf'] < df['truth']) * (df['upper_conf'] > df['truth'])
-df
+carve_df['cover'] = (carve_df['lower_conf'] < carve_df['truth']) * (carve_df['upper_conf'] > carve_df['truth'])
+carve_df
 ```
 
 ### Using data splitting
@@ -236,13 +267,13 @@ The selective ones should be pointwise shorter with strong signals
 close to nominal (no selection) length:
 
 ```{code-cell} ipython3
-df['length'] / split_df['length']
+carve_df['length'] / split_df['length']
 ```
 
 ### Saving the results to compare
 
 ```{code-cell} ipython3
-df['type'] = 'Data Darving'
+carve_df['type'] = 'Data Carving'
 split_df['type'] ='Data Splitting'
 naive_df['type'] = 'Naive'
 ```

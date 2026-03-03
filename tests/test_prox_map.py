@@ -60,7 +60,7 @@ def test_prox_map_extensive(scenario, q_type):
         Q_hat = A.T @ A + 1e-3 * np.eye(p)
         
     Sigma = np.eye(p)
-    Sigma_noisy = np.eye(p)
+    Sigma_noise = np.eye(p)
     Z_full = np.random.randn(p)
     
     # Starting point for beta
@@ -78,7 +78,7 @@ def test_prox_map_extensive(scenario, q_type):
         U=U,
         Z_full=Z_full,
         Sigma=Sigma,
-        Sigma_noisy=Sigma_noisy
+        Sigma_noise=Sigma_noise
     )
     
     # 1. Check KKT

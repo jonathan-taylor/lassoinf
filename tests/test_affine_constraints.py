@@ -36,7 +36,7 @@ def test_affine_constraints_consistency():
     np.testing.assert_allclose(params_py['bar_theta'], params_cpp.bar_theta, atol=1e-10)
 
     # 2. Test data_splitting_estimator
-    dse_py = si_py.data_splitting_estimator(v)
+    dse_py = [params_py['splitting_estimator'], params_py['splitting_variance']]
     dse_cpp = si_cpp.data_splitting_estimator(v)
     np.testing.assert_allclose(dse_py, dse_cpp, atol=1e-10)
 
