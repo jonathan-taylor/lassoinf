@@ -1,11 +1,17 @@
-import numpy as np
-import scipy.sparse
 from dataclasses import dataclass
-from scipy.stats import norm
 from functools import partial
+
+import numpy as np
+import pandas as pd
+import scipy.sparse
+from scipy.stats import norm as normal_dbn
+import scipy.sparse as sp
 from scipy.sparse.linalg import cg, LinearOperator
+
 from .gaussian_family import WeightedGaussianFamily
 from .bivariate_normal import TruncBivariateNormal
+from .operators.composite import CompositeOperator
+
 
 def spec_from_glmnet(glmnet_obj,
                      data,
@@ -251,7 +257,7 @@ class SelectiveInference:
             
             prob = np.zeros_like(t_1d, dtype=float)
             if np.any(valid):
-                prob[valid] = norm.cdf(U[valid] / bar_s) - norm.cdf(L[valid] / bar_s)
+                prob[valid] = normal_dbn.cdf(U[valid] / bar_s) - normal_dbn.cdf(L[valid] / bar_s)
                 prob[valid] = np.maximum(prob[valid], 0.0)
                 
             return prob[0] if is_scalar else prob
@@ -264,8 +270,6 @@ def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol
     the active set, signs, and bound-activations of the Lasso remain constant.
     Returns A as a CompositeOperator to support matrix-free operations.
     """
-    from .operators.composite import CompositeOperator
-    import scipy.sparse as sp
 
     n = Q.shape[0] if hasattr(Q, 'shape') else len(beta_hat)
     L_bound = np.full(n, -np.inf) if L is None else np.asarray(L)
@@ -508,6 +512,10 @@ class LassoInference:
         )
         
         self.intervals = {}
+        self.splitting = {}
+        self.naive = {}
+        self.contrasts = {}
+
         # compute confidence intervals for the parameters using the "free" variables from the constraints
         if len(self.E) > 0:
             n = self.Q_hat.shape[0] if hasattr(self.Q_hat, 'shape') else len(self.beta_hat)
@@ -570,19 +578,47 @@ class LassoInference:
                 p_val = np.clip(2 * min(cdf_val, 1.0 - cdf_val), 0.0, 1.0)
                 
                 self.intervals[j] = (lower, upper, p_val)
+                est, var = self.si.data_splitting_estimator(v)
+                self.splitting[j] = (est, var)
+                self.naive[j] = (theta_hat, (v * (self.Sigma @ v)).sum())
+                self.contrasts[j] = v
 
     def summary(self):
         """
         Returns a summary of the inference results.
         """
-        import pandas as pd
-        
         indices = sorted(self.intervals.keys())
+        alpha = 0.05
+        q = normal_dbn.ppf(1 - alpha / 2)
+
+        # naive p-value and confidence intervals 
+
+        est = np.array([self.naive[j][0] for j in indices])
+        sd = np.array([np.sqrt(self.naive[j][1]) for j in indices])
+
+        self._naive = pd.DataFrame({'index':indices,
+                                    'beta_hat': est,
+                                    'lower_conf': est - q * sd,
+                                    'upper_conf': est + q * sd,
+                                    'p_value': 2 * normal_dbn.sf(np.fabs(est / sd))}).set_index('index')
+
+        # data splitting p-value and confidence intervals
+        
+        est = np.array([self.splitting[j][0] for j in indices])
+        sd = np.array([np.sqrt(self.splitting[j][1]) for j in indices])
+        self._splitting =  pd.DataFrame({'index':indices,
+                                         'beta_hat': est,
+                                         'lower_conf': est - q * sd,
+                                         'upper_conf': est + q * sd,
+                                         'p_value': 2 * normal_dbn.sf(np.fabs(est / sd))}).set_index('index')
+
+        # selective versions
+        
         beta_vals = [self.beta_hat[j] for j in indices]
         lowers = [self.intervals[j][0] for j in indices]
         uppers = [self.intervals[j][1] for j in indices]
         p_vals = [self.intervals[j][2] for j in indices]
-        
+
         data = {
             'index': indices,
             'beta_hat': beta_vals,
@@ -590,13 +626,9 @@ class LassoInference:
             'upper_conf': uppers,
             'p_value': p_vals
         }
-        
-        try:
-            return pd.DataFrame(data).set_index('index')
-        except ImportError:
-            # Fallback to numpy array if pandas is not installed
-            res = np.column_stack([indices, beta_vals, lowers, uppers, p_vals])
-            return res
+
+        return pd.DataFrame(data).set_index('index')
+
 
 def largest_eigenvalue_bound_Q(Q, num_iters=4):
     """

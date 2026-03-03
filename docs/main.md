@@ -228,7 +228,6 @@ print("Variance bar_s:", params['bar_s'])
 And computing the interval $[L, U]$ given some constraints $AZ_{noisy} \leq b$:
 
 ```{code-cell} ipython3
-
 # Observed value of theta_hat
 theta_obs = params['theta_hat']
 
