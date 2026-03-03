@@ -42,7 +42,7 @@ class AffineConstraints:
         else:
             if self.scalar_noise > 0:
                 # minimum of 0.001 for stability
-                scalar = min(self.scalar_noise, 0.001)
+                scalar = max(self.scalar_noise, 0.001)
                 return v / scalar
             else:
                 raise ValueError('if Q_noise is None, scalar_noise must be > 0')
@@ -67,7 +67,7 @@ class AffineConstraints:
             Q_noise_c = self.Q_noise @ c
         else:
             if self.scalar_noise > 0:
-                scalar = min(self.scalar_noise, 0.001)
+                scalar = max(self.scalar_noise, 0.001)
                 Q_noise_c = scalar * self.Q @ c
             else:
                 raise ValueError('if Q_noise is None, scalar_noise must be > 0')

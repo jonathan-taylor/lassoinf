@@ -46,7 +46,10 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
         .def_readonly("n_o", &lassoinf::Params::n_o)
         .def_readonly("bar_n_o", &lassoinf::Params::bar_n_o)
         .def_readonly("theta_hat", &lassoinf::Params::theta_hat)
-        .def_readonly("bar_theta", &lassoinf::Params::bar_theta);
+        .def_readonly("bar_theta", &lassoinf::Params::bar_theta)
+        .def_readonly("splitting_variance", &lassoinf::Params::splitting_variance)
+        .def_readonly("splitting_estimator", &lassoinf::Params::splitting_estimator)
+        .def_readonly("naive_variance", &lassoinf::Params::naive_variance);
 
     py::class_<lassoinf::LinearOperator, PyLinearOperator, std::shared_ptr<lassoinf::LinearOperator>>(m, "LinearOperator")
         .def(py::init<>())
@@ -81,13 +84,12 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
           py::arg("L") = Eigen::VectorXd(), py::arg("U") = Eigen::VectorXd(), py::arg("tol") = 1e-6);
 
     py::class_<lassoinf::AffineConstraints>(m, "AffineConstraints")
-        .def(py::init<Eigen::VectorXd, Eigen::VectorXd, std::shared_ptr<lassoinf::LinearOperator>, std::shared_ptr<lassoinf::LinearOperator>>(),
-             py::arg("Z"), py::arg("Z_noisy"), py::arg("Q"), py::arg("Q_noise"))
-        .def(py::init<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::MatrixXd>(),
-             py::arg("Z"), py::arg("Z_noisy"), py::arg("Q"), py::arg("Q_noise"))
+        .def(py::init<Eigen::VectorXd, Eigen::VectorXd, std::shared_ptr<lassoinf::LinearOperator>, std::shared_ptr<lassoinf::LinearOperator>, double>(),
+             py::arg("Z"), py::arg("Z_noisy"), py::arg("Q"), py::arg("Q_noise"), py::arg("scalar_noise") = std::numeric_limits<double>::quiet_NaN())
+        .def(py::init<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::MatrixXd, double>(),
+             py::arg("Z"), py::arg("Z_noisy"), py::arg("Q"), py::arg("Q_noise"), py::arg("scalar_noise") = std::numeric_limits<double>::quiet_NaN())
         .def("solve_contrast", &lassoinf::AffineConstraints::solve_contrast, py::arg("v"))
         .def("compute_params", &lassoinf::AffineConstraints::compute_params, py::arg("v"))
-        .def("data_splitting_estimator", &lassoinf::AffineConstraints::data_splitting_estimator, py::arg("v"))
         .def("get_interval", py::overload_cast<const Eigen::VectorXd&, double, const Eigen::MatrixXd&, const Eigen::VectorXd&>(&lassoinf::AffineConstraints::get_interval, py::const_), py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
         .def("get_interval", py::overload_cast<const Eigen::VectorXd&, double, const lassoinf::LinearOperator&, const Eigen::VectorXd&>(&lassoinf::AffineConstraints::get_interval, py::const_), py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
         .def("get_weight", [](const lassoinf::AffineConstraints& si, const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {

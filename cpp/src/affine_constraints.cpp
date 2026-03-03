@@ -7,16 +7,19 @@ namespace lassoinf {
 AffineConstraints::AffineConstraints(Eigen::VectorXd Z, 
                                        Eigen::VectorXd Z_noisy, 
                                        std::shared_ptr<LinearOperator> Q, 
-                                       std::shared_ptr<LinearOperator> Q_noise)
-    : Z_(std::move(Z)), Z_noisy_(std::move(Z_noisy)), Q_(std::move(Q)), Q_noise_(std::move(Q_noise)) {}
+                                       std::shared_ptr<LinearOperator> Q_noise,
+                                       double scalar_noise)
+    : Z_(std::move(Z)), Z_noisy_(std::move(Z_noisy)), Q_(std::move(Q)), Q_noise_(std::move(Q_noise)), scalar_noise_(scalar_noise) {}
 
 AffineConstraints::AffineConstraints(Eigen::VectorXd Z, 
                                        Eigen::VectorXd Z_noisy, 
                                        Eigen::MatrixXd Q, 
-                                       Eigen::MatrixXd Q_noise)
+                                       Eigen::MatrixXd Q_noise,
+                                       double scalar_noise)
     : Z_(std::move(Z)), Z_noisy_(std::move(Z_noisy)), 
       Q_(std::make_shared<DenseOperator>(std::move(Q))), 
-      Q_noise_(std::make_shared<DenseOperator>(std::move(Q_noise))) {}
+      Q_noise_(std::make_shared<DenseOperator>(std::move(Q_noise))),
+      scalar_noise_(scalar_noise) {}
 
 } // namespace lassoinf
 
@@ -85,31 +88,33 @@ namespace internal {
 namespace lassoinf {
 
 Eigen::VectorXd AffineConstraints::solve_contrast(const Eigen::VectorXd& v) const {
-    Eigen::VectorXd Q_v = Q_->multiply(v);
+    if (Q_noise_) {
+        Eigen::VectorXd Q_v = Q_->multiply(v);
 
-    // If Q_noise is just a dense matrix, we can use a direct solver for efficiency
-    if (auto dense_op = dynamic_cast<const DenseOperator*>(Q_noise_.get())) {
-        return dense_op->mat().colPivHouseholderQr().solve(Q_v);
+        // If Q_noise is just a dense matrix, we can use a direct solver for efficiency
+        if (auto dense_op = dynamic_cast<const DenseOperator*>(Q_noise_.get())) {
+            return dense_op->mat().colPivHouseholderQr().solve(Q_v);
+        }
+
+        // Otherwise, use Conjugate Gradient for matrix-free / composite operators
+        EigenLinearOperatorProxy proxy(Q_noise_.get());
+        Eigen::ConjugateGradient<EigenLinearOperatorProxy, Eigen::Lower|Eigen::Upper, Eigen::IdentityPreconditioner> cg;
+        cg.compute(proxy);
+        Eigen::VectorXd c = cg.solve(Q_v);
+        
+        if (cg.info() != Eigen::Success) {
+            throw std::runtime_error("Conjugate Gradient did not converge in solve_contrast");
+        }
+        
+        return c;
+    } else {
+        if (scalar_noise_ > 0) {
+            double scalar = std::max(scalar_noise_, 0.001);
+            return v / scalar;
+        } else {
+            throw std::invalid_argument("if Q_noise is None, scalar_noise must be > 0");
+        }
     }
-
-    // Otherwise, use Conjugate Gradient for matrix-free / composite operators
-    EigenLinearOperatorProxy proxy(Q_noise_.get());
-    Eigen::ConjugateGradient<EigenLinearOperatorProxy, Eigen::Lower|Eigen::Upper, Eigen::IdentityPreconditioner> cg;
-    cg.compute(proxy);
-    Eigen::VectorXd c = cg.solve(Q_v);
-    
-    if (cg.info() != Eigen::Success) {
-        throw std::runtime_error("Conjugate Gradient did not converge in solve_contrast");
-    }
-    
-    return c;
-}
-
-std::pair<double, double> AffineConstraints::data_splitting_estimator(const Eigen::VectorXd& v) const {
-    Params p = compute_params(v);
-    double variance = v.dot(Q_->multiply(v)) + std::pow(p.bar_s, 2);
-    double estimator = p.theta_hat - p.bar_theta;
-    return {estimator, variance};
 }
 
 Params AffineConstraints::compute_params(const Eigen::VectorXd& v) const {
@@ -120,7 +125,18 @@ Params AffineConstraints::compute_params(const Eigen::VectorXd& v) const {
     p.gamma = Q_v / v_sigma_v;
     p.c = solve_contrast(v);
     
-    Eigen::VectorXd Q_noise_c = Q_noise_->multiply(p.c);
+    Eigen::VectorXd Q_noise_c;
+    if (Q_noise_) {
+        Q_noise_c = Q_noise_->multiply(p.c);
+    } else {
+        if (scalar_noise_ > 0) {
+            double scalar = std::max(scalar_noise_, 0.001);
+            Q_noise_c = scalar * Q_->multiply(p.c);
+        } else {
+            throw std::invalid_argument("if Q_noise is None, scalar_noise must be > 0");
+        }
+    }
+
     double bar_s2 = p.c.dot(Q_noise_c);
     p.bar_s = std::sqrt(bar_s2);
     p.bar_gamma = Q_v / bar_s2;
@@ -131,6 +147,11 @@ Params AffineConstraints::compute_params(const Eigen::VectorXd& v) const {
     p.bar_theta = p.c.dot(omega);
     p.bar_n_o = omega - p.bar_gamma * p.bar_theta;
     
+    double naive_var = v_sigma_v;
+    p.splitting_variance = naive_var + bar_s2;
+    p.splitting_estimator = p.theta_hat - p.bar_theta;
+    p.naive_variance = naive_var;
+
     return p;
 }
 

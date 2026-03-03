@@ -24,10 +24,10 @@ test_that("affine_constraints consistency", {
   expect_true(!is.null(params$bar_gamma))
   expect_true(is.numeric(params$bar_s))
 
-  # 2. Test data_splitting_estimator
-  dse <- si_cpp$data_splitting_estimator(v)
-  expect_length(dse, 2)
-  expect_true(is.numeric(dse))
+  # 2. Test splitting variance and estimator properties
+  expect_true(!is.null(params$splitting_estimator))
+  expect_true(is.numeric(params$splitting_variance))
+  expect_true(is.numeric(params$naive_variance))
 
   # 3. Test get_interval
   A <- matrix(rnorm(20), 4, 5)

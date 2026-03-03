@@ -20,6 +20,9 @@ struct Params {
     Eigen::VectorXd bar_n_o;
     double theta_hat;
     double bar_theta;
+    double splitting_variance;
+    double splitting_estimator;
+    double naive_variance;
 };
 
 // Abstract base class for Matrix-Free Operations
@@ -150,19 +153,20 @@ public:
     AffineConstraints(Eigen::VectorXd Z, 
                        Eigen::VectorXd Z_noisy, 
                        std::shared_ptr<LinearOperator> Q, 
-                       std::shared_ptr<LinearOperator> Q_noise);
+                       std::shared_ptr<LinearOperator> Q_noise,
+                       double scalar_noise = std::numeric_limits<double>::quiet_NaN());
 
     // Provide a convenience constructor for backwards compatibility
     AffineConstraints(Eigen::VectorXd Z, 
                        Eigen::VectorXd Z_noisy, 
                        Eigen::MatrixXd Q, 
-                       Eigen::MatrixXd Q_noise);
+                       Eigen::MatrixXd Q_noise,
+                       double scalar_noise = std::numeric_limits<double>::quiet_NaN());
 
     // Expose the solve step explicitly
     Eigen::VectorXd solve_contrast(const Eigen::VectorXd& v) const;
 
     Params compute_params(const Eigen::VectorXd& v) const;
-    std::pair<double, double> data_splitting_estimator(const Eigen::VectorXd& v) const;
 
     std::pair<double, double> get_interval(const Eigen::VectorXd& v, double t, 
                                            const LinearOperator& A, const Eigen::VectorXd& b) const;
@@ -179,6 +183,7 @@ private:
     Eigen::VectorXd Z_noisy_;
     std::shared_ptr<LinearOperator> Q_;
     std::shared_ptr<LinearOperator> Q_noise_;
+    double scalar_noise_;
 };
 
 } // namespace lassoinf
