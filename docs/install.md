@@ -39,7 +39,7 @@ cd R_pkg
 R CMD INSTALL .
 ```
 
-Alternatively, from within an R session using `devtools`:
+Or from within an R session using `devtools`:
 
 ```R
 devtools::install("R_pkg")
@@ -53,3 +53,4 @@ To run the R test suite, you can use the `testthat` package from the command lin
 cd R_pkg
 Rscript -e 'testthat::test_dir("tests/testthat")'
 ```
+

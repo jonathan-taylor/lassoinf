@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from lassoinf.affine_constraints import LassoInference
+from lassoinf import LassoInference
 
 # Define some interesting values for D, L, U
 Ds = [0.0, 1.0, 5.0]

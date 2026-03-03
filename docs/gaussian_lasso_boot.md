@@ -50,7 +50,7 @@ We generate $n=100$ observations and $p=20$ features. We include 1 strong effect
 import numpy as np
 import cvxpy as cp
 import pandas as pd
-from lassoinf.affine_constraints import LassoInference
+from lassoinf import LassoInference
 ```
 
 ```{code-cell} ipython3
@@ -212,7 +212,6 @@ carve_df
 carve_df['length'] = carve_df['upper_conf'] - carve_df['lower_conf']
 ```
 
-
 ### Finding the true parameter
 
 The contrasts are retained, which allow us to compute
@@ -220,8 +219,8 @@ The contrasts are retained, which allow us to compute
 
 ```{code-cell} ipython3
 true_Z = X.T @ (X @ true_beta)
-X_sel = X[:,df.index]
-carve_df['truth'] = np.linalg.inv(X_sel.T @ X_sel) @ true_Z[df.index]
+X_sel = X[:,carve_df.index]
+carve_df['truth'] = np.linalg.inv(X_sel.T @ X_sel) @ true_Z[carve_df.index]
 ```
 
 ### Checking coverage
@@ -236,7 +235,7 @@ carve_df
 ```{code-cell} ipython3
 split_df = inference._splitting
 split_df['length'] = split_df['upper_conf'] - split_df['lower_conf']
-split_df['truth'] = df['truth']
+split_df['truth'] = carve_df['truth']
 split_df['cover'] = (split_df['lower_conf'] < split_df['truth']) * (split_df['upper_conf'] > split_df['truth'])
 split_df
 ```
@@ -244,7 +243,7 @@ split_df
 ```{code-cell} ipython3
 naive_df = inference._naive
 naive_df['length'] = naive_df['upper_conf'] - naive_df['lower_conf']
-naive_df['truth'] = df['truth']
+naive_df['truth'] = carve_df['truth']
 naive_df['cover'] = (naive_df['lower_conf'] < naive_df['truth']) * (naive_df['upper_conf'] > naive_df['truth'])
 naive_df
 ```
@@ -279,7 +278,7 @@ naive_df['type'] = 'Naive'
 ```
 
 ```{code-cell} ipython3
-all_df = pd.concat([df, split_df, naive_df])
+all_df = pd.concat([carve_df, split_df, naive_df])
 all_df['n'] = n
 all_df['p'] = p
 all_df['seed'] = seed

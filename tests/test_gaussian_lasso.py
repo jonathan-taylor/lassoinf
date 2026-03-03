@@ -51,7 +51,7 @@
 import numpy as np
 import cvxpy as cp
 import pandas as pd
-from lassoinf.affine_constraints import LassoInference
+from lassoinf import LassoInference
 
 # %%
 n, p = 100, 20
