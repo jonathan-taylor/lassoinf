@@ -54,6 +54,19 @@ NumericVector get_interval_wrapper(lassoinf::AffineConstraints* si, const Eigen:
     return NumericVector::create(res.first, res.second);
 }
 
+lassoinf::AffineConstraints* create_affine_constraints(
+    Eigen::VectorXd Z, Eigen::VectorXd Z_noisy, Eigen::MatrixXd Q, SEXP Q_noise_sexp, double scalar_noise) {
+    std::shared_ptr<lassoinf::LinearOperator> Q_op = std::make_shared<lassoinf::DenseOperator>(Q);
+    if (Rf_isNull(Q_noise_sexp)) {
+        std::shared_ptr<lassoinf::LinearOperator> Q_noise_op = nullptr;
+        return new lassoinf::AffineConstraints(Z, Z_noisy, Q_op, Q_noise_op, scalar_noise);
+    } else {
+        Eigen::MatrixXd Q_noise = Rcpp::as<Eigen::MatrixXd>(Q_noise_sexp);
+        std::shared_ptr<lassoinf::LinearOperator> Q_noise_op = std::make_shared<lassoinf::DenseOperator>(Q_noise);
+        return new lassoinf::AffineConstraints(Z, Z_noisy, Q_op, Q_noise_op, scalar_noise);
+    }
+}
+
 Rcpp::List compute_params_wrapper(lassoinf::AffineConstraints* si, const Eigen::VectorXd& v) {
     auto p = si->compute_params(v);
     Rcpp::Environment env = Rcpp::Environment::empty_env();
@@ -134,7 +147,7 @@ RCPP_MODULE(lassoinf_cpp) {
              List::create(_["beta_hat"], _["G"], _["Q"], _["D_diag"], _["L"], _["U"], _["tol"] = 1e-6));
 
     class_<lassoinf::AffineConstraints>("AffineConstraints")
-        .constructor<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::MatrixXd>()
+        .factory<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, SEXP, double>(&create_affine_constraints)
         .method("solve_contrast", &lassoinf::AffineConstraints::solve_contrast)
         .method("compute_params", &compute_params_wrapper)
         .method("get_interval", &get_interval_wrapper)
