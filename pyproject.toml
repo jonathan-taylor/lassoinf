@@ -1,19 +1,34 @@
 [build-system]
-requires = ["meson-python", "pybind11", "ninja"]
+requires = ["meson-python", "pybind11", "ninja", "setuptools_scm"]
 build-backend = "mesonpy"
 
 [project]
+readme = "README.md"
+keywords = ["Selective inference for LASSO"]
+license = { text = "BSD-3-Clause" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Topic :: Scientific/Engineering"
+]
+maintainers = [
+    {name = "Jonathan Taylor", email="jonathan.taylor@stanford.edu" }
+]
 name = "lassoinf"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Selective inference tools"
 authors = [
-    { name = "Jonathan Taylor" }
+    {name = "Jonathan Taylor", email="jonathan.taylor@stanford.edu" }
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "scipy",
-    "matplotlib"
+    "matplotlib",
+    "pandas"
 ]
 
 [project.optional-dependencies]
@@ -39,3 +54,7 @@ doc = [
     "rpy2",
     "cvxpy"
 ]
+
+
+[tool.setuptools_scm]
+# This will use the latest git tag for the version
