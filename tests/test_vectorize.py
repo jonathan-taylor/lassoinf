@@ -33,7 +33,8 @@ def test_get_weight_vectorized():
     
     # 2. C++ implementation
     si_cpp = lassoinf_cpp.AffineConstraints(Z, Z_noisy, Q, Q_noise)
-    wf_cpp = si_cpp.get_weight(v, A, b)
+    result_cpp = si_cpp.compute_contrast(v)
+    wf_cpp = result_cpp.get_weight(A, b)
     
     cpp_scalar = wf_cpp(t_scalar)
     cpp_vector = wf_cpp(t_vector)
@@ -72,11 +73,12 @@ def test_get_weight_random_data():
     b = np.random.randn(3)
 
     si_py = AffineConstraints(Z, Z_noisy, Q, Q_noise)
-    result = si_py.compute_contrast(v)
-    wf_py = result.get_weight(A, b)
+    result_py = si_py.compute_contrast(v)
+    wf_py = result_py.get_weight(A, b)
     
     si_cpp = lassoinf_cpp.AffineConstraints(Z, Z_noisy, Q, Q_noise)
-    wf_cpp = si_cpp.get_weight(v, A, b)
+    result_cpp = si_cpp.compute_contrast(v)
+    wf_cpp = result_cpp.get_weight(A, b)
     
     t_vector = np.array([-2.0, -1.0, 0.0, 1.0, 2.0])
     
