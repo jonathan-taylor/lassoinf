@@ -14,6 +14,7 @@ project:
     - file: file_drawer.md
     - file: gaussian_lasso.md
     - file: gaussian_lasso_boot.md
+    - file: gaussian_lasso_no_random.md
     - file: gaussian_lasso_ridge.md
     - file: logistic_lasso.md
     - file: quadratic_approx_lasso.md

@@ -1,5 +1,5 @@
 project('lassoinf', 'cpp',
-  version : '0.1.0',
+  version: run_command('python', '-c', 'import setuptools_scm; print(setuptools_scm.get_version())', check: true).stdout().strip(),
   default_options : ['warning_level=3', 'cpp_std=c++14'])
 
 py = import('python').find_installation(pure: false)

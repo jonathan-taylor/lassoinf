@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from functools import partial
+import warnings
 
 import numpy as np
 import scipy.sparse
@@ -14,6 +15,14 @@ class AffineConstraints:
     Q_noise: np.ndarray  # Bar Sigma (can be np.ndarray or LinearOperator)
     scalar_noise: float = np.nan # if > 0 and Q_noise is None, it is assumed that Q_noise = scalar_noise * Q
     
+    def __post_init__(self):
+        if self.Q_noise is None:
+            if not self.scalar_noise >= 0:
+                raise ValueError('if Q_noise is None, scalar_noise must be >= 0')
+            if self.scalar_noise < 0.001:
+                warnings.warn('For numerical stability using scalar_noise=0.001')
+                self.scalar_noise = 0.001
+                
     def solve_contrast(self, v: np.ndarray) -> np.ndarray:
         """
         Computes c = BarSigma^-1 * Sigma * eta
@@ -33,12 +42,8 @@ class AffineConstraints:
                 # Direct solve for dense matrices
                 return np.linalg.solve(self.Q_noise, Q_v)
         else:
-            if self.scalar_noise > 0:
-                # minimum of 0.001 for stability
-                scalar = max(self.scalar_noise, 0.001)
-                return v / scalar
-            else:
-                raise ValueError('if Q_noise is None, scalar_noise must be > 0')
+            return v / self.scalar_noise
+                
 
     def compute_params(self, v: np.ndarray):
         """
@@ -59,11 +64,7 @@ class AffineConstraints:
         if self.Q_noise is not None:
             Q_noise_c = self.Q_noise @ c
         else:
-            if self.scalar_noise > 0:
-                scalar = max(self.scalar_noise, 0.001)
-                Q_noise_c = scalar * self.Q @ c
-            else:
-                raise ValueError('if Q_noise is None, scalar_noise must be > 0')
+            Q_noise_c = self.scalar_noise * self.Q @ c
 
         bar_s2 = c.T  @ Q_noise_c
         bar_s = np.sqrt(bar_s2)

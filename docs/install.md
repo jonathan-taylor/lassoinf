@@ -5,7 +5,7 @@
 ## Requirements
 
 ### Python
-- Python >= 3.9
+- Python >= 3.10
 - `numpy`, `scipy`, `matplotlib`
 - `meson-python`, `ninja`, `pybind11` (for building the C++ extension)
 

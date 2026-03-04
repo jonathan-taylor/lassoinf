@@ -14,9 +14,7 @@ kernelspec:
   name: python3
 ---
 
-# Gaussian Lasso with Ridge Selective Inference Example
-
-## Non-parametric (Pairs) Bootstrap
+# Gaussian ElasticNet with Ridge Selective Inference Example Using Non-parametric (Pairs) Bootstrap 
 
 This notebook demonstrates how to perform selective inference after fitting an Ordinary Least Squares (OLS) model with a lasso penalty. 
 Instead of data splitting, we use a **parametric bootstrap** (randomization) approach. We add Gaussian noise to the data such that the "size" of the randomization is equivalent to using a specific proportion of the data for selection.
