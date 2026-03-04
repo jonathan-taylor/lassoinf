@@ -52,6 +52,8 @@ import numpy as np
 import cvxpy as cp
 import pandas as pd
 from lassoinf import LassoInference
+from lassoinf.affine_constraints import (_splitting_results,
+                                        _naive_results)
 
 # %%
 n, p = 100, 20
@@ -172,7 +174,8 @@ def test_gaussian_lasso():
         U=U_bound,
         Z_full=Z_full,
         Sigma=Sigma,
-        Sigma_noise=Sigma_noisy
+        Sigma_noise=Sigma_noisy,
+        level=0.9
     )
 
     # %% [markdown]
@@ -194,13 +197,14 @@ def test_gaussian_lasso():
         Z_full=Z_full,
         Sigma=Sigma,
         Sigma_noise=None,
-        scalar_noise=frac_m_of_n
+        scalar_noise=frac_m_of_n,
+        level=0.9
     )
 
-    scalar_df = inference_scalar.summary()
+    scalar_df = inference_scalar.summary_
     scalar_df
 
-    carve_df = inference.summary()
+    carve_df = inference.summary_
     carve_df
 
     print(scalar_df, 'scalar')
@@ -210,8 +214,8 @@ def test_gaussian_lasso():
 
     carve_df['length'] = carve_df['upper_conf'] - carve_df['lower_conf']
 
-    split_df = inference._splitting
+    split_df = _splitting_results(inference._contrasts, level=0.9)
     split_df['length'] = split_df['upper_conf'] - split_df['lower_conf']
 
     assert np.all(carve_df['length'] <= split_df['length'] * (1 + 1e-5))
-    naive_df = inference._naive
+    naive_df = _naive_results(inference._contrasts, level=0.9)

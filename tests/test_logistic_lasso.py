@@ -164,7 +164,7 @@ inference = LassoInference(
 )
 
 # 6. View the summary of free (selected) variables
-summary_df = inference.summary()
+summary_df = inference.summary_
 print(summary_df)
 
 # %%

@@ -1,8 +1,10 @@
 from dataclasses import dataclass
 from functools import partial
 import warnings
+from collections import namedtuple
 
 import numpy as np
+import pandas as pd
 import scipy.sparse
 from scipy.stats import norm as normal_dbn
 from scipy.sparse.linalg import cg, LinearOperator
@@ -214,6 +216,81 @@ class AffineConstraints:
         return result
 
 
+def create_selection_matrix(n, E):
+    """
+    Creates a sparse selection matrix E_M of shape (n, len(E)) 
+    where E_M[j, i] = 1.0 for each index j in E at position i.
+    
+    Args:
+        n (int): The total number of rows (e.g., total features/parameters).
+        E (array-like): Indices of the selected elements.
+        
+    Returns:
+        scipy.sparse.csc_matrix: The sparse selection matrix.
+    """
+    m = len(E)
+    
+    # Row indices are the values in E
+    # Column indices are just 0, 1, 2, ..., m-1
+    rows = np.array(E)
+    cols = np.arange(m)
+    data = np.ones(m, dtype=float)
+    
+    # Build using COO format first (efficient for construction)
+    # Then convert to CSC (efficient for arithmetic)
+    E_M = scipy.sparse.coo_matrix((data, (rows, cols)), shape=(n, m))
+    
+    return E_M.tocsc()
 
+### Not meant to be used -- illustrating poorer performing alternatives "data splitting / thinning" and "naive" inference
 
+_result_tuple = namedtuple("result_tuple", "beta_hat lower_conf upper_conf p_value")
+
+def _splitting_contrast(contrast, level=0.9):
+    q = normal_dbn.ppf(1 - (1 - level) / 2)
+    est = contrast.splitting_estimator
+    sd = np.sqrt(contrast.splitting_variance)
+    return _result_tuple(beta_hat=est,
+                         lower_conf=est - q * sd,
+                         upper_conf=est + q * sd,
+                         p_value=2 * normal_dbn.sf(np.fabs(est / sd)))
+    
+def _naive_contrast(contrast, level=0.9):
+    q = normal_dbn.ppf(1 - (1 - level) / 2)
+    est = contrast.theta_hat
+    sd = np.sqrt(contrast.naive_variance)
+    return _result_tuple(beta_hat=est,
+                         lower_conf=est - q * sd,
+                         upper_conf=est + q * sd,
+                         p_value=2 * normal_dbn.sf(np.fabs(est / sd)))
+
+def _splitting_results(_contrasts, level=0.9):
+    betas, lowers, uppers, pvals = [], [], [], []
+    for j in _contrasts.keys():
+        result = _splitting_contrast(_contrasts[j], level=level)
+        betas.append(result.beta_hat)
+        lowers.append(result.lower_conf)
+        uppers.append(result.upper_conf)
+        pvals.append(result.p_value)
+
+    return pd.DataFrame({'beta_hat':betas,
+                         'lower_conf':lowers,
+                         'upper_conf':uppers,
+                         'p_value': pvals,
+                         'index':_contrasts.keys()}).set_index('index')
+
+def _naive_results(_contrasts, level=0.9):
+    betas, lowers, uppers, pvals = [], [], [], []
+    for j in _contrasts.keys():
+        result = _naive_contrast(_contrasts[j], level=level)
+        betas.append(result.beta_hat)
+        lowers.append(result.lower_conf)
+        uppers.append(result.upper_conf)
+        pvals.append(result.p_value)
+
+    return pd.DataFrame({'beta_hat':betas,
+                         'lower_conf':lowers,
+                         'upper_conf':uppers,
+                         'p_value': pvals,
+                         'index':_contrasts.keys()}).set_index('index')
 

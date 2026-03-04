@@ -5,7 +5,9 @@ import pandas as pd
 import scipy.sparse as sp
 from scipy.stats import norm as normal_dbn
 
-from .affine_constraints import AffineConstraints
+from .affine_constraints import (AffineConstraints,
+                                 create_selection_matrix)
+
 from .operators.composite import CompositeOperator
 from .gaussian_family import WeightedGaussianFamily
 from .bivariate_normal import TruncBivariateNormal
@@ -22,7 +24,8 @@ class LassoInference:
     Sigma: np.ndarray
     Sigma_noise: np.ndarray | None = None
     scalar_noise: float = np.nan
-    
+    level: float = 0.1
+
     def check_kkt(self, tol=1e-5):
         """
         Checks whether the current beta_hat, G_hat satisfy the KKT conditions
@@ -136,23 +139,17 @@ class LassoInference:
             scalar_noise=self.scalar_noise,
         )
         
-        self.intervals = {}
-        self.splitting = {}
-        self.naive = {}
-        self.contrasts = {}
+        self._contrasts = {}
+        betas, lowers, uppers, pvals = [], [], [], []
 
         # compute confidence intervals for the parameters using the "free" variables from the constraints
         if len(self.E) > 0:
-            n = self.Q_hat.shape[0] if hasattr(self.Q_hat, 'shape') else len(self.beta_hat)
-            
-            # Reconstruct W (inverse of Q_EE)
-            E_M = np.zeros((n, len(self.E)))
-            for i, j in enumerate(self.E): 
-                E_M[j, i] = 1.0
+            p = self.Q_hat.shape[0] if hasattr(self.Q_hat, 'shape') else len(self.beta_hat)
             
             if isinstance(self.Q_hat, np.ndarray):
                 Q_EE = self.Q_hat[self.E][:, self.E]
             else:
+                E_M = create_selection_matrix(p, E)
                 Q_E = self.Q_hat @ E_M
                 Q_EE = Q_E[self.E, :]
                 
@@ -194,64 +191,27 @@ class LassoInference:
                 )
                 
                 # Compute the 95% confidence interval (in natural parameter space)
-                L_theta, U_theta = tbn.equal_tailed_interval(float(theta_hat), alpha=0.05)
+                L_theta, U_theta = tbn.equal_tailed_interval(float(theta_hat), alpha=1-self.level)
                 lower, upper = L_theta * c1, U_theta * c1
-                
+
                 # Compute p-value for H0: theta = 0
                 # H0: theta_true = 0 => theta_natural = 0
                 cdf_val = np.clip(tbn.cdf(theta=0.0, x=float(theta_hat)), 0.0, 1.0)
                 p_val = np.clip(2 * min(cdf_val, 1.0 - cdf_val), 0.0, 1.0)
                 
-                self.intervals[j] = (lower, upper, p_val)
-                self.splitting[j] = (contrast.splitting_estimator, contrast.splitting_variance)
-                self.naive[j] = (contrast.theta_hat, contrast.naive_variance)
-                self.contrasts[j] = v
+                self._contrasts[j] = contrast
 
-    def summary(self):
-        """
-        Returns a summary of the inference results.
-        """
-        indices = sorted(self.intervals.keys())
-        alpha = 0.05
-        q = normal_dbn.ppf(1 - alpha / 2)
+                lowers.append(lower)
+                uppers.append(upper)
+                pvals.append(p_val)
+                betas.append(contrast.theta_hat)
+                
+            self.summary_ = pd.DataFrame({'beta_hat':betas,
+                                          'lower_conf':lowers,
+                                          'upper_conf':uppers,
+                                          'p_value': pvals,
+                                          'index':self.E}).set_index('index')
 
-        # naive p-value and confidence intervals 
-
-        est = np.array([self.naive[j][0] for j in indices])
-        sd = np.array([np.sqrt(self.naive[j][1]) for j in indices])
-
-        self._naive = pd.DataFrame({'index':indices,
-                                    'beta_hat': est,
-                                    'lower_conf': est - q * sd,
-                                    'upper_conf': est + q * sd,
-                                    'p_value': 2 * normal_dbn.sf(np.fabs(est / sd))}).set_index('index')
-
-        # data splitting p-value and confidence intervals
-        
-        est = np.array([self.splitting[j][0] for j in indices])
-        sd = np.array([np.sqrt(self.splitting[j][1]) for j in indices])
-        self._splitting =  pd.DataFrame({'index':indices,
-                                         'beta_hat': est,
-                                         'lower_conf': est - q * sd,
-                                         'upper_conf': est + q * sd,
-                                         'p_value': 2 * normal_dbn.sf(np.fabs(est / sd))}).set_index('index')
-
-        # selective versions
-        
-        beta_vals = [self.beta_hat[j] for j in indices]
-        lowers = [self.intervals[j][0] for j in indices]
-        uppers = [self.intervals[j][1] for j in indices]
-        p_vals = [self.intervals[j][2] for j in indices]
-
-        data = {
-            'index': indices,
-            'beta_hat': beta_vals,
-            'lower_conf': lowers,
-            'upper_conf': uppers,
-            'p_value': p_vals
-        }
-
-        return pd.DataFrame(data).set_index('index')
 
 
 def largest_eigenvalue_bound_Q(Q, num_iters=4):
@@ -412,8 +372,7 @@ def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol
     S_list, U_list, b_list = [], [], []
 
     if len(E) > 0:
-        E_M = np.zeros((n, len(E)))
-        for i, j in enumerate(E): E_M[j, i] = 1.0
+        E_M = create_selection_matrix(n, E)
         
         Q_E = Q @ E_M if not isinstance(Q, np.ndarray) else Q[:, E]
         Q_EE = Q_E[E, :]

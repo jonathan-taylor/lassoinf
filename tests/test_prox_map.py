@@ -95,8 +95,8 @@ def test_prox_map_extensive(scenario, q_type):
     # (even if it's NaN for some reason, it shouldn't crash)
     if len(inf.E) > 0:
         idx = inf.E[0]
-        assert idx in inf.intervals
-        lower, upper, p_val = inf.intervals[idx]
+        assert idx in inf.summary_.index
+        _, lower, upper, p_val = inf.summary_.loc[idx]
         if not np.isnan(lower):
             assert lower <= upper
             assert 0 <= p_val <= 1
