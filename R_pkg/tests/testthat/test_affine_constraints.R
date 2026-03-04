@@ -16,25 +16,24 @@ test_that("affine_constraints consistency", {
 
   v <- c(1.0, -0.5, 0.2, 0.0, 0.0)
 
-  # 1. Test compute_params
-  params <- si_cpp$compute_params(v)
-  expect_type(params, "list") # Rcpp wrapped objects behave as lists now
-  expect_true(!is.null(params$gamma))
-  expect_true(!is.null(params$c))
-  expect_true(!is.null(params$bar_gamma))
-  expect_true(is.numeric(params$bar_s))
+  # 1. Test compute_contrast
+  contrast <- si_cpp$compute_contrast(v)
+  expect_true(!is.null(contrast$gamma))
+  expect_true(!is.null(contrast$c))
+  expect_true(!is.null(contrast$bar_gamma))
+  expect_true(is.numeric(contrast$bar_s))
 
   # 2. Test splitting variance and estimator properties
-  expect_true(!is.null(params$splitting_estimator))
-  expect_true(is.numeric(params$splitting_variance))
-  expect_true(is.numeric(params$naive_variance))
+  expect_true(!is.null(contrast$splitting_estimator))
+  expect_true(is.numeric(contrast$splitting_variance))
+  expect_true(is.numeric(contrast$naive_variance))
 
   # 3. Test get_interval
   A <- matrix(rnorm(20), 4, 5)
   b <- rnorm(4)
   
   for (t_val in c(-5.0, 0.0, 1.23, 10.0)) {
-    interval <- si_cpp$get_interval(v, t_val, A, b)
+    interval <- contrast$get_interval(t_val, A, b)
     expect_length(interval, 2)
     # interval might be NaN, which is fine, we just check shape
   }
@@ -51,7 +50,8 @@ test_that("affine_constraints infeasible interval", {
   b <- c(-1.0, -1.0)
   
   si_cpp <- new(AffineConstraints, Z, Z_noisy, Q, Q_noise)
-  interval <- si_cpp$get_interval(v, 0.0, A, b)
+  contrast <- si_cpp$compute_contrast(v)
+  interval <- contrast$get_interval(0.0, A, b)
   
   expect_true(is.nan(interval[1]))
   expect_true(is.nan(interval[2]))
@@ -73,7 +73,8 @@ test_that("lasso_inference logic", {
   Sigma <- diag(p)
   Sigma_noisy <- diag(p)
   
-  res <- lasso_inference(beta_hat, G_hat, Q_hat, D, L, U, Z_full, Sigma, Sigma_noisy)
+  inf <- LassoInference$new(beta_hat, G_hat, Q_hat, D, L, U, Z_full, Sigma, Sigma_noisy)
+  res <- inf$summary()
   
   expect_true(is.data.frame(res))
   if (nrow(res) > 0) {
