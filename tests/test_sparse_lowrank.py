@@ -86,8 +86,8 @@ def test_affine_constraints_full_params_with_operator():
     si_dense = AffineConstraints(Z, Z_noisy, Q_dense, Q_noise_dense)
     si_op = AffineConstraints(Z, Z_noisy, Q_op, Q_noise_op)
     
-    params_dense = si_dense.compute_params(v)
-    params_op = si_op.compute_params(v)
+    params_dense = si_dense.compute_contrast(v)
+    params_op = si_op.compute_contrast(v)
     
     np.testing.assert_allclose(params_op.c, params_dense.c, rtol=1e-5, atol=1e-5)
     np.testing.assert_allclose(params_op.bar_s, params_dense.bar_s, rtol=1e-5, atol=1e-5)

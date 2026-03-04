@@ -22,8 +22,8 @@ def test_affine_constraints_consistency():
 
     v = np.array([1.0, -0.5, 0.2, 0.0, 0.0])
 
-    # 1. Test compute_params
-    params_py = si_py.compute_params(v)
+    # 1. Test compute_contrast
+    params_py = si_py.compute_contrast(v)
     params_cpp = si_cpp.compute_params(v)
 
     np.testing.assert_allclose(params_py.gamma, params_cpp.gamma, atol=1e-10)
@@ -47,7 +47,8 @@ def test_affine_constraints_consistency():
 
     # get_interval can return (np.nan, np.nan) for infeasible regions, let's test a few t values
     for t_val in [-5.0, 0.0, 1.23, 10.0]:
-        interval_py = si_py.get_interval(v, t_val, A, b)
+        result = si_py.compute_contrast(v)
+        interval_py = result.get_interval(t_val, A, b)
         interval_cpp = si_cpp.get_interval(v, t_val, A, b)
         
         # Check if both return NaN
@@ -74,7 +75,8 @@ def test_affine_constraints_infeasible_interval():
     si_py = AffineConstraints(Z, Z_noisy, Q, Q_noise)
     si_cpp = lassoinf_cpp.AffineConstraints(Z, Z_noisy, Q, Q_noise)
     
-    interval_py = si_py.get_interval(v, 0.0, A, b)
+    result = si_py.compute_contrast(v)
+    interval_py = result.get_interval(0.0, A, b)
     interval_cpp = si_cpp.get_interval(v, 0.0, A, b)
     
     assert np.isnan(interval_py[0]) and np.isnan(interval_py[1])

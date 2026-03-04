@@ -173,11 +173,11 @@ class LassoInference:
                 sigma = np.sqrt(variance)
                 
                 # Use TruncBivariateNormal for exact inference
-                params_fixed = self.si.compute_params(v)
-                bar_s = float(params_fixed.bar_s)
+                contrast = self.si.compute_contrast(v)
+                bar_s = float(contrast.bar_s)
                 
                 # Get the interval bounds at theta_hat = 0
-                L_0, U_0 = self.si.get_interval(v, 0.0, self.A, self.b)
+                L_0, U_0 = contrast.get_interval(0.0, self.A, self.b)
                 
                 c1 = float(variance)
                 c2 = bar_s**2
@@ -203,8 +203,8 @@ class LassoInference:
                 p_val = np.clip(2 * min(cdf_val, 1.0 - cdf_val), 0.0, 1.0)
                 
                 self.intervals[j] = (lower, upper, p_val)
-                self.splitting[j] = (params_fixed.splitting_estimator, params_fixed.splitting_variance)
-                self.naive[j] = (params_fixed.theta_hat, params_fixed.naive_variance)
+                self.splitting[j] = (contrast.splitting_estimator, contrast.splitting_variance)
+                self.naive[j] = (contrast.theta_hat, contrast.naive_variance)
                 self.contrasts[j] = v
 
     def summary(self):
