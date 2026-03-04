@@ -26,7 +26,11 @@
 
 ### Python
 
-You can install `lassoinf` and build its C++ extension directly using `pip`:
+```bash
+pip install lassoinf
+```
+
+To build from source, you can install `lassoinf` and build its C++ extension directly using `pip`:
 
 ```bash
 pip install .
