@@ -26,19 +26,19 @@ def test_affine_constraints_consistency():
     params_py = si_py.compute_params(v)
     params_cpp = si_cpp.compute_params(v)
 
-    np.testing.assert_allclose(params_py['gamma'], params_cpp.gamma, atol=1e-10)
-    np.testing.assert_allclose(params_py['c'], params_cpp.c, atol=1e-10)
-    np.testing.assert_allclose(params_py['bar_gamma'], params_cpp.bar_gamma, atol=1e-10)
-    np.testing.assert_allclose(params_py['bar_s'], params_cpp.bar_s, atol=1e-10)
-    np.testing.assert_allclose(params_py['n_o'], params_cpp.n_o, atol=1e-10)
-    np.testing.assert_allclose(params_py['bar_n_o'], params_cpp.bar_n_o, atol=1e-10)
-    np.testing.assert_allclose(params_py['theta_hat'], params_cpp.theta_hat, atol=1e-10)
-    np.testing.assert_allclose(params_py['bar_theta'], params_cpp.bar_theta, atol=1e-10)
+    np.testing.assert_allclose(params_py.gamma, params_cpp.gamma, atol=1e-10)
+    np.testing.assert_allclose(params_py.c, params_cpp.c, atol=1e-10)
+    np.testing.assert_allclose(params_py.bar_gamma, params_cpp.bar_gamma, atol=1e-10)
+    np.testing.assert_allclose(params_py.bar_s, params_cpp.bar_s, atol=1e-10)
+    np.testing.assert_allclose(params_py.n_o, params_cpp.n_o, atol=1e-10)
+    np.testing.assert_allclose(params_py.bar_n_o, params_cpp.bar_n_o, atol=1e-10)
+    np.testing.assert_allclose(params_py.theta_hat, params_cpp.theta_hat, atol=1e-10)
+    np.testing.assert_allclose(params_py.bar_theta, params_cpp.bar_theta, atol=1e-10)
 
     # 2. Test splitting variance and estimator properties
-    np.testing.assert_allclose(params_py['splitting_estimator'], params_cpp.splitting_estimator, atol=1e-10)
-    np.testing.assert_allclose(params_py['splitting_variance'], params_cpp.splitting_variance, atol=1e-10)
-    np.testing.assert_allclose(params_py['naive_variance'], params_cpp.naive_variance, atol=1e-10)
+    np.testing.assert_allclose(params_py.splitting_estimator, params_cpp.splitting_estimator, atol=1e-10)
+    np.testing.assert_allclose(params_py.splitting_variance, params_cpp.splitting_variance, atol=1e-10)
+    np.testing.assert_allclose(params_py.naive_variance, params_cpp.naive_variance, atol=1e-10)
 
     # 3. Test get_interval
     A = np.random.randn(4, 5)

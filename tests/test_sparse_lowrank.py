@@ -89,6 +89,6 @@ def test_affine_constraints_full_params_with_operator():
     params_dense = si_dense.compute_params(v)
     params_op = si_op.compute_params(v)
     
-    np.testing.assert_allclose(params_op['c'], params_dense['c'], rtol=1e-5, atol=1e-5)
-    np.testing.assert_allclose(params_op['bar_s'], params_dense['bar_s'], rtol=1e-5, atol=1e-5)
-    np.testing.assert_allclose(params_op['bar_theta'], params_dense['bar_theta'], rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(params_op.c, params_dense.c, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(params_op.bar_s, params_dense.bar_s, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(params_op.bar_theta, params_dense.bar_theta, rtol=1e-5, atol=1e-5)

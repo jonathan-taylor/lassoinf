@@ -21,7 +21,7 @@ class LassoInference:
     Z_full: np.ndarray
     Sigma: np.ndarray
     Sigma_noise: np.ndarray | None = None
-    scalar_noise: float | None = None
+    scalar_noise: float = np.nan
     
     def check_kkt(self, tol=1e-5):
         """
@@ -174,7 +174,7 @@ class LassoInference:
                 
                 # Use TruncBivariateNormal for exact inference
                 params_fixed = self.si.compute_params(v)
-                bar_s = float(params_fixed['bar_s'])
+                bar_s = float(params_fixed.bar_s)
                 
                 # Get the interval bounds at theta_hat = 0
                 L_0, U_0 = self.si.get_interval(v, 0.0, self.A, self.b)
@@ -203,8 +203,8 @@ class LassoInference:
                 p_val = np.clip(2 * min(cdf_val, 1.0 - cdf_val), 0.0, 1.0)
                 
                 self.intervals[j] = (lower, upper, p_val)
-                self.splitting[j] = (params_fixed['splitting_estimator'], params_fixed['splitting_variance'])
-                self.naive[j] = (params_fixed['theta_hat'], params_fixed['naive_variance'])
+                self.splitting[j] = (params_fixed.splitting_estimator, params_fixed.splitting_variance)
+                self.naive[j] = (params_fixed.theta_hat, params_fixed.naive_variance)
                 self.contrasts[j] = v
 
     def summary(self):

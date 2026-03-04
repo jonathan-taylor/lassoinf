@@ -8,6 +8,20 @@ from scipy.stats import norm as normal_dbn
 from scipy.sparse.linalg import cg, LinearOperator
 
 @dataclass
+class AffineConstraintsResult:
+    theta_hat: float
+    bar_theta: float
+    splitting_variance: float
+    splitting_estimator: float
+    naive_variance: float
+    gamma: np.ndarray
+    c: np.ndarray
+    bar_gamma: np.ndarray
+    bar_s: float
+    n_o: np.ndarray
+    bar_n_o: np.ndarray
+
+@dataclass
 class AffineConstraints:
     Z: np.ndarray
     Z_noisy: np.ndarray
@@ -19,7 +33,7 @@ class AffineConstraints:
         if self.Q_noise is None:
             if not self.scalar_noise >= 0:
                 raise ValueError('if Q_noise is None, scalar_noise must be >= 0')
-            if self.scalar_noise < 0.001:
+            if self.scalar_noise is None or self.scalar_noise < 0.001:
                 warnings.warn('For numerical stability using scalar_noise=0.001')
                 self.scalar_noise = 0.001
                 
@@ -86,19 +100,19 @@ class AffineConstraints:
         
         naive_var = (v.T @ self.Q @ v)
 
-        return {
-            'gamma': gamma,
-            'c': c,
-            'bar_gamma': bar_gamma,
-            'bar_s': bar_s,
-            'n_o': n_o,
-            'bar_n_o': bar_n_o,
-            'theta_hat': theta_hat,
-            'bar_theta': bar_theta,
-            'splitting_variance': naive_var + bar_s**2,
-            'splitting_estimator': theta_hat - bar_theta,
-            'naive_variance': naive_var
-        }
+        result = AffineConstraintsResult(theta_hat=theta_hat,
+                                         gamma=gamma,
+                                         c=c,
+                                         bar_gamma=bar_gamma,
+                                         bar_s=bar_s,
+                                         n_o=n_o,
+                                         bar_n_o=bar_n_o,
+                                         bar_theta=bar_theta,
+                                         splitting_variance=naive_var + bar_s**2,
+                                         splitting_estimator=theta_hat - bar_theta,
+                                         naive_variance=naive_var)
+
+        return result
 
     def get_interval(self, v: np.ndarray, t: float, A: np.ndarray, b: np.ndarray):
         params = self.compute_params(v)
@@ -110,8 +124,8 @@ class AffineConstraints:
         # A(N_o + Gamma*t + bar_N_o + bar_Gamma*bar_theta) <= b
         # A * bar_Gamma * bar_theta <= b - A(N_o + bar_N_o + Gamma*t)
         
-        alpha = A @ params['bar_gamma']
-        beta = b - A @ (params['n_o'] + params['bar_n_o'] + params['gamma'] * t)
+        alpha = A @ params.bar_gamma
+        beta = b - A @ (params.n_o + params.bar_n_o + params.gamma * t)
         
         # alpha * bar_theta <= beta
         # We want the interval [L, U] for bar_theta.
@@ -147,12 +161,12 @@ class AffineConstraints:
         
         # Precompute parts that don't depend on t
         params_fixed = self.compute_params(v)
-        bar_s = params_fixed['bar_s']
+        bar_s = params_fixed.bar_s
         
-        bar_gamma = np.atleast_1d(params_fixed['bar_gamma'])
-        n_o = np.atleast_1d(params_fixed['n_o'])
-        bar_n_o = np.atleast_1d(params_fixed['bar_n_o'])
-        gamma = np.atleast_1d(params_fixed['gamma'])
+        bar_gamma = np.atleast_1d(params_fixed.bar_gamma)
+        n_o = np.atleast_1d(params_fixed.n_o)
+        bar_n_o = np.atleast_1d(params_fixed.bar_n_o)
+        gamma = np.atleast_1d(params_fixed.gamma)
 
         if hasattr(A, 'matvec'):
             alpha = A.matvec(bar_gamma)
