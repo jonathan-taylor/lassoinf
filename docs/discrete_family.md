@@ -2,7 +2,7 @@
 jupytext:
   main_language: python
   cell_metadata_filter: -all
-  formats: ipynb,md:myst
+  formats: md:myst,ipynb
   text_representation:
     extension: .md
     format_name: myst
@@ -49,7 +49,8 @@ A = -np.eye(n)
 b = np.zeros(n)
 
 # 2. Get the selection weight function for the target
-weight_f = si.get_weight(v, A, b)
+contrast = si.compute_contrast(v)
+weight_f = contrast.get_weight(A, b)
 
 # 3. Create a grid of sufficient statistics (e.g. possible values of theta_hat)
 grid = np.linspace(-15, 15, 1000)
