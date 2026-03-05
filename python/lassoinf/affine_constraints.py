@@ -12,6 +12,7 @@ from scipy.sparse.linalg import cg, LinearOperator
 @dataclass
 class AffineConstraintsContrast:
 
+    direction: np.ndarray
     theta_hat: float
     bar_theta: float
     splitting_variance: float
@@ -160,10 +161,11 @@ class AffineConstraints:
             return v / self.scalar_noise
                 
 
-    def compute_contrast(self, v: np.ndarray):
+    def compute_contrast(self, direction: np.ndarray):
         """
-        v is the contrast vector (eta in the doc).
+        direction is the contrast vector (eta in docs/main.md).
         """
+        v = direction
         Q_v = self.Q @ v
         
         # eta' * Sigma * eta
@@ -176,10 +178,7 @@ class AffineConstraints:
         c = self.solve_contrast(v)
         
         # bar_s^2 = c' * BarSigma * c = eta' * Sigma * BarSigma^-1 * Sigma * eta
-        if self.Q_noise is not None:
-            Q_noise_c = Q_v # self.Q_noise @ c
-        else:
-            Q_noise_c = Q_v # self.scalar_noise * self.Q @ c
+        Q_noise_c = Q_v # self.Q_noise @ c
 
         bar_s2 = c.T  @ Q_noise_c
         bar_s = np.sqrt(bar_s2)
@@ -201,7 +200,8 @@ class AffineConstraints:
         
         naive_var = (v.T @ self.Q @ v)
 
-        result = AffineConstraintsContrast(theta_hat=theta_hat,
+        result = AffineConstraintsContrast(direction=v,
+                                           theta_hat=theta_hat,
                                            gamma=gamma,
                                            c=c,
                                            bar_gamma=bar_gamma,
