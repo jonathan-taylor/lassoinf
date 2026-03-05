@@ -8,16 +8,19 @@ project:
       template: plain_latex_book
       output: exports/book.pdf
   toc:
-    - file: main.md
     - file: install.md
+    - file: main.md
+    - file: quadratic_approx_lasso.md
     - file: discrete_family.md
     - file: file_drawer.md
-    - file: gaussian_lasso.md
-    - file: gaussian_lasso_boot.md
-    - file: gaussian_lasso_no_random.md
-    - file: gaussian_lasso_ridge.md
+    - title: OLS Examples
+      children:
+        - file: gaussian_lasso.md
+        - file: gaussian_lasso_boot.md
+        - file: gaussian_lasso_no_random.md
+        - file: gaussian_lasso_ridge.md
     - file: logistic_lasso.md
-    - file: quadratic_approx_lasso.md
+
 site:
   options:
     folders: true

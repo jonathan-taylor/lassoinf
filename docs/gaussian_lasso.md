@@ -54,7 +54,6 @@ from lassoinf import LassoInference
 n, p = 100, 20
 signal_strength = 4
 seed = 0
-output_base = 'gaussian_lasso_results_{seed}.csv'
 ```
 
 ```{code-cell} ipython3
@@ -63,7 +62,7 @@ rng = np.random.default_rng(seed)
 X = rng.standard_normal((n, p)) 
 
 true_beta = np.zeros(p)
-true_beta[0] = signal_strength / np.sqrt(n)   # 1 strong effect
+true_beta[0] = 2 * signal_strength / np.sqrt(n)   # 1 strong effect
 true_beta[1] = signal_strength / np.sqrt(n) # 1 weak effect
 true_beta[2] = -signal_strength / np.sqrt(n) # 1 weak effect
 

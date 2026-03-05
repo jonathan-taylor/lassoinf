@@ -1,6 +1,6 @@
 ---
 jupytext:
-  formats: ipynb,md:myst
+  formats: md:myst,ipynb
   text_representation:
     extension: .md
     format_name: myst
@@ -135,10 +135,11 @@ $$
 ```{code-cell} ipython3
 import inspect
 import numpy as np
-from lassoinf.affine_constraints import AffineConstraints
+from lassoinf.affine_constraints import (AffineConstraints,
+                                         AffineConstraintsContrast)
 
 # Compute the required parameters for inference
-print(inspect.getsource(AffineConstraints.compute_params))
+print(inspect.getsource(AffineConstraints.compute_contrast))
 ```
 
 We have decomposed the joint law $(Z,\omega)$ into 4 independent pieces $(\hat{\theta}, N, \bar{\omega}, \bar{N})$ such that $\text{Var}(\hat{\theta} | N, \bar{N}) = \text{Var}(\hat{\theta})$. Hence,
@@ -171,24 +172,14 @@ $$
 
 ```{code-cell} ipython3
 # Compute the truncation interval [L, U]
-print(inspect.getsource(AffineConstraints.get_interval))
+print(inspect.getsource(AffineConstraintsContrast.get_interval))
 ```
 
 The conclusion follows from the fact that, as discussed in {cite}`LeeLasso` $\left\{\bar{\omega}: \bar{A} \bar{\omega} \leq \bar{b}(N_o,\bar{N}_o,t)\right\}$ is an interval $[L(N_o,\bar{N}_o, t), U(N_o, \bar{N}_o, t)]$.
 
 ```{code-cell} ipython3
 # Calculate the selection probability (weight)
-print(inspect.getsource(AffineConstraints.get_weight))
-```
-
-## Implementation
-
-Below is a Python implementation of the framework described above.
-
-```{code-cell} ipython3
-# The core dataclass holding the problem parameters
-source = inspect.getsource(AffineConstraints)
-print(source[:source.find("    def compute_params")].strip())
+print(inspect.getsource(AffineConstraintsContrast.get_weight))
 ```
 
 ### Step-by-Step Computation
@@ -218,26 +209,26 @@ v = np.zeros(n)
 v[0] = 1.0  # target is Z[0]
 
 # Compute parameters
-params = si.compute_params(v)
-print(params)
-print("Target theta_hat:", params['theta_hat'])
-print("Contrast c (should be eta under well-specified):", params['c'][:3], "...")
-print("Variance bar_s:", params['bar_s'])
+contrast = si.compute_contrast(v)
+print(contrast)
+print("Target theta_hat:", contrast.theta_hat)
+print("Contrast c (should be eta under well-specified):", contrast.c[:3], "...")
+print("Standard deviation bar_s:", contrast.bar_s)
 ```
 
 And computing the interval $[L, U]$ given some constraints $AZ_{noisy} \leq b$:
 
 ```{code-cell} ipython3
 # Observed value of theta_hat
-theta_obs = params['theta_hat']
+theta_obs = contrast.theta_hat
 
 # Compute interval for bar_theta
-L, U = si.get_interval(v, theta_obs, A, b)
+L, U = contrast.get_interval(theta_obs, A, b)
 print(f"Interval [L, U] for bar_theta: [{L:.4f}, {U:.4f}]")
-print(f"Observed bar_theta: {params['bar_theta']:.4f}")
+print(f"Observed bar_theta: {contrast.bar_theta:.4f}")
 
 # Compute selection weight function
-weight_f = si.get_weight(v, A, b)
+weight_f = contrast.get_weight(A, b)
 print(f"Selection weight at theta_obs: {weight_f(theta_obs):.4f}")
 
 # Evaluate over a range of t values
@@ -268,11 +259,11 @@ from lassoinf_cpp import AffineConstraints as AffineConstraintsCPP
 si_cpp = AffineConstraintsCPP(Z, Z_noisy, Q, Q_noise)
 
 # Compute parameters using C++
-params_cpp = si_cpp.compute_params(v)
-print("C++ Target theta_hat:", params_cpp.theta_hat)
+result_cpp = si_cpp.compute_contrast(v)
+print("C++ Target theta_hat:", result_cpp.theta_hat)
 
 # Compare selection weight function
-weight_f_cpp = si_cpp.get_weight(v, A, b)
+weight_f_cpp = result_cpp.get_weight(A, b)
 print(f"C++ Selection weight at theta_obs: {weight_f_cpp(theta_obs):.4f}")
 
 # Cross-check weights
@@ -293,7 +284,3 @@ $$
 t \mapsto \Phi((\bar{U}(Z+\omega)-t)/s) - \Phi((\bar{L}(Z+\omega)-t)/s)
 $$
 with $s = \text{Var}(\bar{\theta} | \hat{\theta})$. These upper and lower limits are exactly the truncation intervals of {cite}`LeeLasso` when applied to the noisy data $Z+\omega$!
-
-```{code-cell} ipython3
-
-```

@@ -2,7 +2,7 @@
 jupytext:
   main_language: python
   cell_metadata_filter: -all
-  formats: ipynb,md:myst
+  formats: md:myst,ipynb
   text_representation:
     extension: .md
     format_name: myst
@@ -14,7 +14,7 @@ kernelspec:
   language: python
 ---
 
-# Gaussian Lasso Selective Inference Example Without Randomization
+# No Randomization
 
 This notebook demonstrates how to perform selective inference after fitting an Ordinary Least Squares (OLS) model with a lasso penalty. 
 Instead of data splitting, we use a **parametric bootstrap** (randomization) approach. We add Gaussian noise to the data such that the "size" of the randomization is equivalent to using a specific proportion of the data for selection.
@@ -23,8 +23,6 @@ In this example we'll  run the lasso without randomization and construct
 confidence intervals. In the background, the code assumes a "minimum" 
 of `scalar_noise` of 0.001 corresponding to retaining about 1/1000-th of the
 data for inference.
-
-## Setup Data and Parametric Bootstrap
 
 We generate $n=100$ observations and $p=20$ features. We include 1 strong effect, 2 weak effects, and set the rest to truly 0. The true noise variance is $\sigma^2 = 2$.
 
@@ -39,7 +37,6 @@ from lassoinf import LassoInference
 n, p = 100, 20
 signal_strength = 4
 seed = 0
-output_base = 'gaussian_lasso_norandom_results_{seed}.csv'
 ```
 
 ```{code-cell} ipython3
@@ -48,7 +45,7 @@ rng = np.random.default_rng(seed)
 X = rng.standard_normal((n, p)) 
 
 true_beta = np.zeros(p)
-true_beta[0] = signal_strength / np.sqrt(n)   # 1 strong effect
+true_beta[0] = 2 * signal_strength / np.sqrt(n)   # 1 strong effect
 true_beta[1] = signal_strength / np.sqrt(n) # 1 weak effect
 true_beta[2] = -signal_strength / np.sqrt(n) # 1 weak effect
 
@@ -118,9 +115,9 @@ inference = LassoInference(
 )
 
 # 5. View the summary of free (selected) variables
-df = inference.summary()
-df
+df = inference.summary_
 df['length'] = df['upper_conf'] - df['lower_conf']
+df
 ```
 
 ### Finding the true parameter
@@ -130,7 +127,7 @@ The contrasts are retained, which allow us to compute
 
 ```{code-cell} ipython3
 true_Z = X.T @ (X @ true_beta)
-df['truth'] = [(inference.contrasts[j] * true_Z).sum() for j in df.index]
+df['truth'] = [(inference._contrasts[j].direction * true_Z).sum() for j in df.index]
 ```
 
 ### Checking coverage
@@ -140,46 +137,6 @@ df['cover'] = (df['lower_conf'] < df['truth']) * (df['upper_conf'] > df['truth']
 df
 ```
 
-### Using data splitting
-
-```{code-cell} ipython3
-split_df = inference._splitting
-split_df['length'] = split_df['upper_conf'] - split_df['lower_conf']
-split_df['truth'] = df['truth']
-split_df['cover'] = (split_df['lower_conf'] < split_df['truth']) * (split_df['upper_conf'] > split_df['truth'])
-split_df
-```
-
-```{code-cell} ipython3
-naive_df = inference._naive
-naive_df['length'] = naive_df['upper_conf'] - naive_df['lower_conf']
-naive_df['truth'] = df['truth']
-naive_df['cover'] = (naive_df['lower_conf'] < naive_df['truth']) * (naive_df['upper_conf'] > naive_df['truth'])
-naive_df
-```
-
 ```{code-cell} ipython3
 
-```
-
-### Saving the results to compare
-
-```{code-cell} ipython3
-carve_df = df 
-carve_df['type'] = 'Data Carving'
-split_df['type'] ='Data Splitting'
-naive_df['type'] = 'Naive'
-```
-
-```{code-cell} ipython3
-all_df = pd.concat([carve_df, split_df, naive_df])
-all_df['n'] = n
-all_df['p'] = p
-all_df['seed'] = seed
-all_df['signal_strength'] = signal_strength
-```
-
-```{code-cell} ipython3
-output_path = output_base.format(seed=seed)
-all_df.to_csv(output_path, index=False)
 ```

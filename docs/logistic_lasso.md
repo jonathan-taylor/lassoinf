@@ -2,7 +2,7 @@
 jupytext:
   main_language: python
   cell_metadata_filter: -all
-  formats: ipynb,md:myst
+  formats: md:myst,ipynb
   text_representation:
     extension: .md
     format_name: myst
@@ -45,7 +45,7 @@ y = rng.binomial(1, probs)
 
 ```{code-cell} ipython3
 # 2. Estimate Sigma via bootstrap
-B = 30
+B = 300
 Z_boot = []
 
 print("Running bootstrap...")
@@ -158,7 +158,7 @@ inference = LassoInference(
 )
 
 # 6. View the summary of free (selected) variables
-summary_df = inference.summary()
+summary_df = inference.summary_
 summary_df
 ```
 

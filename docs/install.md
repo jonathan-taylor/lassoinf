@@ -1,3 +1,15 @@
+---
+jupytext:
+  main_language: bash
+  cell_metadata_filter: -all
+  formats: md:myst,ipynb
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.19.1
+---
+
 # Installation
 
 `lassoinf` provides selective inference tools leveraging a high-performance C++ backend. It integrates seamlessly with both Python and R.
@@ -18,20 +30,19 @@
 
 ## Installation for Python
 
-
-```bash
+```
 pip install lassoinf
 ```
 
 To build from source, you can install `lassoinf` and build its C++ extension directly using `pip`:
 
-```bash
+```
 pip install .
 ```
 
 For an editable install during development (using the `meson-python` backend), run:
 
-```bash
+```
 pip install --no-build-isolation -Csetup-args=-Dbuildtype=debug -e .
 ```
 
@@ -39,14 +50,15 @@ pip install --no-build-isolation -Csetup-args=-Dbuildtype=debug -e .
 
 The R package bindings are located in the `R_pkg/` directory. You can install the R package from the terminal using `R CMD INSTALL`:
 
-```bash
+```
 cd R_pkg
 R CMD INSTALL .
 ```
 
 Or from within an R session using `devtools`:
 
-```R
+```
+%%R
 devtools::install("R_pkg")
 ```
 
@@ -54,8 +66,7 @@ devtools::install("R_pkg")
 
 To run the R test suite, you can use the `testthat` package from the command line:
 
-```bash
+```
 cd R_pkg
 Rscript -e 'testthat::test_dir("tests/testthat")'
 ```
-

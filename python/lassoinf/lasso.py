@@ -24,7 +24,7 @@ class LassoInference:
     Sigma: np.ndarray
     Sigma_noise: np.ndarray | None = None
     scalar_noise: float = np.nan
-    level: float = 0.1
+    level: float = 0.95
 
     def check_kkt(self, tol=1e-5):
         """
