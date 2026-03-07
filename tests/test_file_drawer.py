@@ -32,7 +32,8 @@ def test_file_drawer():
     b = np.array([[-threshold]])
 
     # Get the weight function
-    weight_f = si.get_weight(v, A, b)
+    result = si.compute_contrast(v)
+    weight_f = result.get_weight(A, b)
     
     # Verify weight function evaluations
     t_grid = np.linspace(0, 4, 10)

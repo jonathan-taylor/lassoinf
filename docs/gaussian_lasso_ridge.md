@@ -1,7 +1,7 @@
 ---
 jupytext:
   cell_metadata_filter: -all
-  formats: ipynb,md:myst
+  formats: md:myst,ipynb
   main_language: python
   text_representation:
     extension: .md
@@ -14,7 +14,7 @@ kernelspec:
   name: python3
 ---
 
-# Gaussian ElasticNet with Ridge Selective Inference Example Using Non-parametric (Pairs) Bootstrap 
+# ElasticNet Using Non-parametric (Pairs) Bootstrap 
 
 This notebook demonstrates how to perform selective inference after fitting an Ordinary Least Squares (OLS) model with a lasso penalty. 
 Instead of data splitting, we use a **parametric bootstrap** (randomization) approach. We add Gaussian noise to the data such that the "size" of the randomization is equivalent to using a specific proportion of the data for selection.
@@ -55,7 +55,6 @@ from lassoinf import LassoInference
 n, p = 100, 20
 signal_strength = 4
 seed = 0
-output_base = 'gaussian_lasso_ridge_results_{seed}.csv'
 ```
 
 ```{code-cell} ipython3
@@ -183,9 +182,9 @@ inference = LassoInference(
 )
 
 # 5. View the summary of free (selected) variables
-df = inference.summary()
-df
+df = inference.summary_
 df['length'] = df['upper_conf'] - df['lower_conf']
+df
 ```
 
 ### Finding the true parameter
@@ -204,72 +203,4 @@ df['truth'] = np.linalg.inv(X_sel.T @ X_sel + alpha * np.eye(X_sel.shape[1])) @ 
 ```{code-cell} ipython3
 df['cover'] = (df['lower_conf'] < df['truth']) * (df['upper_conf'] > df['truth'])
 df
-```
-
-### Using data splitting
-
-```{code-cell} ipython3
-split_df = inference._splitting
-split_df['length'] = split_df['upper_conf'] - split_df['lower_conf']
-split_df['truth'] = df['truth']
-split_df['cover'] = (split_df['lower_conf'] < split_df['truth']) * (split_df['upper_conf'] > split_df['truth'])
-split_df
-```
-
-```{code-cell} ipython3
-naive_df = inference._naive
-naive_df['length'] = naive_df['upper_conf'] - naive_df['lower_conf']
-naive_df['truth'] = df['truth']
-naive_df['cover'] = (naive_df['lower_conf'] < naive_df['truth']) * (naive_df['upper_conf'] > naive_df['truth'])
-naive_df
-```
-
-## Lengths of the intervals
-
-The length of the splitting vs. the naive should a factor of $\sqrt{1/(1-\pi)}=\sqrt{10}$
-
-```{code-cell} ipython3
-split_df['length'] / naive_df['length']
-```
-
-```{code-cell} ipython3
-3.162278**2
-```
-
-### Selective vs. splitting
-
-The selective ones should be pointwise shorter with strong signals
-close to nominal (no selection) length:
-
-```{code-cell} ipython3
-df['length'] / split_df['length']
-```
-
-### Saving the results to compare
-
-```{code-cell} ipython3
-df['type'] = 'Data Darving'
-split_df['type'] ='Data Splitting'
-naive_df['type'] = 'Naive'
-```
-
-```{code-cell} ipython3
-all_df = pd.concat([df, split_df, naive_df])
-all_df['n'] = n
-all_df['p'] = p
-all_df['seed'] = seed
-all_df['signal_strength'] = signal_strength
-```
-
-```{code-cell} ipython3
-output_path = output_base.format(seed=seed)
-all_df.to_csv(output_path, index=False)
-```
-
-```{code-cell} ipython3
-
-```
-
-```{code-cell} ipython3
-
 ```

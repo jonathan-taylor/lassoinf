@@ -49,8 +49,8 @@ Eigen::MatrixXd get_A_dense(const lassoinf::LassoConstraints& constraints) {
 }
 
 // Helper to convert std::pair to NumericVector
-NumericVector get_interval_wrapper(lassoinf::AffineConstraints* si, const Eigen::VectorXd& v, double t, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
-    auto res = si->get_interval(v, t, A, b);
+NumericVector get_interval_wrapper(lassoinf::AffineConstraintsContrast* contrast, double t, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
+    auto res = contrast->get_interval(t, A, b);
     return NumericVector::create(res.first, res.second);
 }
 
@@ -67,23 +67,8 @@ lassoinf::AffineConstraints* create_affine_constraints(
     }
 }
 
-Rcpp::List compute_params_wrapper(lassoinf::AffineConstraints* si, const Eigen::VectorXd& v) {
-    auto p = si->compute_params(v);
-    Rcpp::Environment env = Rcpp::Environment::empty_env();
-    Rcpp::List list = Rcpp::List::create(
-        Rcpp::Named("gamma") = p.gamma,
-        Rcpp::Named("c") = p.c,
-        Rcpp::Named("bar_gamma") = p.bar_gamma,
-        Rcpp::Named("bar_s") = p.bar_s,
-        Rcpp::Named("n_o") = p.n_o,
-        Rcpp::Named("bar_n_o") = p.bar_n_o,
-        Rcpp::Named("theta_hat") = p.theta_hat,
-        Rcpp::Named("bar_theta") = p.bar_theta,
-        Rcpp::Named("splitting_variance") = p.splitting_variance,
-        Rcpp::Named("splitting_estimator") = p.splitting_estimator,
-        Rcpp::Named("naive_variance") = p.naive_variance
-    );
-    return list; // returning list is easier
+lassoinf::AffineConstraintsContrast* compute_contrast_wrapper(lassoinf::AffineConstraints* si, const Eigen::VectorXd& v) {
+    return new lassoinf::AffineConstraintsContrast(si->compute_contrast(v));
 }
 
 Rcpp::List lasso_post_selection_constraints_wrapper(
@@ -142,15 +127,35 @@ NumericVector wgf_interval_wrapper(lassoinf::WeightedGaussianFamily* wgf, double
     return NumericVector::create(res.first, res.second);
 }
 
+lassoinf::AffineConstraints* create_affine_constraints_default(
+    Eigen::VectorXd Z, Eigen::VectorXd Z_noisy, Eigen::MatrixXd Q, SEXP Q_noise_sexp) {
+    return create_affine_constraints(Z, Z_noisy, Q, Q_noise_sexp, std::numeric_limits<double>::quiet_NaN());
+}
+
 RCPP_MODULE(lassoinf_cpp) {
     function("lasso_post_selection_constraints", &lasso_post_selection_constraints_wrapper, 
              List::create(_["beta_hat"], _["G"], _["Q"], _["D_diag"], _["L"], _["U"], _["tol"] = 1e-6));
 
+    class_<lassoinf::AffineConstraintsContrast>("AffineConstraintsContrast")
+        .field("gamma", &lassoinf::AffineConstraintsContrast::gamma)
+        .field("c", &lassoinf::AffineConstraintsContrast::c)
+        .field("bar_gamma", &lassoinf::AffineConstraintsContrast::bar_gamma)
+        .field("bar_s", &lassoinf::AffineConstraintsContrast::bar_s)
+        .field("n_o", &lassoinf::AffineConstraintsContrast::n_o)
+        .field("bar_n_o", &lassoinf::AffineConstraintsContrast::bar_n_o)
+        .field("theta_hat", &lassoinf::AffineConstraintsContrast::theta_hat)
+        .field("bar_theta", &lassoinf::AffineConstraintsContrast::bar_theta)
+        .field("splitting_variance", &lassoinf::AffineConstraintsContrast::splitting_variance)
+        .field("splitting_estimator", &lassoinf::AffineConstraintsContrast::splitting_estimator)
+        .field("naive_variance", &lassoinf::AffineConstraintsContrast::naive_variance)
+        .method("get_interval", &get_interval_wrapper)
+        ;
+
     class_<lassoinf::AffineConstraints>("AffineConstraints")
         .factory<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, SEXP, double>(&create_affine_constraints)
+        .factory<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, SEXP>(&create_affine_constraints_default)
         .method("solve_contrast", &lassoinf::AffineConstraints::solve_contrast)
-        .method("compute_params", &compute_params_wrapper)
-        .method("get_interval", &get_interval_wrapper)
+        .method("compute_contrast", &compute_contrast_wrapper)
         ;
 
     class_<lassoinf::DiscreteFamily>("DiscreteFamily")

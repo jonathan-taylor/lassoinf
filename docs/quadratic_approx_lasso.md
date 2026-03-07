@@ -1,6 +1,6 @@
 ---
 jupytext:
-  formats: ipynb,md:myst
+  formats: md:myst,ipynb
   text_representation:
     extension: .md
     format_name: myst
@@ -12,7 +12,9 @@ kernelspec:
   language: python
 ---
 
-## Classic LASSO
+# Quadratic LASSO
+
+## Least squares form
 
 The classic LASSO problem in Lagrange form ($n > p$ and full rank where needed)
 is 

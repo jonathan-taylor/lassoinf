@@ -22,33 +22,35 @@ def test_affine_constraints_consistency():
 
     v = np.array([1.0, -0.5, 0.2, 0.0, 0.0])
 
-    # 1. Test compute_params
-    params_py = si_py.compute_params(v)
-    params_cpp = si_cpp.compute_params(v)
+    # 1. Test compute_contrast
+    # 1. Test compute_contrast
+    params_py = si_py.compute_contrast(v)
+    params_cpp = si_cpp.compute_contrast(v)
 
-    np.testing.assert_allclose(params_py['gamma'], params_cpp.gamma, atol=1e-10)
-    np.testing.assert_allclose(params_py['c'], params_cpp.c, atol=1e-10)
-    np.testing.assert_allclose(params_py['bar_gamma'], params_cpp.bar_gamma, atol=1e-10)
-    np.testing.assert_allclose(params_py['bar_s'], params_cpp.bar_s, atol=1e-10)
-    np.testing.assert_allclose(params_py['n_o'], params_cpp.n_o, atol=1e-10)
-    np.testing.assert_allclose(params_py['bar_n_o'], params_cpp.bar_n_o, atol=1e-10)
-    np.testing.assert_allclose(params_py['theta_hat'], params_cpp.theta_hat, atol=1e-10)
-    np.testing.assert_allclose(params_py['bar_theta'], params_cpp.bar_theta, atol=1e-10)
+    np.testing.assert_allclose(params_py.gamma, params_cpp.gamma, atol=1e-10)
+    np.testing.assert_allclose(params_py.c, params_cpp.c, atol=1e-10)
+    np.testing.assert_allclose(params_py.bar_gamma, params_cpp.bar_gamma, atol=1e-10)
+    np.testing.assert_allclose(params_py.bar_s, params_cpp.bar_s, atol=1e-10)
+    np.testing.assert_allclose(params_py.n_o, params_cpp.n_o, atol=1e-10)
+    np.testing.assert_allclose(params_py.bar_n_o, params_cpp.bar_n_o, atol=1e-10)
+    np.testing.assert_allclose(params_py.theta_hat, params_cpp.theta_hat, atol=1e-10)
+    np.testing.assert_allclose(params_py.bar_theta, params_cpp.bar_theta, atol=1e-10)
 
     # 2. Test splitting variance and estimator properties
-    np.testing.assert_allclose(params_py['splitting_estimator'], params_cpp.splitting_estimator, atol=1e-10)
-    np.testing.assert_allclose(params_py['splitting_variance'], params_cpp.splitting_variance, atol=1e-10)
-    np.testing.assert_allclose(params_py['naive_variance'], params_cpp.naive_variance, atol=1e-10)
+    np.testing.assert_allclose(params_py.splitting_estimator, params_cpp.splitting_estimator, atol=1e-10)
+    np.testing.assert_allclose(params_py.splitting_variance, params_cpp.splitting_variance, atol=1e-10)
+    np.testing.assert_allclose(params_py.naive_variance, params_cpp.naive_variance, atol=1e-10)
 
     # 3. Test get_interval
     A = np.random.randn(4, 5)
     b = np.random.randn(4)
-    t = 1.23
 
     # get_interval can return (np.nan, np.nan) for infeasible regions, let's test a few t values
     for t_val in [-5.0, 0.0, 1.23, 10.0]:
-        interval_py = si_py.get_interval(v, t_val, A, b)
-        interval_cpp = si_cpp.get_interval(v, t_val, A, b)
+        result_py = si_py.compute_contrast(v)
+        interval_py = result_py.get_interval(t_val, A, b)
+        result_cpp = si_cpp.compute_contrast(v)
+        interval_cpp = result_cpp.get_interval(t_val, A, b)
         
         # Check if both return NaN
         if np.isnan(interval_py[0]):
@@ -74,8 +76,10 @@ def test_affine_constraints_infeasible_interval():
     si_py = AffineConstraints(Z, Z_noisy, Q, Q_noise)
     si_cpp = lassoinf_cpp.AffineConstraints(Z, Z_noisy, Q, Q_noise)
     
-    interval_py = si_py.get_interval(v, 0.0, A, b)
-    interval_cpp = si_cpp.get_interval(v, 0.0, A, b)
+    result_py = si_py.compute_contrast(v)
+    interval_py = result_py.get_interval(0.0, A, b)
+    result_cpp = si_cpp.compute_contrast(v)
+    interval_cpp = result_cpp.get_interval(0.0, A, b)
     
     assert np.isnan(interval_py[0]) and np.isnan(interval_py[1])
     assert np.isnan(interval_cpp[0]) and np.isnan(interval_cpp[1])

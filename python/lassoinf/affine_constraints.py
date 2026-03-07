@@ -1,107 +1,31 @@
 from dataclasses import dataclass
 from functools import partial
 import warnings
+from collections import namedtuple
 
 import numpy as np
+import pandas as pd
 import scipy.sparse
 from scipy.stats import norm as normal_dbn
 from scipy.sparse.linalg import cg, LinearOperator
 
 @dataclass
-class AffineConstraints:
-    Z: np.ndarray
-    Z_noisy: np.ndarray
-    Q: np.ndarray        # Sigma (can be np.ndarray or LinearOperator)
-    Q_noise: np.ndarray  # Bar Sigma (can be np.ndarray or LinearOperator)
-    scalar_noise: float = np.nan # if > 0 and Q_noise is None, it is assumed that Q_noise = scalar_noise * Q
-    
-    def __post_init__(self):
-        if self.Q_noise is None:
-            if not self.scalar_noise >= 0:
-                raise ValueError('if Q_noise is None, scalar_noise must be >= 0')
-            if self.scalar_noise < 0.001:
-                warnings.warn('For numerical stability using scalar_noise=0.001')
-                self.scalar_noise = 0.001
-                
-    def solve_contrast(self, v: np.ndarray) -> np.ndarray:
-        """
-        Computes c = BarSigma^-1 * Sigma * eta
-        This isolates the linear system solve so it can be optimized.
-        """
-        if self.Q_noise is not None:
-            # Right hand side: Q_v = Sigma * eta
-            Q_v = self.Q @ v
+class AffineConstraintsContrast:
 
-            if isinstance(self.Q_noise, LinearOperator):
-                # Iterative solve for Matrix-Free / Sparse operators
-                c, info = cg(self.Q_noise, Q_v, rtol=1e-8)
-                if info != 0:
-                    raise RuntimeError(f"Conjugate gradient did not converge (info={info})")
-                return c
-            else:
-                # Direct solve for dense matrices
-                return np.linalg.solve(self.Q_noise, Q_v)
-        else:
-            return v / self.scalar_noise
-                
+    direction: np.ndarray
+    theta_hat: float
+    bar_theta: float
+    splitting_variance: float
+    splitting_estimator: float
+    naive_variance: float
+    gamma: np.ndarray
+    c: np.ndarray
+    bar_gamma: np.ndarray
+    bar_s: float
+    n_o: np.ndarray
+    bar_n_o: np.ndarray
 
-    def compute_params(self, v: np.ndarray):
-        """
-        v is the contrast vector (eta in the doc).
-        """
-        Q_v = self.Q @ v
-        
-        # eta' * Sigma * eta
-        v_sigma_v = v.T @ Q_v
-        
-        # Gamma = Sigma * eta * (eta' * Sigma * eta)^-1
-        gamma = Q_v / v_sigma_v
-        
-        # c = BarSigma^-1 * Sigma * eta
-        c = self.solve_contrast(v)
-        
-        # bar_s^2 = c' * BarSigma * c = eta' * Sigma * BarSigma^-1 * Sigma * eta
-        if self.Q_noise is not None:
-            Q_noise_c = self.Q_noise @ c
-        else:
-            Q_noise_c = self.scalar_noise * self.Q @ c
-
-        bar_s2 = c.T  @ Q_noise_c
-        bar_s = np.sqrt(bar_s2)
-        
-        # bar_Gamma = (c' * BarSigma * c)^-1 * Cov(omega, c'omega)
-        # Cov(omega, c'omega) = BarSigma * c = Sigma * eta
-        # So bar_Gamma = (Sigma * eta) / bar_s2
-        bar_gamma = Q_v / bar_s2
-        
-        # N_o = Z - Gamma * (v' * Z)
-        theta_hat = v.T @ self.Z
-        n_o = self.Z - gamma * theta_hat
-        
-        # bar_N_o = omega - bar_Gamma * (c' * omega)
-        # omega = Z_noisy - Z
-        omega = self.Z_noisy - self.Z
-        bar_theta = c.T @ omega
-        bar_n_o = omega - bar_gamma * bar_theta
-        
-        naive_var = (v.T @ self.Q @ v)
-
-        return {
-            'gamma': gamma,
-            'c': c,
-            'bar_gamma': bar_gamma,
-            'bar_s': bar_s,
-            'n_o': n_o,
-            'bar_n_o': bar_n_o,
-            'theta_hat': theta_hat,
-            'bar_theta': bar_theta,
-            'splitting_variance': naive_var + bar_s**2,
-            'splitting_estimator': theta_hat - bar_theta,
-            'naive_variance': naive_var
-        }
-
-    def get_interval(self, v: np.ndarray, t: float, A: np.ndarray, b: np.ndarray):
-        params = self.compute_params(v)
+    def get_interval(self, t: float, A: np.ndarray, b: np.ndarray):
         
         # Selection event: A(Z + omega) <= b
         # Z + omega = (N_o + Gamma*theta_hat) + (bar_N_o + bar_Gamma*bar_theta)
@@ -110,8 +34,8 @@ class AffineConstraints:
         # A(N_o + Gamma*t + bar_N_o + bar_Gamma*bar_theta) <= b
         # A * bar_Gamma * bar_theta <= b - A(N_o + bar_N_o + Gamma*t)
         
-        alpha = A @ params['bar_gamma']
-        beta = b - A @ (params['n_o'] + params['bar_n_o'] + params['gamma'] * t)
+        alpha = A @ self.bar_gamma
+        beta = b - A @ (self.n_o + self.bar_n_o + self.gamma * t)
         
         # alpha * bar_theta <= beta
         # We want the interval [L, U] for bar_theta.
@@ -134,25 +58,24 @@ class AffineConstraints:
             
         return lower, upper
 
-    def get_weight(self, v: np.ndarray, A, b: np.ndarray):
+    def get_weight(self, A, b: np.ndarray):
         """
         Returns a function of t that computes the selection probability.
         """
-        # Ensure A is handled as a linear operator if possible
-        if not isinstance(A, LinearOperator) and hasattr(A, 'matvec'):
-             # it might be our CompositeOperator but isinstance failed due to imports
-             pass 
+        # # Ensure A is handled as a linear operator if possible
+        # if not isinstance(A, LinearOperator) and hasattr(A, 'matvec'):
+        #      # it might be our CompositeOperator but isinstance failed due to imports
+        #      pass 
 
         b = np.atleast_1d(b).ravel()
         
         # Precompute parts that don't depend on t
-        params_fixed = self.compute_params(v)
-        bar_s = params_fixed['bar_s']
+        bar_s = self.bar_s
         
-        bar_gamma = np.atleast_1d(params_fixed['bar_gamma'])
-        n_o = np.atleast_1d(params_fixed['n_o'])
-        bar_n_o = np.atleast_1d(params_fixed['bar_n_o'])
-        gamma = np.atleast_1d(params_fixed['gamma'])
+        bar_gamma = np.atleast_1d(self.bar_gamma)
+        n_o = np.atleast_1d(self.n_o)
+        bar_n_o = np.atleast_1d(self.bar_n_o)
+        gamma = np.atleast_1d(self.gamma)
 
         if hasattr(A, 'matvec'):
             alpha = A.matvec(bar_gamma)
@@ -200,4 +123,174 @@ class AffineConstraints:
         return weight_func
 
 
+@dataclass
+class AffineConstraints:
+    Z: np.ndarray
+    Z_noisy: np.ndarray
+    Q: np.ndarray        # Sigma (can be np.ndarray or LinearOperator)
+    Q_noise: np.ndarray  # Bar Sigma (can be np.ndarray or LinearOperator)
+    scalar_noise: float = np.nan # if > 0 and Q_noise is None, it is assumed that Q_noise = scalar_noise * Q
+    
+    def __post_init__(self):
+        if self.Q_noise is None:
+            if not self.scalar_noise >= 0:
+                raise ValueError('if Q_noise is None, scalar_noise must be >= 0')
+            if self.scalar_noise is None or self.scalar_noise < 0.001:
+                warnings.warn('For numerical stability using scalar_noise=0.001')
+                self.scalar_noise = 0.001
+                
+    def solve_contrast(self, v: np.ndarray) -> np.ndarray:
+        """
+        Computes c = BarSigma^-1 * Sigma * eta
+        This isolates the linear system solve so it can be optimized.
+        """
+        if self.Q_noise is not None:
+            # Right hand side: Q_v = Sigma * eta
+            Q_v = self.Q @ v
+
+            if isinstance(self.Q_noise, LinearOperator):
+                # Iterative solve for Matrix-Free / Sparse operators
+                c, info = cg(self.Q_noise, Q_v, rtol=1e-8)
+                if info != 0:
+                    raise RuntimeError(f"Conjugate gradient did not converge (info={info})")
+                return c
+            else:
+                # Direct solve for dense matrices
+                return np.linalg.solve(self.Q_noise, Q_v)
+        else:
+            return v / self.scalar_noise
+                
+
+    def compute_contrast(self, direction: np.ndarray):
+        """
+        direction is the contrast vector (eta in docs/main.md).
+        """
+        v = direction
+        Q_v = self.Q @ v
+        
+        # eta' * Sigma * eta
+        v_sigma_v = v.T @ Q_v
+        
+        # Gamma = Sigma * eta * (eta' * Sigma * eta)^-1
+        gamma = Q_v / v_sigma_v
+        
+        # c = BarSigma^-1 * Sigma * eta
+        c = self.solve_contrast(v)
+        
+        # bar_s^2 = c' * BarSigma * c = eta' * Sigma * BarSigma^-1 * Sigma * eta
+        Q_noise_c = Q_v # self.Q_noise @ c
+
+        bar_s2 = c.T  @ Q_noise_c
+        bar_s = np.sqrt(bar_s2)
+        
+        # bar_Gamma = (c' * BarSigma * c)^-1 * Cov(omega, c'omega)
+        # Cov(omega, c'omega) = BarSigma * c = Sigma * eta
+        # So bar_Gamma = (Sigma * eta) / bar_s2
+        bar_gamma = Q_v / bar_s2
+        
+        # N_o = Z - Gamma * (v' * Z)
+        theta_hat = v.T @ self.Z
+        n_o = self.Z - gamma * theta_hat
+        
+        # bar_N_o = omega - bar_Gamma * (c' * omega)
+        # omega = Z_noisy - Z
+        omega = self.Z_noisy - self.Z
+        bar_theta = c.T @ omega
+        bar_n_o = omega - bar_gamma * bar_theta
+        
+        naive_var = (v.T @ self.Q @ v)
+
+        result = AffineConstraintsContrast(direction=v,
+                                           theta_hat=theta_hat,
+                                           gamma=gamma,
+                                           c=c,
+                                           bar_gamma=bar_gamma,
+                                           bar_s=bar_s,
+                                           n_o=n_o,
+                                           bar_n_o=bar_n_o,
+                                           bar_theta=bar_theta,
+                                           splitting_variance=naive_var + bar_s**2,
+                                           splitting_estimator=theta_hat - bar_theta,
+                                           naive_variance=naive_var)
+
+        return result
+
+
+def create_selection_matrix(n, E):
+    """
+    Creates a sparse selection matrix E_M of shape (n, len(E)) 
+    where E_M[j, i] = 1.0 for each index j in E at position i.
+    
+    Args:
+        n (int): The total number of rows (e.g., total features/parameters).
+        E (array-like): Indices of the selected elements.
+        
+    Returns:
+        scipy.sparse.csc_matrix: The sparse selection matrix.
+    """
+    m = len(E)
+    
+    # Row indices are the values in E
+    # Column indices are just 0, 1, 2, ..., m-1
+    rows = np.array(E)
+    cols = np.arange(m)
+    data = np.ones(m, dtype=float)
+    
+    # Build using COO format first (efficient for construction)
+    # Then convert to CSC (efficient for arithmetic)
+    E_M = scipy.sparse.coo_matrix((data, (rows, cols)), shape=(n, m))
+    
+    return E_M.tocsc()
+
+### Not meant to be used -- illustrating poorer performing alternatives "data splitting / thinning" and "naive" inference
+
+_result_tuple = namedtuple("result_tuple", "beta_hat lower_conf upper_conf p_value")
+
+def _splitting_contrast(contrast, level=0.9):
+    q = normal_dbn.ppf(1 - (1 - level) / 2)
+    est = contrast.splitting_estimator
+    sd = np.sqrt(contrast.splitting_variance)
+    return _result_tuple(beta_hat=est,
+                         lower_conf=est - q * sd,
+                         upper_conf=est + q * sd,
+                         p_value=2 * normal_dbn.sf(np.fabs(est / sd)))
+    
+def _naive_contrast(contrast, level=0.9):
+    q = normal_dbn.ppf(1 - (1 - level) / 2)
+    est = contrast.theta_hat
+    sd = np.sqrt(contrast.naive_variance)
+    return _result_tuple(beta_hat=est,
+                         lower_conf=est - q * sd,
+                         upper_conf=est + q * sd,
+                         p_value=2 * normal_dbn.sf(np.fabs(est / sd)))
+
+def _splitting_results(_contrasts, level=0.9):
+    betas, lowers, uppers, pvals = [], [], [], []
+    for j in _contrasts.keys():
+        result = _splitting_contrast(_contrasts[j], level=level)
+        betas.append(result.beta_hat)
+        lowers.append(result.lower_conf)
+        uppers.append(result.upper_conf)
+        pvals.append(result.p_value)
+
+    return pd.DataFrame({'beta_hat':betas,
+                         'lower_conf':lowers,
+                         'upper_conf':uppers,
+                         'p_value': pvals,
+                         'index':_contrasts.keys()}).set_index('index')
+
+def _naive_results(_contrasts, level=0.9):
+    betas, lowers, uppers, pvals = [], [], [], []
+    for j in _contrasts.keys():
+        result = _naive_contrast(_contrasts[j], level=level)
+        betas.append(result.beta_hat)
+        lowers.append(result.lower_conf)
+        uppers.append(result.upper_conf)
+        pvals.append(result.p_value)
+
+    return pd.DataFrame({'beta_hat':betas,
+                         'lower_conf':lowers,
+                         'upper_conf':uppers,
+                         'p_value': pvals,
+                         'index':_contrasts.keys()}).set_index('index')
 

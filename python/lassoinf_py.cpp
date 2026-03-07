@@ -38,18 +38,32 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
     init_discrete_family(m);
     init_gaussian_family(m);
 
-    py::class_<lassoinf::Params>(m, "Params")
-        .def_readonly("gamma", &lassoinf::Params::gamma)
-        .def_readonly("c", &lassoinf::Params::c)
-        .def_readonly("bar_gamma", &lassoinf::Params::bar_gamma)
-        .def_readonly("bar_s", &lassoinf::Params::bar_s)
-        .def_readonly("n_o", &lassoinf::Params::n_o)
-        .def_readonly("bar_n_o", &lassoinf::Params::bar_n_o)
-        .def_readonly("theta_hat", &lassoinf::Params::theta_hat)
-        .def_readonly("bar_theta", &lassoinf::Params::bar_theta)
-        .def_readonly("splitting_variance", &lassoinf::Params::splitting_variance)
-        .def_readonly("splitting_estimator", &lassoinf::Params::splitting_estimator)
-        .def_readonly("naive_variance", &lassoinf::Params::naive_variance);
+    py::class_<lassoinf::AffineConstraintsContrast>(m, "AffineConstraintsContrast")
+        .def_readonly("gamma", &lassoinf::AffineConstraintsContrast::gamma)
+        .def_readonly("c", &lassoinf::AffineConstraintsContrast::c)
+        .def_readonly("bar_gamma", &lassoinf::AffineConstraintsContrast::bar_gamma)
+        .def_readonly("bar_s", &lassoinf::AffineConstraintsContrast::bar_s)
+        .def_readonly("n_o", &lassoinf::AffineConstraintsContrast::n_o)
+        .def_readonly("bar_n_o", &lassoinf::AffineConstraintsContrast::bar_n_o)
+        .def_readonly("theta_hat", &lassoinf::AffineConstraintsContrast::theta_hat)
+        .def_readonly("bar_theta", &lassoinf::AffineConstraintsContrast::bar_theta)
+        .def_readonly("splitting_variance", &lassoinf::AffineConstraintsContrast::splitting_variance)
+        .def_readonly("splitting_estimator", &lassoinf::AffineConstraintsContrast::splitting_estimator)
+        .def_readonly("naive_variance", &lassoinf::AffineConstraintsContrast::naive_variance)
+        .def("get_interval", py::overload_cast<double, const Eigen::MatrixXd&, const Eigen::VectorXd&>(&lassoinf::AffineConstraintsContrast::get_interval, py::const_), py::arg("t"), py::arg("A"), py::arg("b"))
+        .def("get_interval", py::overload_cast<double, const lassoinf::LinearOperator&, const Eigen::VectorXd&>(&lassoinf::AffineConstraintsContrast::get_interval, py::const_), py::arg("t"), py::arg("A"), py::arg("b"))
+        .def("get_weight", [](const lassoinf::AffineConstraintsContrast& contrast, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
+            auto func = contrast.get_weight(A, b);
+            return py::cpp_function([func](py::object t) -> py::object {
+                if (py::isinstance<py::float_>(t) || py::isinstance<py::int_>(t)) {
+                    Eigen::VectorXd t_vec(1);
+                    t_vec(0) = t.cast<double>();
+                    return py::cast(func(t_vec)(0));
+                } else {
+                    return py::cast(func(t.cast<Eigen::VectorXd>()));
+                }
+            });
+        }, py::arg("A"), py::arg("b"));
 
     py::class_<lassoinf::LinearOperator, PyLinearOperator, std::shared_ptr<lassoinf::LinearOperator>>(m, "LinearOperator")
         .def(py::init<>())
@@ -89,19 +103,5 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
         .def(py::init<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, Eigen::MatrixXd, double>(),
              py::arg("Z"), py::arg("Z_noisy"), py::arg("Q"), py::arg("Q_noise"), py::arg("scalar_noise") = std::numeric_limits<double>::quiet_NaN())
         .def("solve_contrast", &lassoinf::AffineConstraints::solve_contrast, py::arg("v"))
-        .def("compute_params", &lassoinf::AffineConstraints::compute_params, py::arg("v"))
-        .def("get_interval", py::overload_cast<const Eigen::VectorXd&, double, const Eigen::MatrixXd&, const Eigen::VectorXd&>(&lassoinf::AffineConstraints::get_interval, py::const_), py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
-        .def("get_interval", py::overload_cast<const Eigen::VectorXd&, double, const lassoinf::LinearOperator&, const Eigen::VectorXd&>(&lassoinf::AffineConstraints::get_interval, py::const_), py::arg("v"), py::arg("t"), py::arg("A"), py::arg("b"))
-        .def("get_weight", [](const lassoinf::AffineConstraints& si, const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
-            auto func = si.get_weight(v, A, b);
-            return py::cpp_function([func](py::object t) -> py::object {
-                if (py::isinstance<py::float_>(t) || py::isinstance<py::int_>(t)) {
-                    Eigen::VectorXd t_vec(1);
-                    t_vec(0) = t.cast<double>();
-                    return py::cast(func(t_vec)(0));
-                } else {
-                    return py::cast(func(t.cast<Eigen::VectorXd>()));
-                }
-            });
-        }, py::arg("v"), py::arg("A"), py::arg("b"));
+        .def("compute_contrast", &lassoinf::AffineConstraints::compute_contrast, py::arg("v"));
 }

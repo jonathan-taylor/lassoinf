@@ -417,10 +417,10 @@ LassoInference <- R6::R6Class("LassoInference",
           variance <- sum(v * (self$Sigma %*% v))
           sigma <- sqrt(variance)
           
-          params <- self$si$compute_params(v)
-          bar_s <- params$bar_s
+          contrast <- self$si$compute_contrast(v)
+          bar_s <- contrast$bar_s
           
-          interval <- self$si$get_interval(v, 0.0, self$A, self$b)
+          interval <- contrast$get_interval(0.0, self$A, self$b)
           L_0 <- interval[[1]]
           U_0 <- interval[[2]]
           
@@ -445,8 +445,8 @@ LassoInference <- R6::R6Class("LassoInference",
           
           j_idx <- as.character(self$E[k])
           self$intervals[[j_idx]] <- list(lower, upper, pval)
-          self$splitting[[j_idx]] <- list(params$splitting_estimator, params$splitting_variance)
-          self$naive[[j_idx]] <- list(params$theta_hat, params$naive_variance)
+          self$splitting[[j_idx]] <- list(contrast$splitting_estimator, contrast$splitting_variance)
+          self$naive[[j_idx]] <- list(contrast$theta_hat, contrast$naive_variance)
           self$contrasts[[j_idx]] <- v
         }
       }

@@ -74,10 +74,12 @@ def test_file_drawer_with_gaussian_family():
     A = np.array([[-1.0]])
     b = np.array([[-threshold]])
 
-    weight_f_py = si.get_weight(v, A, b)
+    result_py = si.compute_contrast(v)
+    weight_f_py = result_py.get_weight(A, b)
     
     si_cpp = lassoinf_cpp.AffineConstraints(Z, Z_noisy, Q, Q_noise)
-    weight_f_cpp = si_cpp.get_weight(v, A, b)
+    result_cpp = si_cpp.compute_contrast(v)
+    weight_f_cpp = result_cpp.get_weight(A, b)
 
     wgf_py = WeightedGaussianFamily(z_obs, 1.0, [weight_f_py], seed=0)
     wgf_cpp = lassoinf_cpp.WeightedGaussianFamily(z_obs, 1.0, [weight_f_cpp], 10.0, 4000)

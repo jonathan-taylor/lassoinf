@@ -1,7 +1,7 @@
 ---
 jupytext:
   cell_metadata_filter: -all
-  formats: ipynb,md:myst
+  formats: md:myst,ipynb
   main_language: python
   text_representation:
     extension: .md
@@ -61,7 +61,8 @@ A = np.array([[-1.0]])  # -(Z + omega) <= -threshold  => Z + omega >= threshold
 b = np.array([-threshold])
 
 # 3. Get the weight function
-weight_f = si.get_weight(v, A, b)
+contrast = si.compute_contrast(v)
+weight_f = contrast.get_weight(A, b)
 
 # 4. Plot the weight function
 t_grid = np.linspace(0, 4, 100)

@@ -11,7 +11,17 @@
 
 namespace lassoinf {
 
-struct Params {
+// Abstract base class for Matrix-Free Operations
+class LinearOperator {
+public:
+    virtual ~LinearOperator() = default;
+    virtual Eigen::Index rows() const = 0;
+    virtual Eigen::Index cols() const = 0;
+    virtual Eigen::VectorXd multiply(const Eigen::VectorXd& x) const = 0;
+    virtual Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& x) const = 0;
+};
+
+struct AffineConstraintsContrast {
     Eigen::VectorXd gamma;
     Eigen::VectorXd c;
     Eigen::VectorXd bar_gamma;
@@ -23,16 +33,12 @@ struct Params {
     double splitting_variance;
     double splitting_estimator;
     double naive_variance;
-};
 
-// Abstract base class for Matrix-Free Operations
-class LinearOperator {
-public:
-    virtual ~LinearOperator() = default;
-    virtual Eigen::Index rows() const = 0;
-    virtual Eigen::Index cols() const = 0;
-    virtual Eigen::VectorXd multiply(const Eigen::VectorXd& x) const = 0;
-    virtual Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& x) const = 0;
+    std::pair<double, double> get_interval(double t, const LinearOperator& A, const Eigen::VectorXd& b) const;
+    std::pair<double, double> get_interval(double t, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const;
+
+    std::function<Eigen::VectorXd(const Eigen::VectorXd&)> get_weight(const LinearOperator& A, const Eigen::VectorXd& b) const;
+    std::function<Eigen::VectorXd(const Eigen::VectorXd&)> get_weight(const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const;
 };
 
 // Wrapper for standard Dense Matrices
@@ -166,17 +172,7 @@ public:
     // Expose the solve step explicitly
     Eigen::VectorXd solve_contrast(const Eigen::VectorXd& v) const;
 
-    Params compute_params(const Eigen::VectorXd& v) const;
-
-    std::pair<double, double> get_interval(const Eigen::VectorXd& v, double t, 
-                                           const LinearOperator& A, const Eigen::VectorXd& b) const;
-
-    std::pair<double, double> get_interval(const Eigen::VectorXd& v, double t, 
-                                           const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const;
-
-    std::function<Eigen::VectorXd(const Eigen::VectorXd&)> get_weight(const Eigen::VectorXd& v, const LinearOperator& A, const Eigen::VectorXd& b) const;
-
-    std::function<Eigen::VectorXd(const Eigen::VectorXd&)> get_weight(const Eigen::VectorXd& v, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) const;
+    AffineConstraintsContrast compute_contrast(const Eigen::VectorXd& v) const;
 
 private:
     Eigen::VectorXd Z_;
