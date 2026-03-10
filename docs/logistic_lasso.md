@@ -158,10 +158,6 @@ inference = LassoInference(
 )
 
 # 6. View the summary of free (selected) variables
-summary_df = inference.summary_
-summary_df
-```
-
-```{code-cell} ipython3
-
+carve_df = inference.summary_
+carve_df
 ```

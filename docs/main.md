@@ -12,7 +12,7 @@ kernelspec:
   language: python
 ---
 
-# Inference for $\hat{\theta}=\eta'Z$ conditioned on selection of $\bar{Z}=Z+\omega$
+# Inference for a single contrast, conditioned on selection of noisy score
 
 Suppose $Z \sim N(\zeta^*, \Sigma)$ and $\omega|Z \sim N(0, \bar{\Sigma})$. We're interested in conditional inference 
 on a target $\hat{\theta}=\eta'Z$ based on the joint law of $(Z,\omega)$ truncated to $\{(Z,\omega):A(Z+\omega) \leq b\}$. We could consider
