@@ -125,7 +125,7 @@ using the corresponding "half" of $Z+\omega$, i.e. $Z-\Sigma \bar{\Sigma}^{-1}\o
 
 Hence, our data splitting estimator is
 $$
-\cup{\theta} = \eta'(Z - \Sigma \bar{\Sigma}^{-1}\omega) = \hat{\theta} - \bar{\omega}
+\check{\theta} = \eta'(Z - \Sigma \bar{\Sigma}^{-1}\omega) = \hat{\theta} - \bar{\omega}
 $$
 with variance (as expected from above)
 $$
