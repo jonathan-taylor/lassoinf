@@ -100,6 +100,11 @@ class LassoInference:
         return prox_val
 
     def __post_init__(self):
+        self.proximal_step()
+        self.setup_constraints()
+        self.compute_intervals()
+
+    def proximal_step(self):
         # 1. Estimate largest singular value of Q_hat using power method
         n = self.Q_hat.shape[0] if hasattr(self.Q_hat, 'shape') else len(self.beta_hat)
 
@@ -124,7 +129,8 @@ class LassoInference:
         if not self.check_kkt(tol=1e-4):
             # This should ideally not be reached if step_size is small enough
             pass
-            
+
+    def setup_constraints(self):
         self.A, self.b, self.E, self.E_c, self.s_E, self.v_Ec = lasso_post_selection_constraints(
             self.beta_hat, self.G_hat, self.Q_hat, self.D, self.L, self.U
         )
@@ -138,7 +144,9 @@ class LassoInference:
             Q_noise=self.Sigma_noise,
             scalar_noise=self.scalar_noise,
         )
-        
+
+    def compute_intervals(self, inference_method=None):
+        n = self.Q_hat.shape[0] if hasattr(self.Q_hat, 'shape') else len(self.beta_hat)
         self._contrasts = {}
         betas, lowers, uppers, pvals = [], [], [], []
 
@@ -160,37 +168,10 @@ class LassoInference:
                     variance = v.T @ self.Sigma @ v
                 else:
                     variance = v.T @ (self.Sigma @ v)
-                sigma = np.sqrt(variance)
                 
-                # Use TruncBivariateNormal for exact inference
-                contrast = self.si.compute_contrast(v)
-                bar_s = float(contrast.bar_s)
-                
-                # Get the interval bounds at theta_hat = 0
-                L_0, U_0 = contrast.get_interval(0.0, self.A, self.b)
-                
-                c1 = float(variance)
-                c2 = bar_s**2
-                
-                # The constraint is L_0 <= (c2/c1) * theta_hat + bar_theta <= U_0
-                a_coeff = c2 / c1
-                b_coeff = 1.0
-                
-                tbn = TruncBivariateNormal(
-                    a_coeff=a_coeff, b_coeff=b_coeff, 
-                    L=L_0, U=U_0, 
-                    sig_omega=bar_s, 
-                    sig_x=sigma
+                lower, upper, p_val, contrast = self._compute_inference(
+                    v, theta_hat, variance, inference_method
                 )
-                
-                # Compute the 95% confidence interval (in natural parameter space)
-                L_theta, U_theta = tbn.equal_tailed_interval(float(theta_hat), alpha=1-self.level)
-                lower, upper = L_theta * c1, U_theta * c1
-
-                # Compute p-value for H0: theta = 0
-                # H0: theta_true = 0 => theta_natural = 0
-                cdf_val = np.clip(tbn.cdf(theta=0.0, x=float(theta_hat)), 0.0, 1.0)
-                p_val = np.clip(2 * min(cdf_val, 1.0 - cdf_val), 0.0, 1.0)
                 
                 self._contrasts[j] = contrast
 
@@ -204,6 +185,54 @@ class LassoInference:
                                           'upper_conf':uppers,
                                           'p_value': pvals,
                                           'index':self.E}).set_index('index')
+        else:
+            self.summary_ = pd.DataFrame(columns=['beta_hat', 'lower_conf', 'upper_conf', 'p_value', 'index']).set_index('index')
+
+    def _compute_inference(self, v, theta_hat, variance, inference_method=None):
+        sigma = np.sqrt(variance)
+        contrast = self.si.compute_contrast(v)
+        bar_s = float(contrast.bar_s)
+        
+        # Get the interval bounds at theta_hat = 0
+        L_0, U_0 = contrast.get_interval(0.0, self.A, self.b)
+        
+        c1 = float(variance)
+        c2 = bar_s**2
+        
+        # The constraint is L_0 <= (c2/c1) * theta_hat + bar_theta <= U_0
+        a_coeff = c2 / c1
+        b_coeff = 1.0
+
+        if inference_method is None or inference_method == "bivariate_normal":
+            tbn = TruncBivariateNormal(
+                a_coeff=a_coeff, b_coeff=b_coeff, 
+                L=L_0, U=U_0, 
+                sig_omega=bar_s, 
+                sig_x=sigma
+            )
+            
+            # Compute the 95% confidence interval (in natural parameter space)
+            L_theta, U_theta = tbn.equal_tailed_interval(float(theta_hat), alpha=1-self.level)
+            lower, upper = L_theta * c1, U_theta * c1
+
+            # Compute p-value for H0: theta = 0
+            # H0: theta_true = 0 => theta_natural = 0
+            cdf_val = np.clip(tbn.cdf(theta=0.0, x=float(theta_hat)), 0.0, 1.0)
+            p_val = np.clip(2 * min(cdf_val, 1.0 - cdf_val), 0.0, 1.0)
+            
+            return lower, upper, p_val, contrast
+        else:
+            if callable(inference_method):
+                return inference_method(
+                    v=v, 
+                    theta_hat=float(theta_hat), 
+                    variance=float(variance), 
+                    contrast=contrast, 
+                    L_0=L_0, 
+                    U_0=U_0,
+                    alpha=1-self.level
+                )
+            raise ValueError(f"Unknown inference method: {inference_method}")
 
 
 
