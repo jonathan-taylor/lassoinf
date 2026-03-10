@@ -127,7 +127,7 @@ The contrasts are retained, which allow us to compute
 
 ```{code-cell} ipython3
 true_Z = X.T @ (X @ true_beta)
-carve_df['truth'] = [(inference._contrasts[j].direction * true_Z).sum() for j in df.index]
+carve_df['truth'] = [(inference._contrasts[j].direction * true_Z).sum() for j in carve_df.index]
 ```
 
 ### Checking coverage
