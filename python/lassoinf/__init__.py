@@ -11,4 +11,5 @@ except PackageNotFoundError:
         __version__ = "unknown"
 
 from .lasso import LassoInference, spec_from_glmnet
+from .extract import extract_actual_lasso_problem
 from .affine_constraints import AffineConstraints
