@@ -13,7 +13,7 @@ py.install_sources(
   'python/lassoinf/bivariate_normal.py',
   'python/lassoinf/affine_constraints.py',
   'python/lassoinf/lasso.py',
-  'python/lassoinf/extract.py',
+  'python/lassoinf/glmnet.py',
   subdir: 'lassoinf'
 )
 

@@ -4,7 +4,7 @@ from glmnet.glmnet import GLMNet, GLMState
 from glmnet.glm import compute_grad
 from lassoinf.operators.xtvx import XTVXOperator
 
-def extract_actual_lasso_problem(glmnet_obj: GLMNet, X, Df, lambda_val, state=None, return_operator=False):
+def extract_glmnet_problem(glmnet_obj: GLMNet, X, Df, lambda_val, state=None, return_operator=False):
     """
     Extracts the actual solution, gradient, and Hessian of the LASSO problem
     solved by GLMNet, including penalty_factor, exclude, and upper/lower limits.
