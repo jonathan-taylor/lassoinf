@@ -13,12 +13,14 @@ py.install_sources(
   'python/lassoinf/bivariate_normal.py',
   'python/lassoinf/affine_constraints.py',
   'python/lassoinf/lasso.py',
+  'python/lassoinf/glmnet.py',
   subdir: 'lassoinf'
 )
 
 py.install_sources(
   'python/lassoinf/operators/__init__.py',
   'python/lassoinf/operators/composite.py',
+  'python/lassoinf/operators/submatrix.py',
   'python/lassoinf/operators/xtvx.py',
   subdir: 'lassoinf/operators'
 )

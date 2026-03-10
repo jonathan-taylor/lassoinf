@@ -5,10 +5,10 @@ import pandas as pd
 import scipy.sparse as sp
 from scipy.stats import norm as normal_dbn
 
-from .affine_constraints import (AffineConstraints,
-                                 create_selection_matrix)
+from .affine_constraints import AffineConstraints
 
 from .operators.composite import CompositeOperator
+from .operators.submatrix import extract_submatrices
 from .gaussian_family import WeightedGaussianFamily
 from .bivariate_normal import TruncBivariateNormal
 
@@ -144,14 +144,7 @@ class LassoInference:
 
         # compute confidence intervals for the parameters using the "free" variables from the constraints
         if len(self.E) > 0:
-            p = self.Q_hat.shape[0] if hasattr(self.Q_hat, 'shape') else len(self.beta_hat)
-            
-            if isinstance(self.Q_hat, np.ndarray):
-                Q_EE = self.Q_hat[self.E][:, self.E]
-            else:
-                E_M = create_selection_matrix(p, E)
-                Q_E = self.Q_hat @ E_M
-                Q_EE = Q_E[self.E, :]
+            Q_EE = extract_submatrices(self.Q_hat, self.E)
                 
             W = np.linalg.inv(Q_EE)
             
@@ -372,11 +365,7 @@ def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol
     S_list, U_list, b_list = [], [], []
 
     if len(E) > 0:
-        E_M = create_selection_matrix(n, E)
-        
-        Q_E = Q @ E_M if not isinstance(Q, np.ndarray) else Q[:, E]
-        Q_EE = Q_E[E, :]
-        Q_EcE = Q_E[E_c, :]
+        Q_EE, Q_EcE = extract_submatrices(Q, E, E_c)
         
         W = np.linalg.inv(Q_EE)
         

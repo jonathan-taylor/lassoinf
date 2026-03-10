@@ -216,31 +216,7 @@ class AffineConstraints:
         return result
 
 
-def create_selection_matrix(n, E):
-    """
-    Creates a sparse selection matrix E_M of shape (n, len(E)) 
-    where E_M[j, i] = 1.0 for each index j in E at position i.
-    
-    Args:
-        n (int): The total number of rows (e.g., total features/parameters).
-        E (array-like): Indices of the selected elements.
-        
-    Returns:
-        scipy.sparse.csc_matrix: The sparse selection matrix.
-    """
-    m = len(E)
-    
-    # Row indices are the values in E
-    # Column indices are just 0, 1, 2, ..., m-1
-    rows = np.array(E)
-    cols = np.arange(m)
-    data = np.ones(m, dtype=float)
-    
-    # Build using COO format first (efficient for construction)
-    # Then convert to CSC (efficient for arithmetic)
-    E_M = scipy.sparse.coo_matrix((data, (rows, cols)), shape=(n, m))
-    
-    return E_M.tocsc()
+
 
 ### Not meant to be used -- illustrating poorer performing alternatives "data splitting / thinning" and "naive" inference
 
