@@ -115,9 +115,9 @@ inference = LassoInference(
 )
 
 # 5. View the summary of free (selected) variables
-df = inference.summary_
-df['length'] = df['upper_conf'] - df['lower_conf']
-df
+carve_df = inference.summary_
+carve_df['length'] = carve_df['upper_conf'] - carve_df['lower_conf']
+carve_df
 ```
 
 ### Finding the true parameter
@@ -127,14 +127,14 @@ The contrasts are retained, which allow us to compute
 
 ```{code-cell} ipython3
 true_Z = X.T @ (X @ true_beta)
-df['truth'] = [(inference._contrasts[j].direction * true_Z).sum() for j in df.index]
+carve_df['truth'] = [(inference._contrasts[j].direction * true_Z).sum() for j in df.index]
 ```
 
 ### Checking coverage
 
 ```{code-cell} ipython3
-df['cover'] = (df['lower_conf'] < df['truth']) * (df['upper_conf'] > df['truth'])
-df
+carve_df['cover'] = (carve_df['lower_conf'] < carve_df['truth']) * (carve_df['upper_conf'] > carve_df['truth'])
+carve_df
 ```
 
 ```{code-cell} ipython3
