@@ -23,6 +23,7 @@ py.install_sources(
   'python/lassoinf/operators/composite.py',
   'python/lassoinf/operators/submatrix.py',
   'python/lassoinf/operators/xtvx.py',
+  'python/lassoinf/operators/lasso_constraints.py',
   subdir: 'lassoinf/operators'
 )
 

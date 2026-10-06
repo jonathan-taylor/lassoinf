@@ -34,24 +34,23 @@ class AffineConstraintsContrast:
         # A(N_o + Gamma*t + bar_N_o + bar_Gamma*bar_theta) <= b
         # A * bar_Gamma * bar_theta <= b - A(N_o + bar_N_o + Gamma*t)
         
-        alpha = A @ self.bar_gamma
-        beta = b - A @ (self.n_o + self.bar_n_o + self.gamma * t)
+        alpha = np.ravel(A @ self.bar_gamma)
+        beta = np.ravel(b - A @ (self.n_o + self.bar_n_o + self.gamma * t))
         
         # alpha * bar_theta <= beta
         # We want the interval [L, U] for bar_theta.
         # For each row i: alpha[i] * bar_theta <= beta[i]
         
-        lower = -np.inf
-        upper = np.inf
-        
-        for a_i, b_i in zip(alpha, beta):
-            if a_i > 1e-10:
-                upper = min(upper, b_i / a_i)
-            elif a_i < -1e-10:
-                lower = max(lower, b_i / a_i)
-            elif b_i < -1e-10:
-                # Infeasible
-                return (np.nan, np.nan)
+        pos = alpha > 1e-10
+        neg = alpha < -1e-10
+        zero = ~(pos | neg)
+
+        if np.any(beta[zero] < -1e-10):
+            # Infeasible
+            return (np.nan, np.nan)
+
+        upper = np.min(beta[pos] / alpha[pos]) if np.any(pos) else np.inf
+        lower = np.max(beta[neg] / alpha[neg]) if np.any(neg) else -np.inf
         
         if lower > upper:
             return (np.nan, np.nan)
@@ -198,7 +197,7 @@ class AffineConstraints:
         bar_theta = c.T @ omega
         bar_n_o = omega - bar_gamma * bar_theta
         
-        naive_var = (v.T @ self.Q @ v)
+        naive_var = v @ Q_v
 
         result = AffineConstraintsContrast(direction=v,
                                            theta_hat=theta_hat,
