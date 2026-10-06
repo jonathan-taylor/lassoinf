@@ -14,6 +14,7 @@ py.install_sources(
   'python/lassoinf/affine_constraints.py',
   'python/lassoinf/lasso.py',
   'python/lassoinf/glmnet.py',
+  'python/lassoinf/custom_estimand.py',
   subdir: 'lassoinf'
 )
 
@@ -22,6 +23,7 @@ py.install_sources(
   'python/lassoinf/operators/composite.py',
   'python/lassoinf/operators/submatrix.py',
   'python/lassoinf/operators/xtvx.py',
+  'python/lassoinf/operators/lasso_constraints.py',
   subdir: 'lassoinf/operators'
 )
 
@@ -31,6 +33,7 @@ py.extension_module(
   'cpp/src/lasso_post_selection_constraints.cpp',
   'cpp/src/discrete_family.cpp',
   'cpp/src/gaussian_family.cpp',
+  'cpp/src/custom_estimand.cpp',
   'python/discrete_family_py.cpp',
   'python/gaussian_family_py.cpp',
   'python/lassoinf_py.cpp',

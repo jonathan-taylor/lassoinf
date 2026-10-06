@@ -271,6 +271,11 @@ check_kkt <- function(beta_hat, G_hat, L, U, D, tol=1e-5) {
   return(TRUE)
 }
 
+# Q %*% v for a numeric matrix or a LinearOp
+matvec <- function(Q, v) {
+  if (inherits(Q, "Rcpp_LinearOp")) Q$multiply(v) else as.vector(Q %*% v)
+}
+
 prox_lasso_bounds <- function(v, t, D, L, U) {
   n <- length(v)
   if (is.null(L)) L <- rep(-Inf, n)
@@ -294,7 +299,7 @@ LassoInference <- R6::R6Class("LassoInference",
     beta_hat = NULL,
     #' @field G_hat The gradient at beta_hat of the unpenalized loss.
     G_hat = NULL,
-    #' @field Q_hat The Hessian / design matrix crossprod.
+    #' @field Q_hat The Hessian / design matrix crossprod: a matrix or a \code{LinearOp}.
     Q_hat = NULL,
     #' @field D The penalty weights.
     D = NULL,
@@ -304,13 +309,13 @@ LassoInference <- R6::R6Class("LassoInference",
     U = NULL,
     #' @field Z_full The unpenalized score on the full data.
     Z_full = NULL,
-    #' @field Sigma Covariance matrix of Z_full.
+    #' @field Sigma Covariance of Z_full: a matrix or a \code{LinearOp}.
     Sigma = NULL,
-    #' @field Sigma_noise Covariance matrix of the randomized score Z_noisy.
+    #' @field Sigma_noise Covariance of the randomization noise: a matrix, a \code{LinearOp} or \code{NULL}.
     Sigma_noise = NULL,
     #' @field scalar_noise Scalar controlling variance of noise if Sigma_noise is not provided.
     scalar_noise = NaN,
-    #' @field A Affine constraint matrix (from C++ backend).
+    #' @field A Affine constraints, a matrix-free \code{LinearOp} (from C++ backend).
     A = NULL,
     #' @field b Affine constraint vector (from C++ backend).
     b = NULL,
@@ -322,6 +327,14 @@ LassoInference <- R6::R6Class("LassoInference",
     s_E = NULL,
     #' @field v_Ec Values at the bounds for the inactive set.
     v_Ec = NULL,
+    #' @field W Inverse of Q_hat restricted to the active set.
+    W = NULL,
+    #' @field score Inactive score operator U_{-E} (\code{LinearOp}).
+    score = NULL,
+    #' @field Z_noisy The score used for selection.
+    Z_noisy = NULL,
+    #' @field level Confidence level.
+    level = 0.95,
     #' @field si AffineConstraints C++ wrapper instance.
     si = NULL,
     #' @field intervals Selective inference intervals.
@@ -350,7 +363,8 @@ LassoInference <- R6::R6Class("LassoInference",
     #' @param Sigma_noise Covariance of Z_noisy. Default is \code{NULL}.
     #' @param scalar_noise Variance scaling if Sigma_noise is NULL. Default is \code{NaN}.
     #' @param tol Tolerance for active set and KKT conditions. Default is \code{1e-6}.
-    initialize = function(beta_hat, G_hat, Q_hat, D, L=NULL, U=NULL, Z_full, Sigma, Sigma_noise=NULL, scalar_noise=NaN, tol = 1e-6) {
+    #' @param level Confidence level. Default is 0.95.
+    initialize = function(beta_hat, G_hat, Q_hat, D, L=NULL, U=NULL, Z_full, Sigma, Sigma_noise=NULL, scalar_noise=NaN, tol = 1e-6, level = 0.95) {
       self$beta_hat <- beta_hat
       self$G_hat <- G_hat
       self$Q_hat <- Q_hat
@@ -361,6 +375,7 @@ LassoInference <- R6::R6Class("LassoInference",
       self$Sigma <- Sigma
       self$Sigma_noise <- Sigma_noise
       self$scalar_noise <- scalar_noise
+      self$level <- level
       
       n <- length(self$beta_hat)
       if (is.null(self$L)) self$L <- rep(-Inf, n)
@@ -369,7 +384,7 @@ LassoInference <- R6::R6Class("LassoInference",
       v_pow <- rnorm(n)
       v_pow <- v_pow / sqrt(sum(v_pow^2))
       for (i in 1:10) {
-        Q_v <- as.vector(self$Q_hat %*% v_pow)
+        Q_v <- matvec(self$Q_hat, v_pow)
         lambda_max <- sqrt(sum(Q_v^2))
         v_pow <- Q_v / lambda_max
       }
@@ -387,16 +402,18 @@ LassoInference <- R6::R6Class("LassoInference",
         self$beta_hat, self$G_hat, self$Q_hat, self$D, self$L, self$U, tol
       )
       
-      self$A <- constraints$A_dense
+      self$A <- constraints$A
       self$b <- constraints$b
       self$E <- constraints$E
       self$E_c <- constraints$E_c
       self$s_E <- constraints$s_E
       self$v_Ec <- constraints$v_Ec
+      self$W <- constraints$W
+      self$score <- constraints$score
       
-      Z_noisy <- -self$G_hat + as.vector(self$Q_hat %*% self$beta_hat)
+      self$Z_noisy <- -self$G_hat + matvec(self$Q_hat, self$beta_hat)
       
-      self$si <- new(AffineConstraints, self$Z_full, Z_noisy, self$Sigma, self$Sigma_noise, self$scalar_noise)
+      self$si <- new(AffineConstraints, self$Z_full, self$Z_noisy, self$Sigma, self$Sigma_noise, self$scalar_noise)
       
       self$intervals <- list()
       self$splitting <- list()
@@ -405,16 +422,15 @@ LassoInference <- R6::R6Class("LassoInference",
       
       if (length(self$E) > 0) {
         E_r <- self$E + 1
-        Q_EE <- self$Q_hat[E_r, E_r, drop=FALSE]
-        W <- solve(Q_EE)
+        W <- self$W
         
         for (k in seq_along(E_r)) {
           j <- E_r[k]
-          v <- rep(0, nrow(self$Q_hat))
+          v <- rep(0, n)
           v[E_r] <- W[, k]
           
           theta_hat <- sum(v * self$Z_full)
-          variance <- sum(v * (self$Sigma %*% v))
+          variance <- sum(v * matvec(self$Sigma, v))
           sigma <- sqrt(variance)
           
           contrast <- self$si$compute_contrast(v)
@@ -435,7 +451,7 @@ LassoInference <- R6::R6Class("LassoInference",
             sig_omega = bar_s, sig_x = sigma
           )
           
-          L_U_theta <- tbn$equal_tailed_interval(theta_hat, alpha = 0.05)
+          L_U_theta <- tbn$equal_tailed_interval(theta_hat, alpha = 1 - self$level)
           lower <- L_U_theta[1] * c1
           upper <- L_U_theta[2] * c1
           
@@ -456,7 +472,7 @@ LassoInference <- R6::R6Class("LassoInference",
     #' Summary of post-selection inference results.
     #' @return A data frame containing the parameter indices, estimates, selective confidence intervals, and selective p-values.
     summary = function() {
-      alpha <- 0.05
+      alpha <- 1 - self$level
       q <- qnorm(1 - alpha / 2)
       
       indices <- sort(self$E)

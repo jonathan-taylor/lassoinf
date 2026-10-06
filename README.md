@@ -42,6 +42,23 @@ For an editable install during development (using the `meson-python` backend):
 pip install --no-build-isolation -Csetup-args=-Dbuildtype=debug -e .
 ```
 
+#### Editable install with `uv`
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install meson-python meson ninja pybind11 setuptools_scm
+uv pip install --no-build-isolation -e .
+```
+
+`--no-build-isolation` is required: `meson-python` rebuilds the C++ extension on import after C++ sources change, and that rebuild uses the build tools installed in the venv, so keep them installed. Add `".[test]"` instead of `.` to also install the test dependencies.
+
+If the build fails with stale paths (e.g. `pybind11/pybind11.h` not found after a previous non-editable install), remove the old build directory and reinstall:
+
+```bash
+rm -rf build/cp*
+```
+
 ### R
 
 The R package `lassoinf` requires `Rcpp`, `RcppEigen`, and `R6`. You can install the package from the terminal or directly from the source directory.

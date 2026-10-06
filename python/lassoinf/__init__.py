@@ -13,3 +13,10 @@ except PackageNotFoundError:
 from .lasso import LassoInference, spec_from_glmnet
 from .glmnet import extract_glmnet_problem
 from .affine_constraints import AffineConstraints
+from .custom_estimand import (SelectionCoordinates,
+                              ScreenedSelection,
+                              ContrastEstimand,
+                              contrast_inference,
+                              custom_estimand_inference,
+                              estimand_summary,
+                              inactive_summary)

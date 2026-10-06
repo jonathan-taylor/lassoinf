@@ -7,7 +7,7 @@ from scipy.stats import norm as normal_dbn
 
 from .affine_constraints import AffineConstraints
 
-from .operators.composite import CompositeOperator
+from .operators.lasso_constraints import LassoConstraintOperator
 from .operators.submatrix import extract_submatrices
 from .gaussian_family import WeightedGaussianFamily
 from .bivariate_normal import TruncBivariateNormal
@@ -134,6 +134,8 @@ class LassoInference:
         self.A, self.b, self.E, self.E_c, self.s_E, self.v_Ec = lasso_post_selection_constraints(
             self.beta_hat, self.G_hat, self.Q_hat, self.D, self.L, self.U
         )
+        # W = Q_hat[E, E]^{-1}
+        self.W = self.A.W
         
         self.Z_noisy = -self.G_hat + self.Q_hat @ self.beta_hat
         
@@ -152,10 +154,8 @@ class LassoInference:
 
         # compute confidence intervals for the parameters using the "free" variables from the constraints
         if len(self.E) > 0:
-            Q_EE = extract_submatrices(self.Q_hat, self.E)
-                
-            W = np.linalg.inv(Q_EE)
-            
+            W = self.W
+
             for k, j in enumerate(self.E):
                 v = np.zeros(n)
                 v[self.E] = W[:, k]
@@ -343,118 +343,74 @@ def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol
     """
     Derives the linear constraints AZ <= b characterizing the polytope where
     the active set, signs, and bound-activations of the Lasso remain constant.
-    Returns A as a CompositeOperator to support matrix-free operations.
+    Returns A as a LassoConstraintOperator: matrix-free, applied with one Q matvec.
     """
 
+    beta_hat = np.asarray(beta_hat, dtype=float)
     n = Q.shape[0] if hasattr(Q, 'shape') else len(beta_hat)
-    L_bound = np.full(n, -np.inf) if L is None else np.asarray(L)
-    U_bound = np.full(n, np.inf) if U is None else np.asarray(U)
+    L_bound = np.full(n, -np.inf) if L is None else np.asarray(L, dtype=float)
+    U_bound = np.full(n, np.inf) if U is None else np.asarray(U, dtype=float)
+    D_diag = np.broadcast_to(np.asarray(D_diag, dtype=float), (n,))
 
-    E = []
-    E_c = []
-    s_E = []
-    v_Ec = []
-    g_min = []
-    g_max = []
+    at_L = beta_hat <= L_bound + tol
+    at_U = beta_hat >= U_bound - tol
+    at_0 = np.abs(beta_hat) <= tol
+    active = ~(at_L | at_U | at_0)
 
-    for j in range(n):
-        beta_val = beta_hat[j]
-        at_L = (beta_val <= L_bound[j] + tol)
-        at_U = (beta_val >= U_bound[j] - tol)
-        at_0 = (abs(beta_val) <= tol)
+    E = np.nonzero(active)[0]
+    E_c = np.nonzero(~active)[0]
+    s_E = np.sign(beta_hat[E])
 
-        if not at_L and not at_U and not at_0:
-            E.append(j)
-            s_E.append(np.sign(beta_val))
-        else:
-            E_c.append(j)
-            if at_0: v_j = 0.0
-            elif at_U: v_j = U_bound[j]
-            else: v_j = L_bound[j]
-            v_Ec.append(v_j)
+    # inactive coordinates: value v_j and bounds on the subgradient
+    a0, aU, aL = at_0[E_c], at_U[E_c], at_L[E_c]
+    v_Ec = np.where(a0, 0.0, np.where(aU, U_bound[E_c], L_bound[E_c]))
+    d_Ec = D_diag[E_c]
+    g_min = np.full(len(E_c), -np.inf)
+    g_max = np.full(len(E_c), np.inf)
+    g_min = np.where(a0 & (L_bound[E_c] < -tol), -d_Ec, g_min)
+    g_max = np.where(a0 & (U_bound[E_c] > tol), d_Ec, g_max)
+    g_min = np.where(~a0 & aU, d_Ec, g_min)
+    g_max = np.where(~a0 & ~aU & aL, -d_Ec, g_max)
 
-            dj = D_diag[j]
-            gmin, gmax = -np.inf, np.inf
-            if at_0:
-                if L_bound[j] < -tol: gmin = -dj
-                if U_bound[j] > tol:  gmax = dj
-            elif at_U: gmin = dj
-            elif at_L: gmax = -dj
-
-            g_min.append(gmin)
-            g_max.append(gmax)
-
-    E = np.array(E, dtype=int)
-    E_c = np.array(E_c, dtype=int)
-    s_E = np.array(s_E)
-    v_Ec = np.array(v_Ec)
-    g_min = np.array(g_min)
-    g_max = np.array(g_max)
-
-    S_list, U_list, b_list = [], [], []
+    V_vec = np.zeros(n)
+    V_vec[E_c] = v_Ec
+    Q_V = np.ravel(Q @ V_vec) if np.any(v_Ec != 0) else np.zeros(n)
 
     if len(E) > 0:
-        Q_EE, Q_EcE = extract_submatrices(Q, E, E_c)
-        
+        Q_EE = extract_submatrices(Q, E)
         W = np.linalg.inv(Q_EE)
-        
-        c_E = W @ (Q_EcE.T @ v_Ec + D_diag[E] * s_E)
-        
-        U_list.append(-np.diag(s_E) @ W)
-        S_list.append(sp.csr_matrix((len(E), n)))
-        b_list.append(-np.diag(s_E) @ c_E)
-
-        for k, j in enumerate(E):
-            if s_E[k] == 1 and U_bound[j] < np.inf:
-                U_list.append(W[k:k+1, :])
-                S_list.append(sp.csr_matrix((1, n)))
-                b_list.append(np.array([U_bound[j] + c_E[k]]))
-            elif s_E[k] == -1 and L_bound[j] > -np.inf:
-                U_list.append(-W[k:k+1, :])
-                S_list.append(sp.csr_matrix((1, n)))
-                b_list.append(np.array([-L_bound[j] - c_E[k]]))
+        c_E = W @ (Q_V[E] + D_diag[E] * s_E)
+        c_E_vec = np.zeros(n)
+        c_E_vec[E] = c_E
+        c_Ec = np.ravel(Q @ c_E_vec)[E_c] - Q_V[E_c]
     else:
-        Q_EcE = np.zeros((len(E_c), 0))
         W = np.zeros((0, 0))
         c_E = np.zeros(0)
+        c_Ec = -Q_V[E_c]
 
-    if len(E_c) > 0:
-        V_vec = np.zeros(n)
-        V_vec[E_c] = v_Ec
-        Q_V = Q @ V_vec if not isinstance(Q, np.ndarray) else Q @ V_vec
-        Q_EcEc_v_Ec = Q_V[E_c]
-        
-        U_part = - Q_EcE @ W if len(E) > 0 else np.zeros((len(E_c), 0))
-        c_Ec = Q_EcE @ c_E - Q_EcEc_v_Ec if len(E) > 0 else - Q_EcEc_v_Ec
+    # active rows act on W Z_E: signs, then bounds
+    k_E = np.arange(len(E))
+    up = (s_E == 1) & (U_bound[E] < np.inf)
+    lo = (s_E == -1) & (L_bound[E] > -np.inf)
+    k_bd = np.nonzero(up | lo)[0]
+    R_active = sp.vstack([sp.csr_matrix((-s_E, (k_E, k_E)), shape=(len(E), len(E))),
+                          sp.csr_matrix((np.where(up[k_bd], 1.0, -1.0), (np.arange(len(k_bd)), k_bd)),
+                                        shape=(len(k_bd), len(E)))])
+    b_active = np.concatenate([-s_E * c_E,
+                               np.where(up, U_bound[E] + c_E, -L_bound[E] - c_E)[k_bd]])
 
-        for k, j in enumerate(E_c):
-            if g_max[k] < np.inf:
-                U_list.append(U_part[k:k+1, :])
-                row = sp.csr_matrix(([1.0], ([0], [j])), shape=(1, n))
-                S_list.append(row)
-                b_list.append(np.array([g_max[k] - c_Ec[k]]))
-            if g_min[k] > -np.inf:
-                U_list.append(-U_part[k:k+1, :])
-                row = sp.csr_matrix(([-1.0], ([0], [j])), shape=(1, n))
-                S_list.append(row)
-                b_list.append(np.array([-g_min[k] + c_Ec[k]]))
+    # inactive rows act on U_{-E}(Z): for each coordinate, upper then lower subgradient bound
+    k_max = np.nonzero(g_max < np.inf)[0]
+    k_min = np.nonzero(g_min > -np.inf)[0]
+    k_in = np.concatenate([k_max, k_min])
+    order = np.lexsort((np.r_[np.zeros(len(k_max)), np.ones(len(k_min))], k_in))
+    k_in = k_in[order]
+    vals_in = np.r_[np.ones(len(k_max)), -np.ones(len(k_min))][order]
+    b_in = np.r_[g_max[k_max] - c_Ec[k_max], -g_min[k_min] + c_Ec[k_min]][order]
+    R_inactive = sp.csr_matrix((vals_in, (np.arange(len(k_in)), k_in)), shape=(len(k_in), len(E_c)))
 
-    if not U_list:
-        m = 0
-        S_final = sp.csr_matrix((0, n))
-        U_final = np.zeros((0, len(E)))
-        b_final = np.zeros(0)
-    else:
-        S_final = sp.vstack(S_list)
-        U_final = np.vstack(U_list)
-        b_final = np.concatenate(b_list)
-        m = S_final.shape[0]
-
-    V_final = np.zeros((n, len(E)))
-    for i, j in enumerate(E):
-        V_final[j, i] = 1.0
-
-    A = CompositeOperator((m, n), S=S_final, U=U_final, V=V_final)
-    return A, b_final, E, E_c, s_E, v_Ec
+    A = LassoConstraintOperator(Q, E, E_c, W, R_active, R_inactive)
+    b = np.concatenate([b_active, b_in])
+    return A, b, E, E_c, s_E, v_Ec
 
 __all__ = ['LassoInference', 'spec_from_glmnet']

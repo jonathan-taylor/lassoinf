@@ -135,13 +135,121 @@ private:
     std::shared_ptr<LinearOperator> V_;
 };
 
+namespace detail {
+
+inline Eigen::VectorXd embed(Eigen::Index n, const std::vector<int>& idx, const Eigen::VectorXd& vals) {
+    Eigen::VectorXd z = Eigen::VectorXd::Zero(n);
+    for (size_t i = 0; i < idx.size(); ++i) z(idx[i]) = vals(i);
+    return z;
+}
+
+inline Eigen::VectorXd take(const Eigen::VectorXd& x, const std::vector<int>& idx) {
+    Eigen::VectorXd out(idx.size());
+    for (size_t i = 0; i < idx.size(); ++i) out(i) = x(idx[i]);
+    return out;
+}
+
+inline double sign(double x) { return x > 0 ? 1.0 : (x < 0 ? -1.0 : 0.0); }
+
+} // namespace detail
+
+// Inactive scores U_{-E}(x) = x_{-E} - Q_{-E,E} W x_E with W = Q_{E,E}^{-1},
+// applied with one Q matvec (Q symmetric); nothing of size p x |E| is stored.
+class InactiveScoreOperator : public LinearOperator {
+public:
+    InactiveScoreOperator(std::shared_ptr<LinearOperator> Q, std::vector<int> E,
+                          std::vector<int> E_c, Eigen::MatrixXd W)
+        : Q_(std::move(Q)), E_(std::move(E)), E_c_(std::move(E_c)), W_(std::move(W)) {}
+
+    Eigen::Index rows() const override { return static_cast<Eigen::Index>(E_c_.size()); }
+    Eigen::Index cols() const override { return Q_->rows(); }
+
+    // W x_E
+    Eigen::VectorXd coef(const Eigen::VectorXd& x) const;
+    Eigen::VectorXd multiply(const Eigen::VectorXd& x) const override;
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& y) const override;
+
+    const std::shared_ptr<LinearOperator>& Q() const { return Q_; }
+    const std::vector<int>& E() const { return E_; }
+    const std::vector<int>& E_c() const { return E_c_; }
+    const Eigen::MatrixXd& W() const { return W_; }
+
+private:
+    std::shared_ptr<LinearOperator> Q_;
+    std::vector<int> E_;
+    std::vector<int> E_c_;
+    Eigen::MatrixXd W_;
+};
+
+// A x = [R_active (W x_E); R_inactive U_{-E}(x)]
+class LassoConstraintOperator : public LinearOperator {
+public:
+    LassoConstraintOperator(std::shared_ptr<InactiveScoreOperator> score,
+                            Eigen::SparseMatrix<double> R_active,
+                            Eigen::SparseMatrix<double> R_inactive)
+        : score_(std::move(score)), R_active_(std::move(R_active)), R_inactive_(std::move(R_inactive)) {}
+
+    Eigen::Index rows() const override { return R_active_.rows() + R_inactive_.rows(); }
+    Eigen::Index cols() const override { return score_->cols(); }
+
+    Eigen::VectorXd multiply(const Eigen::VectorXd& x) const override;
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& y) const override;
+
+    const std::shared_ptr<InactiveScoreOperator>& score() const { return score_; }
+    const Eigen::SparseMatrix<double>& R_active() const { return R_active_; }
+    const Eigen::SparseMatrix<double>& R_inactive() const { return R_inactive_; }
+
+private:
+    std::shared_ptr<InactiveScoreOperator> score_;
+    Eigen::SparseMatrix<double> R_active_;
+    Eigen::SparseMatrix<double> R_inactive_;
+};
+
+// x -> P (R x) with P sparse
+class SparseProductOperator : public LinearOperator {
+public:
+    SparseProductOperator(Eigen::SparseMatrix<double> P, std::shared_ptr<LinearOperator> R)
+        : P_(std::move(P)), R_(std::move(R)) {}
+
+    Eigen::Index rows() const override { return P_.rows(); }
+    Eigen::Index cols() const override { return R_->cols(); }
+
+    Eigen::VectorXd multiply(const Eigen::VectorXd& x) const override {
+        return P_ * R_->multiply(x);
+    }
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& y) const override {
+        return R_->multiply_transpose(P_.transpose() * y);
+    }
+
+private:
+    Eigen::SparseMatrix<double> P_;
+    std::shared_ptr<LinearOperator> R_;
+};
+
+// [A_1; A_2; ...]
+class VStackOperator : public LinearOperator {
+public:
+    explicit VStackOperator(std::vector<std::shared_ptr<LinearOperator>> ops);
+
+    Eigen::Index rows() const override { return rows_; }
+    Eigen::Index cols() const override { return ops_.front()->cols(); }
+
+    Eigen::VectorXd multiply(const Eigen::VectorXd& x) const override;
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& y) const override;
+
+private:
+    std::vector<std::shared_ptr<LinearOperator>> ops_;
+    Eigen::Index rows_;
+};
+
 struct LassoConstraints {
-    std::shared_ptr<CompositeOperator> A;
+    std::shared_ptr<LassoConstraintOperator> A;
     Eigen::VectorXd b;
     std::vector<int> E;
     std::vector<int> E_c;
     Eigen::VectorXd s_E;
     Eigen::VectorXd v_Ec;
+    Eigen::MatrixXd W;  // Q_{E,E}^{-1}
 };
 
 LassoConstraints lasso_post_selection_constraints(
@@ -174,7 +282,19 @@ public:
 
     AffineConstraintsContrast compute_contrast(const Eigen::VectorXd& v) const;
 
+    // Contrast for an estimator specified by Var(theta_hat) and Cov(Z, theta_hat)
+    // instead of a direction; requires Q_noise.
+    AffineConstraintsContrast compute_covariance_contrast(double theta_hat,
+                                                          double variance,
+                                                          const Eigen::VectorXd& score_cov) const;
+
+    const Eigen::VectorXd& Z() const { return Z_; }
+    const Eigen::VectorXd& Z_noisy() const { return Z_noisy_; }
+
 private:
+    // Q_noise^{-1} rhs
+    Eigen::VectorXd solve_noise(const Eigen::VectorXd& rhs) const;
+
     Eigen::VectorXd Z_;
     Eigen::VectorXd Z_noisy_;
     std::shared_ptr<LinearOperator> Q_;
