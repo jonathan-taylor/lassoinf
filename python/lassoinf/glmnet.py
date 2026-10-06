@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import pandas as pd
 from glmnet.glmnet import GLMNet, GLMState
@@ -6,6 +8,10 @@ from lassoinf.operators.xtvx import XTVXOperator
 
 def extract_glmnet_problem(glmnet_obj: GLMNet, X, Df, lambda_val, state=None, return_operator=False):
     """
+    Deprecated: the returned problem does not satisfy the KKT conditions of the
+    fit, and fails without an intercept. Use lassoinf.glm_problem.glmstar_problem,
+    which works in the original coordinates and is tested against glmstar and R's glmnet.
+
     Extracts the actual solution, gradient, and Hessian of the LASSO problem
     solved by GLMNet, including penalty_factor, exclude, and upper/lower limits.
     The reported solutions are on the scaled coordinates if standardize=True.
@@ -20,6 +26,8 @@ def extract_glmnet_problem(glmnet_obj: GLMNet, X, Df, lambda_val, state=None, re
        'U': array            # Upper bounds (scaled)
     }
     """
+    warnings.warn('extract_glmnet_problem is deprecated and gives incorrect constraints; '
+                  'use lassoinf.glm_problem.glmstar_problem', DeprecationWarning, stacklevel=2)
     G = glmnet_obj
     if state is None:
         state = G.state_

@@ -66,6 +66,30 @@ LinearOp* xtvx_linear_op(Eigen::MatrixXd X, Eigen::VectorXd w) {
     return new LinearOp(std::make_shared<lassoinf::XTVXOperator>(std::move(X), V), d);
 }
 
+// X' diag(w) X + diag(d), matrix-free
+class XTVXDiagOperator : public lassoinf::LinearOperator {
+public:
+    XTVXDiagOperator(Eigen::MatrixXd X, Eigen::VectorXd w, Eigen::VectorXd d)
+        : X_(std::move(X)), w_(std::move(w)), d_(std::move(d)) {}
+    Eigen::Index rows() const override { return X_.cols(); }
+    Eigen::Index cols() const override { return X_.cols(); }
+    Eigen::VectorXd multiply(const Eigen::VectorXd& x) const override {
+        return X_.transpose() * (w_.cwiseProduct(X_ * x)) + d_.cwiseProduct(x);
+    }
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& x) const override { return multiply(x); }
+private:
+    Eigen::MatrixXd X_;
+    Eigen::VectorXd w_;
+    Eigen::VectorXd d_;
+};
+
+LinearOp* xtvx_diag_linear_op(Eigen::MatrixXd X, Eigen::VectorXd w, Eigen::VectorXd d) {
+    if (w.size() != X.rows()) Rcpp::stop("weights must have length nrow(X)");
+    if (d.size() != X.cols()) Rcpp::stop("diagonal must have length ncol(X)");
+    Eigen::VectorXd diag = (X.array().square().colwise() * w.array()).colwise().sum().transpose() + d.array();
+    return new LinearOp(std::make_shared<XTVXDiagOperator>(std::move(X), std::move(w), std::move(d)), diag);
+}
+
 template <class T>
 T* unwrap_cpp_object(SEXP obj, const char* cls) {
     if (!Rf_inherits(obj, cls)) Rcpp::stop(std::string("expected an object of class ") + cls);
@@ -269,6 +293,7 @@ RCPP_MODULE(lassoinf_cpp) {
     class_<LinearOp>("LinearOp")
         .factory<Eigen::MatrixXd>(&dense_linear_op)
         .factory<Eigen::MatrixXd, Eigen::VectorXd>(&xtvx_linear_op)
+        .factory<Eigen::MatrixXd, Eigen::VectorXd, Eigen::VectorXd>(&xtvx_diag_linear_op)
         .method("multiply", &LinearOp::multiply)
         .method("multiply_transpose", &LinearOp::multiply_transpose)
         .method("rows", &LinearOp::rows)

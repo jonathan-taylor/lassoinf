@@ -12,6 +12,7 @@ except PackageNotFoundError:
 
 from .lasso import LassoInference, spec_from_glmnet
 from .glmnet import extract_glmnet_problem
+from .glm_problem import glmnet_problem, glmstar_problem, GLMProblem
 from .affine_constraints import AffineConstraints
 from .custom_estimand import (SelectionCoordinates,
                               ScreenedSelection,
