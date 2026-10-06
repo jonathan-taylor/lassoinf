@@ -6,6 +6,7 @@
 #include "../../cpp/include/affine_constraints.hpp"
 #include "../../cpp/include/discrete_family.h"
 #include "../../cpp/include/gaussian_family.hpp"
+#include "../../cpp/include/custom_estimand.hpp"
 
 // 2. Unity build: include the C++ sources directly to avoid duplicate symbols
 //    and bypass the need for a complex Makefile to compile them individually.
@@ -13,85 +14,199 @@
 #include "../../cpp/src/lasso_post_selection_constraints.cpp"
 #include "../../cpp/src/discrete_family.cpp"
 #include "../../cpp/src/gaussian_family.cpp"
+#include "../../cpp/src/custom_estimand.cpp"
 
 using namespace Rcpp;
 
-// Wrapper for lasso_post_selection_constraints to handle shared_ptr and defaults
-lassoinf::LassoConstraints lasso_post_selection_constraints_dense(
+// ---- linear operators ----
+
+// R-facing holder for any C++ LinearOperator; diag is the operator's
+// diagonal when known (empty otherwise)
+struct LinearOp {
+    std::shared_ptr<lassoinf::LinearOperator> op;
+    Eigen::VectorXd diag;
+
+    explicit LinearOp(std::shared_ptr<lassoinf::LinearOperator> op_, Eigen::VectorXd diag_ = Eigen::VectorXd())
+        : op(std::move(op_)), diag(std::move(diag_)) {}
+
+    Eigen::VectorXd multiply(const Eigen::VectorXd& x) { return op->multiply(x); }
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& x) { return op->multiply_transpose(x); }
+    int rows() { return static_cast<int>(op->rows()); }
+    int cols() { return static_cast<int>(op->cols()); }
+    Eigen::VectorXd diagonal() { return diag; }
+
+    // one matvec per column: for testing / small problems only
+    Eigen::MatrixXd to_dense() {
+        Eigen::MatrixXd dense(op->rows(), op->cols());
+        for (Eigen::Index i = 0; i < op->cols(); ++i) {
+            Eigen::VectorXd e = Eigen::VectorXd::Zero(op->cols());
+            e(i) = 1.0;
+            dense.col(i) = op->multiply(e);
+        }
+        return dense;
+    }
+};
+
+// dense matrix
+LinearOp* dense_linear_op(Eigen::MatrixXd M) {
+    Eigen::VectorXd d = M.rows() == M.cols() ? Eigen::VectorXd(M.diagonal()) : Eigen::VectorXd();
+    return new LinearOp(std::make_shared<lassoinf::DenseOperator>(std::move(M)), d);
+}
+
+// X' diag(w) X, matrix-free
+LinearOp* xtvx_linear_op(Eigen::MatrixXd X, Eigen::VectorXd w) {
+    if (w.size() != X.rows()) Rcpp::stop("weights must have length nrow(X)");
+    lassoinf::CompositeComponent comp;
+    comp.S = Eigen::SparseMatrix<double>(X.rows(), X.rows());
+    comp.U = Eigen::MatrixXd(X.rows(), 0);
+    comp.V = Eigen::MatrixXd(X.rows(), 0);
+    comp.b = w;
+    auto V = std::make_shared<lassoinf::CompositeOperator>(X.rows(), X.rows(), std::vector<lassoinf::CompositeComponent>{comp});
+    Eigen::VectorXd d = (X.array().square().colwise() * w.array()).colwise().sum().transpose();
+    return new LinearOp(std::make_shared<lassoinf::XTVXOperator>(std::move(X), V), d);
+}
+
+template <class T>
+T* unwrap_cpp_object(SEXP obj, const char* cls) {
+    if (!Rf_inherits(obj, cls)) Rcpp::stop(std::string("expected an object of class ") + cls);
+    Rcpp::Environment env(obj);
+    SEXP xp = env.get(".pointer");
+    T* ptr = static_cast<T*>(R_ExternalPtrAddr(xp));
+    if (!ptr) Rcpp::stop("invalid (null) C++ object");
+    return ptr;
+}
+
+// numeric matrix or LinearOp
+std::shared_ptr<lassoinf::LinearOperator> as_operator(SEXP x) {
+    if (Rf_isMatrix(x)) {
+        return std::make_shared<lassoinf::DenseOperator>(Rcpp::as<Eigen::MatrixXd>(x));
+    }
+    return unwrap_cpp_object<LinearOp>(x, "Rcpp_LinearOp")->op;
+}
+
+SEXP wrap_operator(std::shared_ptr<lassoinf::LinearOperator> op) {
+    return Rcpp::internal::make_new_object(new LinearOp(std::move(op)));
+}
+
+// ---- constraints ----
+
+Rcpp::List lasso_post_selection_constraints_wrapper(
     const Eigen::VectorXd& beta_hat,
     const Eigen::VectorXd& G,
-    const Eigen::MatrixXd& Q,
+    SEXP Q,
     const Eigen::VectorXd& D_diag,
     const Eigen::VectorXd& L,
     const Eigen::VectorXd& U,
     double tol) {
-    
-    std::shared_ptr<lassoinf::LinearOperator> Q_ptr = std::make_shared<lassoinf::DenseOperator>(Q);
-    return lassoinf::lasso_post_selection_constraints(beta_hat, G, Q_ptr, D_diag, L, U, tol);
+
+    auto constraints = lassoinf::lasso_post_selection_constraints(beta_hat, G, as_operator(Q), D_diag, L, U, tol);
+
+    return Rcpp::List::create(
+        Rcpp::Named("A") = wrap_operator(constraints.A),
+        Rcpp::Named("score") = wrap_operator(constraints.A->score()),
+        Rcpp::Named("b") = constraints.b,
+        Rcpp::Named("E") = constraints.E,
+        Rcpp::Named("E_c") = constraints.E_c,
+        Rcpp::Named("s_E") = constraints.s_E,
+        Rcpp::Named("v_Ec") = constraints.v_Ec,
+        Rcpp::Named("W") = constraints.W
+    );
 }
 
-// Helper to convert CompositeOperator to Dense matrix
-Eigen::MatrixXd operator_to_dense(const std::shared_ptr<lassoinf::LinearOperator>& op) {
-    if (!op) return Eigen::MatrixXd(0, 0);
-    int n = op->cols();
-    int m = op->rows();
-    Eigen::MatrixXd dense = Eigen::MatrixXd::Zero(m, n);
-    for (int i = 0; i < n; ++i) {
-        Eigen::VectorXd e = Eigen::VectorXd::Zero(n);
-        e(i) = 1.0;
-        dense.col(i) = op->multiply(e);
-    }
-    return dense;
-}
+// ---- affine constraints ----
 
-Eigen::MatrixXd get_A_dense(const lassoinf::LassoConstraints& constraints) {
-    return operator_to_dense(constraints.A);
-}
-
-// Helper to convert std::pair to NumericVector
-NumericVector get_interval_wrapper(lassoinf::AffineConstraintsContrast* contrast, double t, const Eigen::MatrixXd& A, const Eigen::VectorXd& b) {
-    auto res = contrast->get_interval(t, A, b);
+NumericVector get_interval_wrapper(lassoinf::AffineConstraintsContrast* contrast, double t, SEXP A, const Eigen::VectorXd& b) {
+    auto res = contrast->get_interval(t, *as_operator(A), b);
     return NumericVector::create(res.first, res.second);
 }
 
 lassoinf::AffineConstraints* create_affine_constraints(
-    Eigen::VectorXd Z, Eigen::VectorXd Z_noisy, Eigen::MatrixXd Q, SEXP Q_noise_sexp, double scalar_noise) {
-    std::shared_ptr<lassoinf::LinearOperator> Q_op = std::make_shared<lassoinf::DenseOperator>(Q);
-    if (Rf_isNull(Q_noise_sexp)) {
-        std::shared_ptr<lassoinf::LinearOperator> Q_noise_op = nullptr;
-        return new lassoinf::AffineConstraints(Z, Z_noisy, Q_op, Q_noise_op, scalar_noise);
-    } else {
-        Eigen::MatrixXd Q_noise = Rcpp::as<Eigen::MatrixXd>(Q_noise_sexp);
-        std::shared_ptr<lassoinf::LinearOperator> Q_noise_op = std::make_shared<lassoinf::DenseOperator>(Q_noise);
-        return new lassoinf::AffineConstraints(Z, Z_noisy, Q_op, Q_noise_op, scalar_noise);
-    }
+    Eigen::VectorXd Z, Eigen::VectorXd Z_noisy, SEXP Q, SEXP Q_noise_sexp, double scalar_noise) {
+    std::shared_ptr<lassoinf::LinearOperator> Q_noise_op = nullptr;
+    if (!Rf_isNull(Q_noise_sexp)) Q_noise_op = as_operator(Q_noise_sexp);
+    return new lassoinf::AffineConstraints(Z, Z_noisy, as_operator(Q), Q_noise_op, scalar_noise);
 }
 
 lassoinf::AffineConstraintsContrast* compute_contrast_wrapper(lassoinf::AffineConstraints* si, const Eigen::VectorXd& v) {
     return new lassoinf::AffineConstraintsContrast(si->compute_contrast(v));
 }
 
-Rcpp::List lasso_post_selection_constraints_wrapper(
-    const Eigen::VectorXd& beta_hat,
-    const Eigen::VectorXd& G,
-    const Eigen::MatrixXd& Q,
-    const Eigen::VectorXd& D_diag,
-    const Eigen::VectorXd& L,
-    const Eigen::VectorXd& U,
-    double tol) {
-    
-    std::shared_ptr<lassoinf::LinearOperator> Q_ptr = std::make_shared<lassoinf::DenseOperator>(Q);
-    auto constraints = lassoinf::lasso_post_selection_constraints(beta_hat, G, Q_ptr, D_diag, L, U, tol);
-    
-    return Rcpp::List::create(
-        Rcpp::Named("A_dense") = get_A_dense(constraints),
-        Rcpp::Named("b") = constraints.b,
-        Rcpp::Named("E") = constraints.E,
-        Rcpp::Named("E_c") = constraints.E_c,
-        Rcpp::Named("s_E") = constraints.s_E,
-        Rcpp::Named("v_Ec") = constraints.v_Ec
-    );
+lassoinf::AffineConstraintsContrast* compute_covariance_contrast_wrapper(lassoinf::AffineConstraints* si, double theta_hat,
+                                                                        double variance, const Eigen::VectorXd& score_cov) {
+    try {
+        return new lassoinf::AffineConstraintsContrast(si->compute_covariance_contrast(theta_hat, variance, score_cov));
+    } catch (const std::invalid_argument& e) {
+        Rcpp::stop(e.what());
+    }
 }
+
+// ---- custom estimands ----
+
+Rcpp::List estimand_list(const lassoinf::ContrastEstimand& est) {
+    Rcpp::List out = Rcpp::List::create(Rcpp::Named("eta") = est.eta, Rcpp::Named("offset") = est.offset);
+    out.attr("class") = "ContrastEstimand";
+    return out;
+}
+
+SEXP selection_coordinates_cpp(SEXP score, const Eigen::VectorXd& Z_noisy, const Eigen::VectorXd& beta_hat,
+                               const Eigen::VectorXd& G_hat, const Eigen::VectorXd& Q_diag) {
+    auto score_op = std::dynamic_pointer_cast<lassoinf::InactiveScoreOperator>(as_operator(score));
+    if (!score_op) Rcpp::stop("score must be the inactive score operator from lasso_post_selection_constraints");
+    return Rcpp::internal::make_new_object(new lassoinf::SelectionCoordinates(score_op, Z_noisy, beta_hat, G_hat, Q_diag));
+}
+
+template <class F>
+auto rethrow(F f) -> decltype(f()) {
+    try {
+        return f();
+    } catch (const std::invalid_argument& e) {
+        Rcpp::stop(e.what());
+    }
+}
+
+Eigen::VectorXd coords_contrast(lassoinf::SelectionCoordinates* c, const Eigen::VectorXd& a_E, const Eigen::VectorXd& a_Ec) {
+    return rethrow([&] { return c->contrast(a_E, a_Ec); });
+}
+Rcpp::List coords_estimand(lassoinf::SelectionCoordinates* c, const Eigen::VectorXd& a_E, const Eigen::VectorXd& a_Ec,
+                           std::string basis) {
+    return estimand_list(rethrow([&] { return c->estimand(a_E, a_Ec, basis); }));
+}
+Rcpp::List coords_inactive_score(lassoinf::SelectionCoordinates* c, int j, std::string basis) {
+    return estimand_list(rethrow([&] { return c->inactive_score(j, basis); }));
+}
+Rcpp::List coords_inactive_coef(lassoinf::SelectionCoordinates* c, int j, std::string basis) {
+    return estimand_list(rethrow([&] { return c->inactive_coef(j, basis); }));
+}
+Eigen::VectorXd coords_inactive_S(lassoinf::SelectionCoordinates* c, std::vector<int> variables) {
+    return rethrow([&] { return c->inactive_S(variables); });
+}
+Eigen::VectorXd coords_refit_coef(lassoinf::SelectionCoordinates* c, const Eigen::VectorXd& Z) { return c->refit_coef(Z); }
+Eigen::VectorXd coords_refit_score(lassoinf::SelectionCoordinates* c, const Eigen::VectorXd& Z) { return c->refit_score(Z); }
+Eigen::VectorXd coords_lasso_coef_offset(lassoinf::SelectionCoordinates* c) { return c->lasso_coef_offset(); }
+Eigen::VectorXd coords_lasso_score_offset(lassoinf::SelectionCoordinates* c) { return c->lasso_score_offset(); }
+std::vector<int> coords_E(lassoinf::SelectionCoordinates* c) { return c->E(); }
+std::vector<int> coords_E_c(lassoinf::SelectionCoordinates* c) { return c->E_c(); }
+SEXP coords_score_operator(lassoinf::SelectionCoordinates* c) { return wrap_operator(c->score_operator()); }
+
+SEXP screened_selection_cpp(SEXP A_lasso, const Eigen::VectorXd& b_lasso, SEXP coords,
+                            const Eigen::VectorXd& G_hat, const Eigen::VectorXd& Z_noisy,
+                            double threshold, int top_k, std::string conditioning) {
+    auto* c = unwrap_cpp_object<lassoinf::SelectionCoordinates>(coords, "Rcpp_SelectionCoordinatesCpp");
+    return rethrow([&] {
+        return Rcpp::internal::make_new_object(
+            new lassoinf::ScreenedSelection(as_operator(A_lasso), b_lasso, *c, G_hat, Z_noisy, threshold, top_k, conditioning));
+    });
+}
+
+std::vector<int> screened_screened(lassoinf::ScreenedSelection* s) { return s->screened; }
+Eigen::VectorXd screened_signs(lassoinf::ScreenedSelection* s) { return s->screened_signs; }
+int screened_first_dropped(lassoinf::ScreenedSelection* s) { return s->first_dropped; }
+double screened_first_dropped_sign(lassoinf::ScreenedSelection* s) { return s->first_dropped_sign; }
+bool screened_observed_feasible(lassoinf::ScreenedSelection* s) { return s->observed_feasible; }
+Eigen::VectorXd screened_b(lassoinf::ScreenedSelection* s) { return s->b; }
+Eigen::VectorXd screened_b_screen(lassoinf::ScreenedSelection* s) { return s->b_screen; }
+SEXP screened_A(lassoinf::ScreenedSelection* s) { return wrap_operator(s->A); }
+SEXP screened_A_screen(lassoinf::ScreenedSelection* s) { return wrap_operator(s->A_screen); }
 
 // DiscreteFamily wrappers
 double df_cdf_wrapper(lassoinf::DiscreteFamily* df, double theta, double x, double gamma) {
@@ -128,7 +243,7 @@ NumericVector wgf_interval_wrapper(lassoinf::WeightedGaussianFamily* wgf, double
 }
 
 lassoinf::AffineConstraints* create_affine_constraints_default(
-    Eigen::VectorXd Z, Eigen::VectorXd Z_noisy, Eigen::MatrixXd Q, SEXP Q_noise_sexp) {
+    Eigen::VectorXd Z, Eigen::VectorXd Z_noisy, SEXP Q, SEXP Q_noise_sexp) {
     return create_affine_constraints(Z, Z_noisy, Q, Q_noise_sexp, std::numeric_limits<double>::quiet_NaN());
 }
 
@@ -151,11 +266,56 @@ RCPP_MODULE(lassoinf_cpp) {
         .method("get_interval", &get_interval_wrapper)
         ;
 
+    class_<LinearOp>("LinearOp")
+        .factory<Eigen::MatrixXd>(&dense_linear_op)
+        .factory<Eigen::MatrixXd, Eigen::VectorXd>(&xtvx_linear_op)
+        .method("multiply", &LinearOp::multiply)
+        .method("multiply_transpose", &LinearOp::multiply_transpose)
+        .method("rows", &LinearOp::rows)
+        .method("cols", &LinearOp::cols)
+        .method("diagonal", &LinearOp::diagonal)
+        .method("to_dense", &LinearOp::to_dense)
+        ;
+
+    class_<lassoinf::SelectionCoordinates>("SelectionCoordinatesCpp")
+        .method("contrast", &coords_contrast)
+        .method("estimand", &coords_estimand)
+        .method("inactive_score", &coords_inactive_score)
+        .method("inactive_coef", &coords_inactive_coef)
+        .method("inactive_S", &coords_inactive_S)
+        .method("refit_coef", &coords_refit_coef)
+        .method("refit_score", &coords_refit_score)
+        .method("lasso_coef_offset", &coords_lasso_coef_offset)
+        .method("lasso_score_offset", &coords_lasso_score_offset)
+        .method("E", &coords_E)
+        .method("E_c", &coords_E_c)
+        .method("score_operator", &coords_score_operator)
+        ;
+
+    class_<lassoinf::ScreenedSelection>("ScreenedSelectionCpp")
+        .method("screened", &screened_screened)
+        .method("screened_signs", &screened_signs)
+        .method("first_dropped", &screened_first_dropped)
+        .method("first_dropped_sign", &screened_first_dropped_sign)
+        .method("observed_feasible", &screened_observed_feasible)
+        .method("b", &screened_b)
+        .method("b_screen", &screened_b_screen)
+        .method("A", &screened_A)
+        .method("A_screen", &screened_A_screen)
+        ;
+
+    function("selection_coordinates_cpp", &selection_coordinates_cpp,
+             List::create(_["score"], _["Z_noisy"], _["beta_hat"], _["G_hat"], _["Q_diag"]));
+    function("screened_selection_cpp", &screened_selection_cpp,
+             List::create(_["A_lasso"], _["b_lasso"], _["coords"], _["G_hat"], _["Z_noisy"],
+                          _["threshold"], _["top_k"], _["conditioning"]));
+
     class_<lassoinf::AffineConstraints>("AffineConstraints")
-        .factory<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, SEXP, double>(&create_affine_constraints)
-        .factory<Eigen::VectorXd, Eigen::VectorXd, Eigen::MatrixXd, SEXP>(&create_affine_constraints_default)
+        .factory<Eigen::VectorXd, Eigen::VectorXd, SEXP, SEXP, double>(&create_affine_constraints)
+        .factory<Eigen::VectorXd, Eigen::VectorXd, SEXP, SEXP>(&create_affine_constraints_default)
         .method("solve_contrast", &lassoinf::AffineConstraints::solve_contrast)
         .method("compute_contrast", &compute_contrast_wrapper)
+        .method("compute_covariance_contrast", &compute_covariance_contrast_wrapper)
         ;
 
     class_<lassoinf::DiscreteFamily>("DiscreteFamily")

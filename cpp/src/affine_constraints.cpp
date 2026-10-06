@@ -87,26 +87,28 @@ namespace internal {
 
 namespace lassoinf {
 
+Eigen::VectorXd AffineConstraints::solve_noise(const Eigen::VectorXd& rhs) const {
+    // If Q_noise is just a dense matrix, we can use a direct solver for efficiency
+    if (auto dense_op = dynamic_cast<const DenseOperator*>(Q_noise_.get())) {
+        return dense_op->mat().colPivHouseholderQr().solve(rhs);
+    }
+
+    // Otherwise, use Conjugate Gradient for matrix-free / composite operators
+    EigenLinearOperatorProxy proxy(Q_noise_.get());
+    Eigen::ConjugateGradient<EigenLinearOperatorProxy, Eigen::Lower|Eigen::Upper, Eigen::IdentityPreconditioner> cg;
+    cg.compute(proxy);
+    Eigen::VectorXd c = cg.solve(rhs);
+
+    if (cg.info() != Eigen::Success) {
+        throw std::runtime_error("Conjugate Gradient did not converge in solve_contrast");
+    }
+
+    return c;
+}
+
 Eigen::VectorXd AffineConstraints::solve_contrast(const Eigen::VectorXd& v) const {
     if (Q_noise_) {
-        Eigen::VectorXd Q_v = Q_->multiply(v);
-
-        // If Q_noise is just a dense matrix, we can use a direct solver for efficiency
-        if (auto dense_op = dynamic_cast<const DenseOperator*>(Q_noise_.get())) {
-            return dense_op->mat().colPivHouseholderQr().solve(Q_v);
-        }
-
-        // Otherwise, use Conjugate Gradient for matrix-free / composite operators
-        EigenLinearOperatorProxy proxy(Q_noise_.get());
-        Eigen::ConjugateGradient<EigenLinearOperatorProxy, Eigen::Lower|Eigen::Upper, Eigen::IdentityPreconditioner> cg;
-        cg.compute(proxy);
-        Eigen::VectorXd c = cg.solve(Q_v);
-        
-        if (cg.info() != Eigen::Success) {
-            throw std::runtime_error("Conjugate Gradient did not converge in solve_contrast");
-        }
-        
-        return c;
+        return solve_noise(Q_->multiply(v));
     } else {
         if (scalar_noise_ > 0) {
             double scalar = std::max(scalar_noise_, 0.001);
@@ -123,21 +125,14 @@ AffineConstraintsContrast AffineConstraints::compute_contrast(const Eigen::Vecto
     double v_sigma_v = v.dot(Q_v);
     
     p.gamma = Q_v / v_sigma_v;
-    p.c = solve_contrast(v);
-    
-    Eigen::VectorXd Q_noise_c;
     if (Q_noise_) {
-        Q_noise_c = Q_noise_->multiply(p.c);
+        p.c = solve_noise(Q_v);
     } else {
-        if (scalar_noise_ > 0) {
-            double scalar = std::max(scalar_noise_, 0.001);
-            Q_noise_c = scalar * Q_->multiply(p.c);
-        } else {
-            throw std::invalid_argument("if Q_noise is None, scalar_noise must be > 0");
-        }
+        p.c = solve_contrast(v);
     }
 
-    double bar_s2 = p.c.dot(Q_noise_c);
+    // Q_noise c = Q v, so bar_s^2 = c' Q_noise c = c' Q v
+    double bar_s2 = p.c.dot(Q_v);
     p.bar_s = std::sqrt(bar_s2);
     p.bar_gamma = Q_v / bar_s2;
     p.theta_hat = v.dot(Z_);
@@ -152,6 +147,39 @@ AffineConstraintsContrast AffineConstraints::compute_contrast(const Eigen::Vecto
     p.splitting_estimator = p.theta_hat - p.bar_theta;
     p.naive_variance = naive_var;
 
+    return p;
+}
+
+AffineConstraintsContrast AffineConstraints::compute_covariance_contrast(double theta_hat,
+                                                                          double variance,
+                                                                          const Eigen::VectorXd& score_cov) const {
+    if (!Q_noise_) {
+        throw std::invalid_argument("estimands specified by covariance require Q_noise; with scalar_noise, "
+                                    "express the estimand as a contrast");
+    }
+    if (!(variance > 0)) throw std::invalid_argument("variance must be positive");
+    if (score_cov.size() != Z_.size()) throw std::invalid_argument("score_cov has the wrong length");
+    if (score_cov.cwiseAbs().maxCoeff() <= 1e-12) {
+        throw std::invalid_argument("score_cov is zero: estimator is independent of the score");
+    }
+
+    AffineConstraintsContrast p;
+    // c = Q_noise^{-1} Cov(Z, theta_hat), bar_s^2 = c' Q_noise c
+    p.c = solve_noise(score_cov);
+    double bar_s2 = p.c.dot(score_cov);
+    p.bar_s = std::sqrt(bar_s2);
+    p.gamma = score_cov / variance;
+    p.bar_gamma = score_cov / bar_s2;
+    p.theta_hat = theta_hat;
+    p.n_o = Z_ - p.gamma * theta_hat;
+
+    Eigen::VectorXd omega = Z_noisy_ - Z_;
+    p.bar_theta = p.c.dot(omega);
+    p.bar_n_o = omega - p.bar_gamma * p.bar_theta;
+
+    p.splitting_variance = variance + bar_s2;
+    p.splitting_estimator = theta_hat - p.bar_theta;
+    p.naive_variance = variance;
     return p;
 }
 

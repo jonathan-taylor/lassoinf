@@ -33,6 +33,7 @@ py.extension_module(
   'cpp/src/lasso_post_selection_constraints.cpp',
   'cpp/src/discrete_family.cpp',
   'cpp/src/gaussian_family.cpp',
+  'cpp/src/custom_estimand.cpp',
   'python/discrete_family_py.cpp',
   'python/gaussian_family_py.cpp',
   'python/lassoinf_py.cpp',
