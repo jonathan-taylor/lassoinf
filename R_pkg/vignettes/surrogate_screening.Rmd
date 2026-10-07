@@ -1,0 +1,376 @@
+---
+title: "Surrogate screening: swapping selected and screened variables"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Surrogate screening}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+After the LASSO selects an active set $E$, a common heuristic screens the inactive
+variables whose gradient at the LASSO solution, $|\nabla \ell(\hat{\beta})_j|$, is largest.
+`ScreenedSelection` adds this screening step to the selection event, so the polyhedral lemma
+still gives valid inference. The usual question is whether a screened variable $j$ belongs
+in the model $E \cup \{j\}$.
+
+Here we screen the same way, keeping the **top 10** inactive variables, but ask a different
+question. A screened variable $j$ may be a *surrogate* for a selected variable $s$: the two
+are correlated and the LASSO picked $s$ where it could have picked $j$. To check this, for
+each selected $s \in E$ and screened $j$ we drop $s$ from the model, put $j$ in its place,
+and test
+
+$$
+H_0: \beta_{j \cdot F_{s,j}} = 0, \qquad F_{s,j} = (E \setminus \{s\}) \cup \{j\},
+$$
+
+the coefficient of $x_j$ in the model $F_{s,j}$, or build a confidence interval for it.
+
+Only the **target** changes. The selection event (LASSO, then screening) stays the same, so we
+reuse `ScreenedSelection` as it is and pass it a new contrast.
+
+## The swapped coefficient as a contrast
+
+With $Q = X'X$ and $W = Q_{E,E}^{-1}$, the coefficient of $j$ in $F = F_{s,j}$ is
+
+$$
+\hat{\theta}_{s,j} = e_j'\, Q_{F,F}^{-1} Z_F = \eta_{s,j}' Z, \qquad
+(\eta_{s,j})_F = Q_{F,F}^{-1} e_j, \quad (\eta_{s,j})_{-F} = 0,
+$$
+
+which for least squares is the coefficient of $x_j$ in the regression of $y$ on $X_F$. The
+estimand is $\eta_{s,j}' X'\mu$, the coefficient of $x_j$ in the regression of
+$\mu = E[y]$ on $X_F$.
+
+The matrix $Q_{F,F}$ is built from the information matrix of the model $E$. Its block on
+$E \setminus \{s\}$ is a submatrix of $Q_{E,E} = W^{-1}$, which we already have. The rest is
+$Q_{j,E \setminus \{s\}}$ and $Q_{jj}$, which come from one matvec $Q e_j$ per screened
+variable, shared by all $s$. For a GLM, $Q$ is the `Q_hat` used for selection. We do
+not refit the model $F$ or recompute its information matrix.
+
+Equivalently, with $G = E \cup \{j\}$ and $M = Q_{G,G}^{-1}$, dropping $s$ from $G$ gives
+
+$$
+\hat{\theta}_{s,j} = \hat{\beta}_{j \cdot G} - \frac{M_{js}}{M_{ss}}\, \hat{\beta}_{s \cdot G}.
+$$
+
+This is the screened coefficient of $j$ minus a multiple of the coefficient of $s$ in the same
+model. Because $x_j$ and $x_s$ are correlated, part of the effect of $s$ moves onto $j$. The
+contrast is linear in $Z$, so the polyhedral lemma applies with the screening constraints we
+already have.
+
+## Setup
+
+We use two designs, each with $n = 100$ observations, $p = 300$ features and 15 nonzero
+coefficients on every 20th feature, and $\sigma^2 = 1$ treated as known:
+
+1. **Independent features** with signals of size $3/\sqrt{n}$. Here, ignoring the screening
+   step badly breaks inference.
+2. **AR(1) features**, with $\text{corr}(x_i, x_l) = \rho^{|i - l|}$, $\rho = 0.8$, and signals
+   of size $5/\sqrt{n}$. Each signal's neighbors are correlated null features that can stand in
+   for it, so this design produces surrogates.
+
+Selection uses a randomized response $y_{noisy} = y + \epsilon$ with
+$\epsilon \sim N(0, \frac{1-\pi}{\pi}\sigma^2 I)$ and $\pi = 0.8$.
+
+The package reports variables (`li$E`, `screen$screened`) 0-based. In this vignette we add
+1 and work with ordinary R indices.
+
+```{r}
+library(lassoinf)
+
+n <- 100; p <- 300; k <- 15
+pi_selection <- 0.8
+scalar_noise <- (1 - pi_selection) / pi_selection   # Var(omega) = scalar_noise * Sigma
+signals <- seq(1, p, by = p / k)
+
+make_data <- function(rho, amp) {
+  # AR(1) columns: corr(x_i, x_l) = rho^|i - l|; rho = 0 gives independent columns
+  X <- matrix(rnorm(n * p), n, p)
+  for (i in 2:p) X[, i] <- rho * X[, i - 1] + sqrt(1 - rho^2) * X[, i]
+  beta <- numeric(p)
+  beta[signals] <- amp / sqrt(n) * sample(c(-1, 1), k, replace = TRUE)
+  mu <- drop(X %*% beta)
+  y <- mu + rnorm(n)
+  y_noisy <- y + rnorm(n, sd = sqrt(scalar_noise))
+  list(X = X, beta = beta, mu = mu, y = y, y_noisy = y_noisy)
+}
+```
+
+We fit the LASSO $\frac{1}{2}\|y_{noisy} - Xb\|^2 + \lambda \|b\|_1$ with `glmnet`. glmnet
+scales the loss by $1/n$, so we pass it $\lambda / n$. $Q = X'X$ and $\Sigma = \sigma^2 X'X$
+are matrix-free operators.
+
+```{r}
+lam <- 0.8 * sqrt(2 * n * log(p))
+
+lasso_inference <- function(d) {
+  fit <- glmnet::glmnet(d$X, d$y_noisy, lambda = lam / n, intercept = FALSE,
+                        standardize = FALSE, thresh = 1e-14)
+  beta_hat <- as.numeric(coef(fit))[-1]
+  beta_hat[abs(beta_hat) < 1e-6] <- 0
+  G_hat <- drop(crossprod(d$X, d$X %*% beta_hat - d$y_noisy))
+  Q <- xtvx_operator(d$X)
+  LassoInference$new(beta_hat, G_hat, Q, rep(lam, p), NULL, NULL,
+                     drop(crossprod(d$X, d$y)), Q, NULL, scalar_noise, level = 0.9)
+}
+```
+
+### Swap estimands
+
+`swap_estimands` builds the contrasts $\eta_{s,j}$. It stores $Q_{E,E} = W^{-1}$ and caches
+the column $Q e_j$ of each screened variable. Each contrast then costs one
+$|E| \times |E|$ solve.
+
+```{r}
+swap_estimands <- function(li) {
+  E <- li$E + 1
+  Q_EE <- solve(li$W)
+  Q_EE <- (Q_EE + t(Q_EE)) / 2
+  cache <- new.env()
+  column <- function(j) {
+    key <- as.character(j)
+    if (is.null(cache[[key]])) {
+      e_j <- numeric(p); e_j[j] <- 1
+      cache[[key]] <- drop(li$Q_hat$multiply(e_j))
+    }
+    cache[[key]]
+  }
+  # F = (E minus {s}) plus {j}, with j last
+  model <- function(s, j) c(E[E != s], j)
+  swap_coef <- function(s, j) {
+    if (!(s %in% E) || j %in% E) stop("need s in E and j not in E")
+    Q_j <- column(j)
+    keep <- E != s
+    F <- model(s, j)
+    m <- length(F)
+    Q_FF <- matrix(0, m, m)
+    Q_FF[-m, -m] <- Q_EE[keep, keep]
+    Q_FF[-m, m] <- Q_FF[m, -m] <- Q_j[F[-m]]
+    Q_FF[m, m] <- Q_j[j]
+    eta <- numeric(p)
+    eta[F] <- solve(Q_FF, c(numeric(m - 1), 1))
+    contrast_estimand(eta)
+  }
+  list(model = model, swap_coef = swap_coef)
+}
+```
+
+`analyze` runs the whole pipeline on one data set. It fits the LASSO, screens the top 10
+inactive variables with the unchanged `ScreenedSelection`, and then loops over every pair
+$(s, j)$, giving $|E| \times 10$ estimands. `estimand_summary` with the `ScreenedSelection`
+conditions on both selection steps. The target $\eta_{s,j}' X'\mu$ is shown in the `truth`
+column.
+
+```{r}
+swap_table <- function(selection, swaps, selected, screened) {
+  pairs <- expand.grid(added = screened, dropped = selected)[, c("dropped", "added")]
+  estimands <- Map(swaps$swap_coef, pairs$dropped, pairs$added)
+  names(estimands) <- paste(pairs$dropped, pairs$added, sep = ":")
+  df <- estimand_summary(selection, estimands)
+  list(table = cbind(pairs, df[, -1]), estimands = estimands)
+}
+
+analyze <- function(d) {
+  li <- lasso_inference(d)
+  screen <- ScreenedSelection$new(li, top_k = 10)
+  swaps <- swap_estimands(li)
+  E <- li$E + 1; screened <- screen$screened + 1
+  cat(length(E), "active variables,", sum(d$beta[E] != 0), "of them true signals;",
+      sum(d$beta[-E] != 0), "true signals were left out\n")
+  cat("screened:", screened, "\n")
+  st <- swap_table(screen, swaps, E, screened)
+  tab <- st$table
+  tab$truth <- sapply(st$estimands, estimand_value, Z = drop(crossprod(d$X, d$mu)))
+  tab$dropped_signal <- d$beta[tab$dropped] != 0
+  tab$added_signal <- d$beta[tab$added] != 0
+  tab$adjacent <- abs(tab$dropped - tab$added) <= 2
+  rownames(tab) <- NULL
+  list(li = li, screen = screen, swaps = swaps, E = E, screened = screened,
+       table = tab, estimands = st$estimands)
+}
+
+p_value_grid <- function(tab) round(xtabs(p_value ~ dropped + added, tab), 3)
+```
+
+To compare, we also compute the LASSO-only tests, which use the LASSO constraints but ignore
+the screening step, and naive tests that ignore selection altogether:
+
+```{r}
+naive_p_value <- function(li, est) {
+  sd <- sqrt(li$si$compute_contrast(est$eta)$naive_variance)
+  2 * pnorm(-abs(estimand_value(est, li$Z_full)) / sd)
+}
+
+compare_p_values <- function(a) {
+  lasso_only <- swap_table(a$li, a$swaps, a$E, a$screened)$table
+  data.frame(a$table[, c("dropped", "added")],
+             screened = a$table$p_value,
+             lasso_only = lasso_only$p_value,
+             naive = sapply(a$estimands, naive_p_value, li = a$li), row.names = NULL)
+}
+```
+
+For repeated experiments, we record for each pair $(s, j)$ whether the 90% interval covers
+$\eta_{s,j}' X'\mu$, and whether the test rejects at level 0.1. Intervals from the same data
+set are dependent, so the averages are over both replications and pairs.
+
+```{r}
+one_replication <- function(rho, amp) {
+  d <- make_data(rho, amp)
+  li <- lasso_inference(d)
+  screen <- ScreenedSelection$new(li, top_k = 10)
+  swaps <- swap_estimands(li)
+  Z_mu <- drop(crossprod(d$X, d$mu))
+  q <- qnorm(0.95)
+  rows <- list()
+  for (s in li$E + 1) for (j in screen$screened + 1) {
+    est <- swaps$swap_coef(s, j)
+    target <- estimand_value(est, Z_mu)
+    sd <- sqrt(li$si$compute_contrast(est$eta)$naive_variance)
+    theta <- estimand_value(est, li$Z_full)
+    info <- data.frame(dropped_signal = d$beta[s] != 0, added_signal = d$beta[j] != 0,
+                       adjacent = abs(s - j) <= 2)
+    for (method in c("screened", "lasso only")) {
+      res <- contrast_inference(if (method == "screened") screen else li, est)
+      rows[[length(rows) + 1]] <- data.frame(method = method,
+        cover = res$lower_conf <= target && target <= res$upper_conf,
+        length = res$upper_conf - res$lower_conf, reject = res$p_value < 0.1, info)
+    }
+    rows[[length(rows) + 1]] <- data.frame(method = "naive", cover = abs(theta - target) <= q * sd,
+      length = 2 * q * sd, reject = abs(theta) > q * sd, info)
+  }
+  do.call(rbind, rows)
+}
+
+simulate <- function(rho, amp, nsim, seed = 1) {
+  set.seed(seed)
+  do.call(rbind, replicate(nsim, one_replication(rho, amp), simplify = FALSE))
+}
+
+coverage_table <- function(results) {
+  data.frame(coverage = tapply(results$cover, results$method, mean),
+             median_length = tapply(results$length, results$method, median))
+}
+```
+
+## Example 1: independent features
+
+```{r}
+set.seed(0)
+d <- make_data(rho = 0, amp = 3)
+a <- analyze(d)
+```
+
+As a check, the estimate is the least squares coefficient of $x_j$ on $X_F$:
+
+```{r}
+s <- a$E[1]; j <- a$screened[1]
+F <- a$swaps$model(s, j)
+c(ols = unname(tail(qr.solve(d$X[, F], d$y), 1)),
+  swap = estimand_value(a$swaps$swap_coef(s, j), a$li$Z_full))
+```
+
+```{r}
+head(a$table, 10)
+```
+
+The p-values are easier to read as a grid, with selected variables as rows and screened
+variables as columns:
+
+```{r}
+p_value_grid(a$table)
+```
+
+A small p-value in row $s$, column $j$ means that $x_j$ still carries signal once $x_s$ is
+removed from the model. When $x_j$ is a surrogate for $x_s$ these p-values are small in row
+$s$ and large in the other rows. A screened variable whose p-value is small in every row is a
+candidate for a missed signal in its own right. With independent features, most columns of
+the grid change little from row to row: dropping one selected variable barely changes the
+coefficient of $x_j$.
+
+### Does screening matter?
+
+The three sets of p-values for the same pairs:
+
+```{r}
+head(compare_p_values(a), 10)
+```
+
+Over 50 replications:
+
+```{r}
+results_indep <- simulate(rho = 0, amp = 3, nsim = 50)
+coverage_table(results_indep)
+with(results_indep, tapply(reject, list(method, added_signal = added_signal), mean))
+```
+
+Only the intervals that condition on the screening step come close to the nominal 90% coverage.
+When the added variable is null, the screened tests reject at about the nominal 10%, and the
+LASSO-only and naive tests reject far more often. With independent features,
+$M_{js} \approx 0$ in the decomposition above, so $\hat{\theta}_{s,j}$ is nearly the screened
+coefficient $\hat{\beta}_{j \cdot G}$. That coefficient is large partly because $x_j$ was
+chosen for its large gradient, which is the selection effect that screening accounts for.
+
+## Example 2: correlated features and surrogates
+
+```{r}
+set.seed(0)
+d <- make_data(rho = 0.8, amp = 5)
+a <- analyze(d)
+```
+
+The interesting pairs are a selected null variable next to a screened true signal: the
+LASSO chose $x_s$ in place of the nearby $x_j$. Here are the pairs at distance at most 2:
+
+```{r}
+a$table[a$table$adjacent, ]
+```
+
+```{r}
+p_value_grid(a$table)
+```
+
+For each surrogate pair (a selected null $s$ next to a screened signal $j$), we compare the
+p-value in row $s$ with the median of column $j$ over the other rows:
+
+```{r}
+surrogate_pairs <- a$table[a$table$adjacent & !a$table$dropped_signal & a$table$added_signal, ]
+surrogate_pairs$median_other_rows <- sapply(seq_len(nrow(surrogate_pairs)), function(i) {
+  col <- a$table[a$table$added == surrogate_pairs$added[i], ]
+  median(col$p_value[col$dropped != surrogate_pairs$dropped[i]])
+})
+surrogate_pairs[, c("dropped", "added", "p_value", "median_other_rows")]
+```
+
+```{r}
+head(compare_p_values(a), 10)
+```
+
+Over 30 replications:
+
+```{r}
+results_ar <- simulate(rho = 0.8, amp = 5, nsim = 30)
+coverage_table(results_ar)
+with(results_ar, tapply(reject, list(method, dropped_signal = dropped_signal,
+                                     added_signal = added_signal), mean))
+```
+
+When the added variable is null, the target $\beta_{j \cdot F}$ is not exactly zero. If $x_j$
+is correlated with the dropped $x_s$ and $x_s$ carries signal, the coefficient of $x_j$
+absorbs part of that signal. The table below restricts to the surrogate pairs, where a
+selected null sits next to a screened signal:
+
+```{r}
+surrogate <- subset(results_ar, adjacent & !dropped_signal & added_signal)
+data.frame(pairs = tapply(surrogate$reject, surrogate$method, length),
+           coverage = tapply(surrogate$cover, surrogate$method, mean),
+           reject = tapply(surrogate$reject, surrogate$method, mean))
+```
+
+Conditioning on screening can be changed through `ScreenedSelection`, for example
+`ScreenedSelection$new(li, top_k = 10, conditioning = "exact")` or a `threshold`. The swap
+contrasts do not depend on that choice.

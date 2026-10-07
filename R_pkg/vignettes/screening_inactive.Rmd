@@ -1,0 +1,224 @@
+---
+title: "Screening inactive variables"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Screening inactive variables}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+After the LASSO selects an active set $E$, it is natural to ask about the variables it left
+out. A common heuristic looks at the KKT "near misses": the inactive variables whose
+gradient at the LASSO solution is largest in absolute value. Here we keep the **top 10**
+inactive variables by $|\nabla \ell(\hat{\beta})_j|$ and, for each, test its coefficient in the
+model $E \cup \{j\}$.
+
+Both the LASSO and the screening step look at the data, so naive tests of the screened
+variables are invalid. `ScreenedSelection` adds the screening step to the selection event,
+and the polyhedral lemma then gives valid intervals and p-values.
+
+## The selection event in two coordinates
+
+With $Q = X'X$ and $W = Q_{E,E}^{-1}$, the LASSO selection event depends on the data
+only through
+
+- $\bar{\beta}_E = W Z_E = (X_E'X_E)^{-1}X_E'y$, via the active sign constraints;
+- the inactive scores $U_{-E} = Z_{-E} - Q_{-E,E} W Z_E = X_{-E}'(I - P_E)y$, via the
+  subgradient constraints $|\nabla \ell(\hat{\beta})_j| \leq \lambda$.
+
+On the selection event the inactive gradient at the LASSO solution is
+$\nabla \ell(\hat{\beta})_{-E} = -U_{-E}(Z + \omega) + \text{const}$, an affine function of the same
+coordinates, where $Z + \omega$ is the randomized score used for selection. Keeping the top $K$
+variables by $|\nabla \ell(\hat{\beta})_j|$, with the signs of their gradients, is then also a
+polyhedral event:
+
+- **`conditioning = "first_dropped"`** (default): also condition on the largest dropped
+  variable $l^*$ and its sign $s^*$. This gives the rows $s_k G_k \geq s^* G_{l^*}$ for kept $k$
+  and $|G_l| \leq s^* G_{l^*}$ for the other dropped $l$, which is $O(p)$ rows.
+- **`conditioning = "exact"`**: the pairwise rows $s_k G_k \geq |G_l|$ for every kept $k$ and
+  dropped $l$, which is $2K(p - |E| - K)$ rows. It conditions on less, at the price of more
+  constraints.
+
+The coefficient of inactive variable $j$ in the model $E \cup \{j\}$ is $U_j / S_{jj}$ with
+$S_{jj} = Q_{jj} - Q_{j,E} W Q_{E,j}$: a contrast $\eta'Z$ in the same coordinates. All of
+this is computed with matrix-vector products by $Q$, so $X'X$ is never formed.
+
+## Data: a wide design
+
+We take $n = 100$ observations and $p = 300$ features, with 15 nonzero coefficients of
+moderate size, and treat $\sigma^2 = 1$ as known. Selection uses a randomized response
+$y_{noisy} = y + \epsilon$ with $\epsilon \sim N(0, \frac{1-\pi}{\pi}\sigma^2 I)$ and $\pi = 0.8$.
+
+```{r}
+library(lassoinf)
+
+n <- 100; p <- 300; k <- 15
+pi_selection <- 0.8
+scalar_noise <- (1 - pi_selection) / pi_selection   # Var(omega) = scalar_noise * Sigma
+
+make_data <- function() {
+  X <- matrix(rnorm(n * p), n, p)
+  beta <- numeric(p)
+  beta[1:k] <- 3 / sqrt(n) * sample(c(-1, 1), k, replace = TRUE)
+  mu <- drop(X %*% beta)
+  y <- mu + rnorm(n)
+  y_noisy <- y + rnorm(n, sd = sqrt(scalar_noise))
+  list(X = X, beta = beta, mu = mu, y = y, y_noisy = y_noisy)
+}
+
+set.seed(0)
+d <- make_data()
+```
+
+## Fit the LASSO on the randomized data
+
+We fit $\frac{1}{2}\|y_{noisy} - Xb\|^2 + \lambda \|b\|_1$ with `glmnet`, which scales the loss
+by $1/n$, so we pass it $\lambda / n$. $Q = X'X$ and $\Sigma = \sigma^2 X'X$ are matrix-free
+operators.
+
+```{r}
+lam <- 0.8 * sqrt(2 * n * log(p))
+
+lasso_inference <- function(d) {
+  fit <- glmnet::glmnet(d$X, d$y_noisy, lambda = lam / n, intercept = FALSE,
+                        standardize = FALSE, thresh = 1e-14)
+  beta_hat <- as.numeric(coef(fit))[-1]
+  beta_hat[abs(beta_hat) < 1e-6] <- 0
+  G_hat <- drop(crossprod(d$X, d$X %*% beta_hat - d$y_noisy))
+  Q <- xtvx_operator(d$X)
+  LassoInference$new(beta_hat, G_hat, Q, rep(lam, p), NULL, NULL,
+                     drop(crossprod(d$X, d$y)), Q, NULL, scalar_noise, level = 0.9)
+}
+
+li <- lasso_inference(d)
+E <- li$E + 1   # the package reports 0-based indices
+cat(length(E), "active variables,", sum(d$beta[E] != 0), "of them true signals;",
+    sum(d$beta[-E] != 0), "true signals were left out\n")
+```
+
+## Screen the top 10 inactive variables
+
+```{r}
+screen <- ScreenedSelection$new(li, top_k = 10)
+screen$screened + 1
+screen$screened_signs
+c(first_dropped = screen$first_dropped + 1, sign = screen$first_dropped_sign)
+c(lasso_rows = li$A$rows(), screening_rows = screen$A_screen$rows())
+```
+
+`inactive_summary` gives the coefficient of each screened variable in the model $E \cup \{j\}$,
+conditional on both selection steps. Its target is the population coefficient
+$\eta_j' X'\mu$, the coefficient of $x_j$ in the regression of $\mu = E[y]$ on $X_{E \cup \{j\}}$.
+Its `index` column is 0-based.
+
+```{r}
+coords <- SelectionCoordinates$new(li)
+Z_mu <- drop(crossprod(d$X, d$mu))
+
+screened_df <- inactive_summary(screen)
+screened_df$truth <- sapply(screened_df$index, function(j) estimand_value(coords$inactive_coef(j), Z_mu))
+screened_df$signal <- d$beta[screened_df$index + 1] != 0
+screened_df
+```
+
+### Ignoring the screening step
+
+Using the LASSO constraints alone treats the 10 variables as if they had been chosen in
+advance, and naive intervals ignore selection altogether. Both are shown for the same
+variables:
+
+```{r}
+naive_p_value <- function(li, est) {
+  sd <- sqrt(li$si$compute_contrast(est$eta)$naive_variance)
+  2 * pnorm(-abs(estimand_value(est, li$Z_full)) / sd)
+}
+
+data.frame(variable = screen$screened + 1,
+           screened = inactive_summary(screen)$p_value,
+           lasso_only = inactive_summary(li, variables = screen$screened)$p_value,
+           naive = sapply(screen$screened, function(j) naive_p_value(li, coords$inactive_coef(j))),
+           signal = d$beta[screen$screened + 1] != 0)
+```
+
+Ignoring the screening step tends to give smaller p-values, since variables are kept
+*because* their gradients are large. The repeated experiments below show that those
+smaller p-values are not valid.
+
+### The LASSO-solution basis
+
+The same estimands can be centered at the LASSO solution instead of the refit: with
+`basis = "lasso"` the coefficient is the one-step estimate $-\nabla \ell(\hat{\beta})_j / S_{jj}$.
+It uses the same contrast, so the intervals are shifted copies of the refit intervals, and
+the estimand is shifted by the same constant. The p-values change because $\theta = 0$ is now a
+null hypothesis about the shifted estimand.
+
+```{r}
+head(inactive_summary(screen, basis = "lasso"))
+```
+
+### First-dropped versus exact conditioning
+
+```{r}
+exact <- ScreenedSelection$new(li, top_k = 10, conditioning = "exact")
+c(first_dropped = screen$A_screen$rows(), exact = exact$A_screen$rows())
+cols <- c("lower_conf", "upper_conf", "p_value")
+cbind(index = screen$screened,
+      first_dropped = inactive_summary(screen)[, cols],
+      exact = inactive_summary(exact)[, cols])
+```
+
+Conditioning on the first-dropped variable restricts the selection event further, so its
+truncation intervals are subsets of the exact ones, and often the same.
+
+## Coverage over repeated experiments
+
+We repeat the experiment and record, for each screened variable, whether the 90% interval covers
+its target. With 50 replications that is 500 intervals per method.
+
+```{r}
+one_replication <- function() {
+  d <- make_data()
+  li <- lasso_inference(d)
+  screen <- ScreenedSelection$new(li, top_k = 10)
+  coords <- SelectionCoordinates$new(li)
+  Z_mu <- drop(crossprod(d$X, d$mu))
+  q <- qnorm(0.95)
+  rows <- list()
+  for (j in screen$screened) {
+    est <- coords$inactive_coef(j)
+    target <- estimand_value(est, Z_mu)
+    sd <- sqrt(li$si$compute_contrast(est$eta)$naive_variance)
+    theta <- estimand_value(est, li$Z_full)
+    signal <- d$beta[j + 1] != 0
+    for (method in c("screened", "lasso only")) {
+      res <- contrast_inference(if (method == "screened") screen else li, est)
+      rows[[length(rows) + 1]] <- data.frame(method = method,
+        cover = res$lower_conf <= target && target <= res$upper_conf,
+        length = res$upper_conf - res$lower_conf, reject = res$p_value < 0.1, signal = signal)
+    }
+    rows[[length(rows) + 1]] <- data.frame(method = "naive", cover = abs(theta - target) <= q * sd,
+      length = 2 * q * sd, reject = abs(theta) > q * sd, signal = signal)
+  }
+  do.call(rbind, rows)
+}
+
+set.seed(1)
+results <- do.call(rbind, replicate(50, one_replication(), simplify = FALSE))
+data.frame(coverage = tapply(results$cover, results$method, mean),
+           median_length = tapply(results$length, results$method, median))
+```
+
+Only the intervals that condition on the screening step come close to the nominal 90% coverage.
+Rejection rates at level 0.1, split by whether the screened variable is a true signal:
+
+```{r}
+with(results, tapply(reject, list(method, signal = signal), mean))
+```
+
+Among screened null variables, the screened tests reject at about the nominal 10%, while the
+naive and LASSO-only tests reject far more often. The screened tests still find a share of
+the true signals the LASSO missed.
