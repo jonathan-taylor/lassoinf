@@ -76,3 +76,14 @@ test_that("TruncBivariateNormal coverage mean", {
   cov_rate_tbn <- coverage_tbn / n_sim
   expect_true(cov_rate_tbn >= 0.85 && cov_rate_tbn <= 0.95)
 })
+test_that("equal-tailed interval is finite when the tail cdf underflows", {
+  # truncation far in the upper tail: the cdf is NaN for large theta
+  variance <- 0.02133014; bar_s <- 0.4381453
+  tbn <- TruncBivariateNormal$new(a_coeff = bar_s^2 / variance, b_coeff = 1,
+                                  L = 2.421824, U = 3232.772,
+                                  sig_omega = bar_s, sig_x = sqrt(variance))
+  interval <- tbn$equal_tailed_interval(0.4908968, alpha = 0.1) * variance
+  expect_true(all(is.finite(interval)))
+  # same answer as the Python implementation
+  expect_equal(interval, c(0.16203871, 0.72926281), tolerance = 1e-4)
+})

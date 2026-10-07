@@ -138,7 +138,8 @@ TruncBivariateNormal <- R6::R6Class("TruncBivariateNormal",
     ccdf = function(theta, x=NULL, gamma=0) {
       if (is.null(x)) stop("ccdf requires an observation x for TruncBivariateNormal")
       stats <- self$.get_stats(theta, x)
-      if (!is.null(stats$error)) {
+      # far in the tail the conditional stats can underflow to NaN
+      if (!is.null(stats$error) || is.nan(stats$stats$p_x_gt_t_cond)) {
         mu_x <- theta * self$sig_x^2
         if (mu_x > x) return(1.0) else return(0.0)
       }

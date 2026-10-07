@@ -68,3 +68,7 @@ Thumbs.db
 subprojects/*
 !subprojects/eigen/
 !subprojects/*.wrap
+
+*~
+# Jupyter Book build output
+docs/_build/

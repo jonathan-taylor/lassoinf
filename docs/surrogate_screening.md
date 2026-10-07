@@ -295,8 +295,10 @@ A small p-value in row $s$, column $j$ means that $x_j$ still carries signal onc
 $x_s$ is removed from the model. When $x_j$ is a surrogate for $x_s$ these p-values are small
 in row $s$ and large in the other rows. A screened variable whose p-value is small in every
 row is a candidate for a missed signal in its own right, as in [](screening_inactive.md).
-With independent features, the columns of the grid are nearly constant: dropping one selected
-variable barely changes the coefficient of $x_j$.
+With independent features, most columns of the grid change little from row to row: dropping
+one selected variable barely changes the coefficient of $x_j$. The exception is row 160.
+Dropping that true signal moves several p-values, because $x_{160}$ has some sample correlation
+with the screened variables.
 
 ### Does screening matter?
 
@@ -306,7 +308,7 @@ The three sets of p-values for the same pairs:
 compare_p_values(LI, screen, swaps, swap_df, swap_estimands).head(10)
 ```
 
-The naive p-values are much smaller. Over 50 replications:
+The LASSO-only and naive p-values are often much smaller. Over 50 replications:
 
 ```{code-cell} ipython3
 results_indep = simulate(rho=0., amp=3, nsim=50)

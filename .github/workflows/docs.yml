@@ -1,4 +1,5 @@
-# This file was created automatically with `myst init --gh-pages` 
+# Build the Jupyter Book in docs/ and deploy it to GitHub Pages.
+# Requires Settings -> Pages -> Source: "GitHub Actions".
 
 name: Docs
 on:
@@ -12,7 +13,6 @@ on:
 
 env:
   # `BASE_URL` determines the website is served from, including CSS & JS assets
-  # You may need to change this to `BASE_URL: ''`
   BASE_URL: /${{ github.event.repository.name }}
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
@@ -34,35 +34,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # This logic uses the input if it exists, otherwise defaults to the current ref (main)
-          ref: ${{ github.event.inputs.tag_name || github.ref }}
-          fetch-depth: 0 # Important for your get-version.py script to see tags!
+          ref: ${{ github.event.inputs.tag_name }}
+          fetch-depth: 0 # setuptools_scm needs the tags
           submodules: recursive
 
       - name: Setup Pages
-        uses: actions/configure-pages@v3
+        uses: actions/configure-pages@v5
 
+      # Jupyter Book 2 runs on Node
       - uses: actions/setup-node@v4
         with:
-          node-version: 18.x
+          node-version: 20.x
 
-      - name: Install MyST Markdown
-        run: npm install -g mystmd
-
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
-      - name: Set up R
-        uses: r-lib/actions/setup-r@v2
-
-      - name: Install package
+      - name: Install package and Jupyter Book
         run: |
           pip install --upgrade pip
-          pip install meson-python ninja meson pybind11 setuptools_scm pytest pandas joblib jupyterlab
+          pip install meson-python ninja meson pybind11 setuptools_scm
           pip install .[test]
+          pip install "jupyter-book>=2" ipykernel matplotlib
 
-      - name: Build HTML Assets
-        run: cd docs && myst build --html  --execute
+      - name: Build HTML
+        run: |
+          cd docs
+          jupyter-book build --html --execute
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
