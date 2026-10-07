@@ -68,3 +68,5 @@ Thumbs.db
 subprojects/*
 !subprojects/eigen/
 !subprojects/*.wrap
+
+*~
