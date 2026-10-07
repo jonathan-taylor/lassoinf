@@ -70,3 +70,5 @@ subprojects/*
 !subprojects/*.wrap
 
 *~
+# Jupyter Book build output
+docs/_build/
