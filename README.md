@@ -2,6 +2,8 @@
 
 `lassoinf` provides selective inference tools leveraging a high-performance C++ backend. It is a hybrid codebase written in Python and C++, utilizing `pybind11` for bindings and the `Eigen` library for fast linear algebra.
 
+**Documentation:** https://jonathan-taylor.github.io/lassoinf/
+
 ## Features
 
 - **Affine Constraints**: Core numerical tools for inference tasks.
@@ -97,7 +99,7 @@ Rscript -e 'testthat::test_dir("tests/testthat")'
 
 ## Documentation
 
-For more information, refer to the documentation in the `docs/` folder. For the R package, you can view the vignette:
+The documentation, with worked examples, is at https://jonathan-taylor.github.io/lassoinf/. It is built from the Jupyter Book sources in `docs/`. For the R package, you can view the vignette:
 
 ```R
 vignette("gaussian_lasso_boot", package = "lassoinf")
