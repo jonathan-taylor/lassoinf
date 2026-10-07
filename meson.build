@@ -14,6 +14,7 @@ py.install_sources(
   'python/lassoinf/affine_constraints.py',
   'python/lassoinf/lasso.py',
   'python/lassoinf/glmnet.py',
+  'python/lassoinf/glm_problem.py',
   'python/lassoinf/custom_estimand.py',
   subdir: 'lassoinf'
 )
