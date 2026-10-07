@@ -20,6 +20,7 @@ project:
         - file: gaussian_lasso_no_random.md
         - file: gaussian_lasso_ridge.md
         - file: screening_inactive.md
+        - file: surrogate_screening.md
     - file: logistic_lasso.md
 
 site:
