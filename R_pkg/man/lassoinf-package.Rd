@@ -43,11 +43,8 @@ Authors:
   \item Jonathan Taylor \email{jtaylo@stanford.edu} [copyright holder]
   \item Kevin Fry
   \item Snigdha Panigrahi
-}
-
-Other contributors:
-\itemize{
-  \item Sifan Liu (truncated bivariate normal computations, see inst/COPYRIGHTS) [contributor, copyright holder]
+  \item Alden Green
+  \item Sifan Liu (truncated bivariate normal computations, see inst/COPYRIGHTS) [copyright holder]
 }
 
 }

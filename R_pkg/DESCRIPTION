@@ -6,7 +6,8 @@ Authors@R: c(
            role = c("aut", "cre", "cph")),
     person("Kevin", "Fry", role = "aut"),
     person("Snigdha", "Panigrahi", role = "aut"),
-    person("Sifan", "Liu", role = c("ctb", "cph"),
+    person("Alden", "Green", role = "aut"),
+    person("Sifan", "Liu", role = c("aut", "cph"),
            comment = "truncated bivariate normal computations, see inst/COPYRIGHTS"))
 Description: Confidence intervals and p-values for parameters chosen by the
     (randomized) lasso, valid after selection. Implements the polyhedral
