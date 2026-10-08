@@ -134,9 +134,11 @@ class AffineConstraints:
         if self.Q_noise is None:
             if not self.scalar_noise >= 0:
                 raise ValueError('if Q_noise is None, scalar_noise must be >= 0')
-            if self.scalar_noise is None or self.scalar_noise < 0.001:
+            # scalar_noise=0 is no randomization, approximated by 0.001 (selection on a
+            # proportion 1 / 1.001 of the information); same as the R package
+            if 0 < self.scalar_noise < 0.001:
                 warnings.warn('For numerical stability using scalar_noise=0.001')
-                self.scalar_noise = 0.001
+            self.scalar_noise = max(self.scalar_noise, 0.001)
                 
     def solve_contrast(self, v: np.ndarray) -> np.ndarray:
         """

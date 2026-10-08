@@ -1,0 +1,148 @@
+---
+title: "Inference after a glmnet fit without randomization"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Inference after a glmnet fit without randomization}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      eval = requireNamespace("glmnet", quietly = TRUE))
+```
+
+The simplest use of `lassoinf` takes a standard `glmnet` fit on all the data, at a given
+$\lambda$, and gives intervals and p-values for the selected coefficients that account for
+the selection. Nothing is held out and no noise is added. This is the polyhedral approach of
+Lee et al. (2016), here with the linearization of a GLM used throughout the package.
+`glmnet_inference` does it in one call; we also show what it computes.
+
+## Setup
+
+glmnet divides the loss by the number of observations $n$. `glmnet_problem_from_fit` returns
+the LASSO solution $\hat{\beta}$, the gradient $G$ of the smooth part at $\hat{\beta}$, and the
+Hessian $\hat{Q}$, all in the original coordinates $(\text{intercept}, \beta)$. Linearizing
+the KKT conditions, the selection is a function of the score
+
+$$
+Z = -G + \hat{Q}\hat{\beta},
+$$
+
+a one-step estimator, $\hat{Q}$ times an approximation to the unpenalized MLE. With $I$ the
+per-observation Fisher information, $\text{Var}(Z) \approx I / n$. We take
+$\Sigma = \hat{Q} / n$. By default `glmnet_problem_from_fit` evaluates $\hat{Q}$ at the
+*relaxed* fit: one Newton step for the unpenalized loss on the intercept and the selected
+variables $E$ from the LASSO solution,
+$\tilde{\beta}_E = \hat{\beta}_E - H_{E,E}^{-1} \nabla \ell(\hat{\beta})_E$, with $H$ the Hessian
+at $\hat{\beta}$. At the LASSO solution
+$\nabla \ell(\hat{\beta})_E = -D_E \, \text{sign}(\hat{\beta}_E)$, so the step undoes the
+shrinkage of $\hat{\beta}$ toward zero, which makes the information at $\hat{\beta}$ overstate
+$I$. Pass `information = "lasso"` to use $\hat{Q} = H$.
+
+There is no randomization: the score used for selection is $Z$ itself, which is
+`scalar_noise = 0`.
+
+## Data and fit
+
+```{r}
+library(lassoinf)
+set.seed(0)
+
+n <- 600; p <- 30
+beta <- c(0.6, -0.6, 0.4, rep(0, p - 3))
+make_data <- function(n) {
+  X <- matrix(rnorm(n * p), n, p)
+  y <- rbinom(n, 1, plogis(drop(X %*% beta)))
+  list(X = X, y = y)
+}
+d <- make_data(n)
+
+lam <- 0.03
+lambda_path <- lam * exp(seq(log(10), 0, length.out = 30))
+fit <- glmnet::glmnet(d$X, d$y, family = "binomial", lambda = lambda_path, control = list(thresh = 1e-14))
+```
+
+We fit a path ending at $\lambda$ with a small `thresh`: `glmnet_problem_from_fit` warns if
+the fit does not satisfy the KKT conditions closely enough.
+
+## Inference
+
+```{r}
+li <- glmnet_inference(fit, d$X, d$y, s = lam, level = 0.9)
+summ <- li$summary()
+summ$variable <- ifelse(summ$index == 0, "(Intercept)", paste0("x", summ$index))
+summ
+```
+
+Index 0 is the intercept. The estimate for the selected model $E$ is $W Z_E$ with
+$W = \hat{Q}_{E,E}^{-1}$, and its target is $W (\hat{Q}\beta^*)_E$, with $\beta^* = (0, \beta)$.
+When $E$ contains all the true signals, this is $\beta^*_E$.
+
+```{r}
+target <- function(li) drop(li$W %*% (li$Q_hat %*% c(0, beta))[li$E + 1])
+summ$truth <- target(li)
+summ$cover <- summ$lower_conf <= summ$truth & summ$truth <= summ$upper_conf
+summ[, c("variable", "lower_conf", "upper_conf", "p_value", "truth", "cover")]
+```
+
+For comparison, `li$"_naive"` holds Wald intervals that ignore selection:
+
+```{r}
+li$`_naive`
+```
+
+`glmnet_inference` is the following, with `prob` the LASSO problem glmnet solved and
+`scalar_noise = 0` for no randomization:
+
+```{r}
+prob <- glmnet_problem_from_fit(fit, d$X, d$y, s = lam)
+Z <- -prob$G_hat + drop(prob$Q_hat %*% prob$beta_hat)
+li_manual <- LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D, prob$L, prob$U,
+                                Z_full = Z, Sigma = prob$Q_hat / n, scalar_noise = 0,
+                                level = 0.9)
+all.equal(li_manual$summary(), li$summary())
+```
+
+## For a gaussian response
+
+For `family = "gaussian"` the loss is $\frac{1}{2n}\|y - X\beta\|^2$, so
+$\hat{Q} = X'X / n$ and $\text{Var}(Z) = \sigma^2 \hat{Q} / n$. `glmnet_inference` estimates
+$\sigma^2$ from the full least squares fit when $n > p$; otherwise pass `dispersion`. The
+relaxed and LASSO information agree.
+
+## Coverage over repeated experiments
+
+```{r}
+one_replication <- function() {
+  d <- make_data(n)
+  fit <- glmnet::glmnet(d$X, d$y, family = "binomial", lambda = lambda_path, control = list(thresh = 1e-14))
+  li <- glmnet_inference(fit, d$X, d$y, s = lam, level = 0.9)
+  summ <- li$summary()
+  keep <- summ$index != 0   # report the selected variables, not the intercept
+  truth <- target(li)[keep]
+  tabs <- list(polyhedral = summ[keep, ], naive = li$`_naive`[keep, ])
+  data.frame(method = rep(names(tabs), each = sum(keep)),
+             cover = unlist(lapply(tabs, function(df) df$lower_conf <= truth & truth <= df$upper_conf)),
+             length = unlist(lapply(tabs, function(df) df$upper_conf - df$lower_conf)),
+             signal = rep(beta[summ$index[keep]] != 0, length(tabs)))
+}
+
+set.seed(1)
+results <- do.call(rbind, replicate(100, one_replication(), simplify = FALSE))
+with(results, tapply(cover, list(method, signal = signal), mean))
+with(results, tapply(length, list(method, signal = signal), median))
+```
+
+The naive intervals almost never cover for the selected null variables: they were selected
+because their estimates are large. The polyhedral intervals cover close to the nominal 90%
+for both, a little below on the true signals, which reflects the large-sample approximations
+behind the Gaussian model for $Z$. For strong signals, far from the selection boundary, they
+are about as long as the naive intervals. For variables selected near the boundary they are
+much longer. Randomization, for example carving as in
+`vignette("glmnet_logistic", package = "lassoinf")`, gives shorter intervals there.
+
+## Reference
+
+Lee, J. D., Sun, D. L., Sun, Y. and Taylor, J. E. (2016). Exact post-selection inference,
+with application to the lasso. *The Annals of Statistics*, 44(3), 907--927.

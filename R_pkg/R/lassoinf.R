@@ -1,7 +1,3 @@
-#' @useDynLib lassoinf, .registration=TRUE
-#' @importFrom Rcpp loadModule
-NULL
-
 loadModule("lassoinf_cpp", TRUE)
 
 # --- Bivariate Normal Implementation ---
@@ -15,8 +11,7 @@ bivariate_normal_cdf <- function(h, k, rho) {
   if (rho < -0.999999) {
     return(max(0, pnorm(h) + pnorm(k) - 1))
   }
-  
-  requireNamespace("mvtnorm", quietly = TRUE)
+
   sigma <- matrix(c(1, rho, rho, 1), 2, 2)
   as.numeric(mvtnorm::pmvnorm(upper = c(h, k), mean = c(0, 0), sigma = sigma))
 }
@@ -82,6 +77,11 @@ compute_gaussian_conditional_stats <- function(mu_x, sig_x, sig_omega, cx, comeg
 #' TruncBivariateNormal Class
 #'
 #' @description Evaluates exact bounds and inference parameters for the selectively truncated bivariate normal distribution.
+#' Follows the bivariate normal computations of Liu (2023).
+#'
+#' @references
+#' Liu, S. (2023). An exact sampler for inference after polyhedral model
+#' selection. \emph{arXiv preprint}. \doi{10.48550/arXiv.2308.10346}
 #'
 #' @export
 TruncBivariateNormal <- R6::R6Class("TruncBivariateNormal",
@@ -293,6 +293,15 @@ prox_lasso_bounds <- function(v, t, D, L, U) {
 #' This class mirrors the Python `lassoinf.LassoInference` dataclass, 
 #' providing identical parameters and functional parity.
 #'
+#' @references
+#' Tian, X. and Taylor, J. (2018). Selective inference with a randomized
+#' response. \emph{The Annals of Statistics}, 46(2), 679--710.
+#' \doi{10.1214/17-AOS1564}
+#'
+#' Panigrahi, S., Fry, K. and Taylor, J. (2024). Exact selective inference
+#' with randomization. \emph{Biometrika}, 111(4), 1109--1127.
+#' \doi{10.1093/biomet/asae019}
+#'
 #' @export
 LassoInference <- R6::R6Class("LassoInference",
   public = list(
@@ -330,7 +339,7 @@ LassoInference <- R6::R6Class("LassoInference",
     v_Ec = NULL,
     #' @field W Inverse of Q_hat restricted to the active set.
     W = NULL,
-    #' @field score Inactive score operator U_{-E} (\code{LinearOp}).
+    #' @field score Inactive score operator \code{U_{-E}} (a \code{LinearOp}).
     score = NULL,
     #' @field Z_noisy The score used for selection.
     Z_noisy = NULL,
@@ -362,7 +371,11 @@ LassoInference <- R6::R6Class("LassoInference",
     #' @param Z_full The unpenalized score.
     #' @param Sigma Covariance of Z_full.
     #' @param Sigma_noise Covariance of Z_noisy. Default is \code{NULL}.
-    #' @param scalar_noise Variance scaling if Sigma_noise is NULL. Default is \code{NaN}.
+    #' @param scalar_noise If \code{Sigma_noise} is \code{NULL}, the noise covariance is
+    #'   \code{scalar_noise * Sigma}. \code{scalar_noise = 0} is no randomization (the
+    #'   polyhedral lemma, with \code{Z_full} equal to the selection score
+    #'   \code{-G_hat + Q_hat beta_hat}); as in the Python package, values below 0.001 are
+    #'   raised to 0.001 for numerical stability. Default is \code{NaN}.
     #' @param tol Tolerance for active set and KKT conditions. Default is \code{1e-6}.
     #' @param level Confidence level. Default is 0.95.
     initialize = function(beta_hat, G_hat, Q_hat, D, L=NULL, U=NULL, Z_full, Sigma, Sigma_noise=NULL, scalar_noise=NaN, tol = 1e-6, level = 0.95) {
@@ -375,6 +388,11 @@ LassoInference <- R6::R6Class("LassoInference",
       self$Z_full <- Z_full
       self$Sigma <- Sigma
       self$Sigma_noise <- Sigma_noise
+      if (is.null(Sigma_noise)) {
+        if (!isTRUE(scalar_noise >= 0)) stop("if Sigma_noise is NULL, scalar_noise must be >= 0")
+        if (scalar_noise > 0 && scalar_noise < 0.001) warning("for numerical stability using scalar_noise = 0.001")
+        scalar_noise <- max(scalar_noise, 0.001)
+      }
       self$scalar_noise <- scalar_noise
       self$level <- level
       

@@ -3,18 +3,18 @@
 // [[Rcpp::depends(RcppEigen)]]
 
 // 1. Include the headers
-#include "../../cpp/include/affine_constraints.hpp"
-#include "../../cpp/include/discrete_family.h"
-#include "../../cpp/include/gaussian_family.hpp"
-#include "../../cpp/include/custom_estimand.hpp"
+#include "lassoinf/include/affine_constraints.hpp"
+#include "lassoinf/include/discrete_family.h"
+#include "lassoinf/include/gaussian_family.hpp"
+#include "lassoinf/include/custom_estimand.hpp"
 
 // 2. Unity build: include the C++ sources directly to avoid duplicate symbols
 //    and bypass the need for a complex Makefile to compile them individually.
-#include "../../cpp/src/affine_constraints.cpp"
-#include "../../cpp/src/lasso_post_selection_constraints.cpp"
-#include "../../cpp/src/discrete_family.cpp"
-#include "../../cpp/src/gaussian_family.cpp"
-#include "../../cpp/src/custom_estimand.cpp"
+#include "lassoinf/src/affine_constraints.cpp"
+#include "lassoinf/src/lasso_post_selection_constraints.cpp"
+#include "lassoinf/src/discrete_family.cpp"
+#include "lassoinf/src/gaussian_family.cpp"
+#include "lassoinf/src/custom_estimand.cpp"
 
 using namespace Rcpp;
 
@@ -110,6 +110,24 @@ std::shared_ptr<lassoinf::LinearOperator> as_operator(SEXP x) {
 
 SEXP wrap_operator(std::shared_ptr<lassoinf::LinearOperator> op) {
     return Rcpp::internal::make_new_object(new LinearOp(std::move(op)));
+}
+
+// c * op, sharing op (no copy of its data)
+class ScaledOperator : public lassoinf::LinearOperator {
+public:
+    ScaledOperator(std::shared_ptr<lassoinf::LinearOperator> op, double c) : op_(std::move(op)), c_(c) {}
+    Eigen::Index rows() const override { return op_->rows(); }
+    Eigen::Index cols() const override { return op_->cols(); }
+    Eigen::VectorXd multiply(const Eigen::VectorXd& x) const override { return c_ * op_->multiply(x); }
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& x) const override { return c_ * op_->multiply_transpose(x); }
+private:
+    std::shared_ptr<lassoinf::LinearOperator> op_;
+    double c_;
+};
+
+SEXP linear_op_scaled(LinearOp* L, double c) {
+    return Rcpp::internal::make_new_object(
+        new LinearOp(std::make_shared<ScaledOperator>(L->op, c), c * L->diag));
 }
 
 // ---- constraints ----
@@ -300,6 +318,7 @@ RCPP_MODULE(lassoinf_cpp) {
         .method("cols", &LinearOp::cols)
         .method("diagonal", &LinearOp::diagonal)
         .method("to_dense", &LinearOp::to_dense)
+        .method("scaled", &linear_op_scaled)
         ;
 
     class_<lassoinf::SelectionCoordinates>("SelectionCoordinatesCpp")

@@ -15,7 +15,8 @@
 #' @param X A numeric design matrix.
 #' @param weights Observation weights, length \code{nrow(X)}.
 #' @return A \code{LinearOp} with methods \code{multiply}, \code{multiply_transpose},
-#'   \code{rows}, \code{cols}, \code{diagonal} and \code{to_dense}.
+#'   \code{rows}, \code{cols}, \code{diagonal}, \code{to_dense} and \code{scaled(c)}
+#'   (\code{c} times the operator, sharing its data).
 #' @export
 dense_operator <- function(M) new(LinearOp, as.matrix(M))
 
@@ -64,7 +65,7 @@ estimand_value <- function(estimand, Z) sum(estimand$eta * Z) + estimand$offset
 #'
 #' @description The coordinates in which the selection constraints are expressed.
 #' With \code{basis = "refit"}: \code{bar_beta_E = W Z_E} and the inactive scores
-#' \code{U_{-E} = Z_{-E} - Q_{-E,E} W Z_E} (in OLS, \code{X_{-E}'(I - P_E) y}).
+#' \code{U_{-E} = Z_{-E} - Q_{-E,E} W Z_E} (in OLS, \code{t(X_{-E}) (I - P_E) y}).
 #' With \code{basis = "lasso"}: the LASSO solution \code{beta_hat_E} and the
 #' negative gradient at it, \code{-grad_{-E}}; these differ from the refit
 #' coordinates by constants, so they give the same contrast with a shifted value.
@@ -94,7 +95,7 @@ SelectionCoordinates <- R6::R6Class("SelectionCoordinates",
       self$E_c <- self$cpp$E_c()
     },
 
-    #' @description Contrast \code{eta} with \code{eta' Z = a_E' bar_beta_E + a_Ec' U_{-E}}.
+    #' @description Contrast \code{eta} with \code{sum(eta * Z) = sum(a_E * bar_beta_E) + sum(a_Ec * U_{-E})}.
     #' @param a_E Coefficients on \code{bar_beta_E} (or \code{NULL}).
     #' @param a_Ec Coefficients on \code{U_{-E}} (or \code{NULL}).
     contrast = function(a_E = NULL, a_Ec = NULL) {

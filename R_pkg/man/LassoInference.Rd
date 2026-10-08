@@ -8,72 +8,90 @@ Computes post-selection inference for the lasso.
 This class mirrors the Python `lassoinf.LassoInference` dataclass, 
 providing identical parameters and functional parity.
 }
-\section{Public fields}{
-\if{html}{\out{<div class="r6-fields">}}
-\describe{
-\item{\code{beta_hat}}{The lasso solution from the randomized objective.}
+\references{
+Tian, X. and Taylor, J. (2018). Selective inference with a randomized
+response. \emph{The Annals of Statistics}, 46(2), 679--710.
+\doi{10.1214/17-AOS1564}
 
-\item{\code{G_hat}}{The gradient at beta_hat of the unpenalized loss.}
-
-\item{\code{Q_hat}}{The Hessian / design matrix crossprod.}
-
-\item{\code{D}}{The penalty weights.}
-
-\item{\code{L}}{Lower bounds.}
-
-\item{\code{U}}{Upper bounds.}
-
-\item{\code{Z_full}}{The unpenalized score on the full data.}
-
-\item{\code{Sigma}}{Covariance matrix of Z_full.}
-
-\item{\code{Sigma_noise}}{Covariance matrix of the randomized score Z_noisy.}
-
-\item{\code{scalar_noise}}{Scalar controlling variance of noise if Sigma_noise is not provided.}
-
-\item{\code{A}}{Affine constraint matrix (from C++ backend).}
-
-\item{\code{b}}{Affine constraint vector (from C++ backend).}
-
-\item{\code{E}}{The active set (selected indices).}
-
-\item{\code{E_c}}{The inactive set.}
-
-\item{\code{s_E}}{Signs of the active set coefficients.}
-
-\item{\code{v_Ec}}{Values at the bounds for the inactive set.}
-
-\item{\code{si}}{AffineConstraints C++ wrapper instance.}
-
-\item{\code{intervals}}{Selective inference intervals.}
-
-\item{\code{splitting}}{Data splitting intervals.}
-
-\item{\code{naive}}{Naive intervals.}
-
-\item{\code{contrasts}}{The contrast vectors for inference.}
-
-\item{\code{_naive}}{Data frame storing naive results.}
-
-\item{\code{_splitting}}{Data frame storing data splitting results.}
+Panigrahi, S., Fry, K. and Taylor, J. (2024). Exact selective inference
+with randomization. \emph{Biometrika}, 111(4), 1109--1127.
+\doi{10.1093/biomet/asae019}
 }
-\if{html}{\out{</div>}}
+\section{Public fields}{
+  \if{html}{\out{<div class="r6-fields">}}
+  \describe{
+    \item{\code{beta_hat}}{The lasso solution from the randomized objective.}
+
+    \item{\code{G_hat}}{The gradient at beta_hat of the unpenalized loss.}
+
+    \item{\code{Q_hat}}{The Hessian / design matrix crossprod: a matrix or a \code{LinearOp}.}
+
+    \item{\code{D}}{The penalty weights.}
+
+    \item{\code{L}}{Lower bounds.}
+
+    \item{\code{U}}{Upper bounds.}
+
+    \item{\code{Z_full}}{The unpenalized score on the full data.}
+
+    \item{\code{Sigma}}{Covariance of Z_full: a matrix or a \code{LinearOp}.}
+
+    \item{\code{Sigma_noise}}{Covariance of the randomization noise: a matrix, a \code{LinearOp} or \code{NULL}.}
+
+    \item{\code{scalar_noise}}{Scalar controlling variance of noise if Sigma_noise is not provided.}
+
+    \item{\code{A}}{Affine constraints, a matrix-free \code{LinearOp} (from C++ backend).}
+
+    \item{\code{b}}{Affine constraint vector (from C++ backend).}
+
+    \item{\code{E}}{The active set (selected indices).}
+
+    \item{\code{E_c}}{The inactive set.}
+
+    \item{\code{s_E}}{Signs of the active set coefficients.}
+
+    \item{\code{v_Ec}}{Values at the bounds for the inactive set.}
+
+    \item{\code{W}}{Inverse of Q_hat restricted to the active set.}
+
+    \item{\code{score}}{Inactive score operator \code{U_{-E}} (a \code{LinearOp}).}
+
+    \item{\code{Z_noisy}}{The score used for selection.}
+
+    \item{\code{level}}{Confidence level.}
+
+    \item{\code{si}}{AffineConstraints C++ wrapper instance.}
+
+    \item{\code{intervals}}{Selective inference intervals.}
+
+    \item{\code{splitting}}{Data splitting intervals.}
+
+    \item{\code{naive}}{Naive intervals.}
+
+    \item{\code{contrasts}}{The contrast vectors for inference.}
+
+    \item{\code{_naive}}{Data frame storing naive results.}
+
+    \item{\code{_splitting}}{Data frame storing data splitting results.}
+  }
+  \if{html}{\out{</div>}}
 }
 \section{Methods}{
 \subsection{Public methods}{
-\itemize{
-\item \href{#method-LassoInference-new}{\code{LassoInference$new()}}
-\item \href{#method-LassoInference-summary}{\code{LassoInference$summary()}}
-\item \href{#method-LassoInference-clone}{\code{LassoInference$clone()}}
-}
+  \itemize{
+    \item \href{#method-LassoInference-initialize}{\code{LassoInference$new()}}
+    \item \href{#method-LassoInference-summary}{\code{LassoInference$summary()}}
+    \item \href{#method-LassoInference-clone}{\code{LassoInference$clone()}}
+  }
 }
 \if{html}{\out{<hr>}}
-\if{html}{\out{<a id="method-LassoInference-new"></a>}}
-\if{latex}{\out{\hypertarget{method-LassoInference-new}{}}}
-\subsection{Method \code{new()}}{
-Initialize the LassoInference object.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{LassoInference$new(
+\if{html}{\out{<a id="method-LassoInference-initialize"></a>}}
+\if{latex}{\out{\hypertarget{method-LassoInference-initialize}{}}}
+\subsection{\code{LassoInference$new()}}{
+  Initialize the LassoInference object.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{LassoInference$new(
   beta_hat,
   G_hat,
   Q_hat,
@@ -84,66 +102,67 @@ Initialize the LassoInference object.
   Sigma,
   Sigma_noise = NULL,
   scalar_noise = NaN,
-  tol = 1e-06
-)}\if{html}{\out{</div>}}
+  tol = 1e-06,
+  level = 0.95
+)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{beta_hat}}{The lasso solution.}
+      \item{\code{G_hat}}{The gradient at beta_hat.}
+      \item{\code{Q_hat}}{The Hessian / design matrix crossprod.}
+      \item{\code{D}}{The penalty weights.}
+      \item{\code{L}}{Lower bounds for beta. Default is \code{NULL} (equivalent to \code{-Inf}).}
+      \item{\code{U}}{Upper bounds for beta. Default is \code{NULL} (equivalent to \code{Inf}).}
+      \item{\code{Z_full}}{The unpenalized score.}
+      \item{\code{Sigma}}{Covariance of Z_full.}
+      \item{\code{Sigma_noise}}{Covariance of Z_noisy. Default is \code{NULL}.}
+      \item{\code{scalar_noise}}{If \code{Sigma_noise} is \code{NULL}, the noise covariance is
+\code{scalar_noise * Sigma}. \code{scalar_noise = 0} is no randomization (the
+polyhedral lemma, with \code{Z_full} equal to the selection score
+\code{-G_hat + Q_hat beta_hat}); as in the Python package, values below 0.001 are
+raised to 0.001 for numerical stability. Default is \code{NaN}.}
+      \item{\code{tol}}{Tolerance for active set and KKT conditions. Default is \code{1e-6}.}
+      \item{\code{level}}{Confidence level. Default is 0.95.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{beta_hat}}{The lasso solution.}
-
-\item{\code{G_hat}}{The gradient at beta_hat.}
-
-\item{\code{Q_hat}}{The Hessian / design matrix crossprod.}
-
-\item{\code{D}}{The penalty weights.}
-
-\item{\code{L}}{Lower bounds for beta. Default is \code{NULL} (equivalent to \code{-Inf}).}
-
-\item{\code{U}}{Upper bounds for beta. Default is \code{NULL} (equivalent to \code{Inf}).}
-
-\item{\code{Z_full}}{The unpenalized score.}
-
-\item{\code{Sigma}}{Covariance of Z_full.}
-
-\item{\code{Sigma_noise}}{Covariance of Z_noisy. Default is \code{NULL}.}
-
-\item{\code{scalar_noise}}{Variance scaling if Sigma_noise is NULL. Default is \code{NaN}.}
-
-\item{\code{tol}}{Tolerance for active set and KKT conditions. Default is \code{1e-6}.}
-}
-\if{html}{\out{</div>}}
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-LassoInference-summary"></a>}}
 \if{latex}{\out{\hypertarget{method-LassoInference-summary}{}}}
-\subsection{Method \code{summary()}}{
-Summary of post-selection inference results.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{LassoInference$summary()}\if{html}{\out{</div>}}
+\subsection{\code{LassoInference$summary()}}{
+  Summary of post-selection inference results.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{LassoInference$summary()}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Returns}{
+    A data frame containing the parameter indices, estimates, selective confidence intervals, and selective p-values.
+  }
 }
 
-\subsection{Returns}{
-A data frame containing the parameter indices, estimates, selective confidence intervals, and selective p-values.
-}
-}
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-LassoInference-clone"></a>}}
 \if{latex}{\out{\hypertarget{method-LassoInference-clone}{}}}
-\subsection{Method \code{clone()}}{
-The objects of this class are cloneable with this method.
-\subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{LassoInference$clone(deep = FALSE)}\if{html}{\out{</div>}}
+\subsection{\code{LassoInference$clone()}}{
+  The objects of this class are cloneable with this method.
+  \subsection{Usage}{
+    \if{html}{\out{<div class="r">}}
+    \preformatted{LassoInference$clone(deep = FALSE)}
+    \if{html}{\out{</div>}}
+  }
+  \subsection{Arguments}{
+    \if{html}{\out{<div class="arguments">}}
+    \describe{
+      \item{\code{deep}}{Whether to make a deep clone.}
+    }
+    \if{html}{\out{</div>}}
+  }
 }
 
-\subsection{Arguments}{
-\if{html}{\out{<div class="arguments">}}
-\describe{
-\item{\code{deep}}{Whether to make a deep clone.}
-}
-\if{html}{\out{</div>}}
-}
-}
 }

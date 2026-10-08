@@ -8,41 +8,50 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      eval = requireNamespace("glmnet", quietly = TRUE))
 ```
 
-`glmnet_problem_from_fit` reads a fitted `glmnet` object and returns the LASSO problem it
-solved, in the original coordinates: the solution, the gradient and Hessian of the smooth
-part, the penalty weights and the bounds. These are the selection inputs of
-`LassoInference`. This vignette uses them for **carving** in logistic regression. We select
-variables with glmnet on a random half of the data, then do inference with all of it,
-accounting for selection.
+This vignette shows **carving** in logistic regression. We select variables with glmnet on a
+random half of the data, then do inference with all of it, accounting for selection.
+`glmnet_inference` does this from the fitted `glmnet` object. It uses
+`glmnet_problem_from_fit`, which returns the LASSO problem glmnet solved in the original
+coordinates: the solution, the gradient and Hessian of the smooth part, the penalty weights
+and the bounds. For inference without held-out data see
+`vignette("no_randomization", package = "lassoinf")`.
 
 ## Carving as randomization
 
 glmnet divides the loss by the number of observations, and we use this per-observation scale
 throughout. On the subsample of size $m = \pi n$, glmnet's problem gives the LASSO solution
-$\hat{\beta}$, the gradient $G$ and the Hessian $\hat{Q}$ at $\hat{\beta}$. `LassoInference`
-linearizes the selection with $\hat{Q}$, the information matrix at the fit on the model $E$,
-and selects with
+$\hat{\beta}$, the gradient $G$ at $\hat{\beta}$, and the information $\hat{Q}$ at the
+one-step relaxed fit on the selected model $E$ (see `?glmnet_problem`). `LassoInference`
+linearizes the selection with $\hat{Q}$ and selects with
 
 $$
-Z + \omega = -G + \hat{Q}\hat{\beta} \approx \hat{Q}\tilde{\beta}_m,
+Z + \omega = -G + \hat{Q}\hat{\beta}.
 $$
 
-where $\tilde{\beta}_m$ is the unpenalized MLE on the subsample. The full-data statistic must use
-the same matrix: $Z = \hat{Q}\bar{\beta}$, with $\bar{\beta}$ the unpenalized MLE on all the
-data. With $I$ the per-observation Fisher information,
-$\text{Var}(\bar{\beta}) \approx I^{-1}/n$ and $\tilde{\beta}_m - \bar{\beta}$ is asymptotically
-independent of $\bar{\beta}$ with variance $I^{-1}(1/m - 1/n)$. So
+The full-data statistic uses the same matrix and the full-data gradient $G_{full}$, at one
+Newton step for the full-data loss on $E$ from $\hat{\beta}$,
+$\tilde{\beta} = \hat{\beta} - H_{E,E}^{-1} G_{full,E}$:
 
 $$
-\Sigma = \text{Var}(Z) \approx \hat{Q} I^{-1} \hat{Q} / n, \qquad
+Z = -G_{full}(\tilde{\beta}) + \hat{Q}\tilde{\beta}.
+$$
+
+Both are $\hat{Q}$ times approximations to the unpenalized MLE, on the subsample and on all
+the data. With $I$ the per-observation Fisher information, the subsample MLE minus the
+full-data MLE is asymptotically independent of the full-data MLE, with variance
+$I^{-1}(1/m - 1/n)$, and $\hat{Q} \approx I$. So
+
+$$
+\Sigma = \text{Var}(Z) \approx \hat{Q} / n, \qquad
 \text{Var}(\omega) \approx \frac{1 - \pi}{\pi}\, \Sigma,
 $$
 
 and selecting on a subsample is randomized selection with `scalar_noise` $= (1 - \pi) / \pi$,
-which is 1 for $\pi = 1/2$. We estimate $I$ by the information at $\bar{\beta}$.
+which is 1 for $\pi = 1/2$. `glmnet_inference` with `selection_rows` does all of this.
 
 ## Data
 
@@ -63,9 +72,9 @@ d <- make_data(n)
 ## Select on half of the data with glmnet
 
 We fit a path that ends at a fixed $\lambda$, with the default standardization and an
-unpenalized intercept, and convert the fit at that $\lambda$ with `glmnet_problem_from_fit`. Its
-coordinates are $(\text{intercept}, \beta)$, so index 0 is the intercept. The function warns if
-the fit does not satisfy the KKT conditions closely enough, so a small `thresh` matters.
+unpenalized intercept. The coordinates are $(\text{intercept}, \beta)$, so index 0 is the
+intercept. `glmnet_inference` warns if the fit does not satisfy the KKT conditions closely
+enough, so a small `thresh` matters.
 
 ```{r}
 pi_selection <- 0.5
@@ -73,39 +82,20 @@ lam <- 0.06
 lambda_path <- lam * exp(seq(log(10), 0, length.out = 30))
 
 select <- function(d) {
-  sub <- sample(nrow(d$X), round(pi_selection * nrow(d$X)))
-  fit <- glmnet::glmnet(d$X[sub, ], d$y[sub], family = "binomial",
-                        lambda = lambda_path, thresh = 1e-14)
-  prob <- glmnet_problem_from_fit(fit, d$X[sub, ], d$y[sub], s = lam)
-  prob$sub <- sub
-  prob
+  rows <- sample(nrow(d$X), round(pi_selection * nrow(d$X)))
+  fit <- glmnet::glmnet(d$X[rows, ], d$y[rows], family = "binomial",
+                        lambda = lambda_path, control = list(thresh = 1e-14))
+  list(fit = fit, rows = rows)
 }
-prob <- select(d)
-which(prob$beta_hat[-1] != 0)
-```
-
-## Full-data score
-
-The unpenalized fit on all the data gives $\bar{\beta}$ and the per-observation information
-$I = X_1'WX_1 / n$ at $\bar{\beta}$, with $X_1 = [1, X]$.
-
-```{r}
-full_score <- function(d, Q_hat) {
-  X1 <- cbind(1, d$X)
-  bar_beta <- unname(coef(glm.fit(X1, d$y, family = binomial())))
-  mu <- plogis(drop(X1 %*% bar_beta))
-  I_full <- crossprod(X1, X1 * (mu * (1 - mu))) / nrow(X1)
-  list(Z = drop(Q_hat %*% bar_beta), Sigma = Q_hat %*% solve(I_full, Q_hat) / nrow(X1))
-}
-full <- full_score(d, prob$Q_hat)
+sel <- select(d)
+which(coef(sel$fit, s = lam)[-1] != 0)
 ```
 
 ## Inference
 
 ```{r}
-li <- LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D, prob$L, prob$U,
-                         full$Z, full$Sigma, NULL, (1 - pi_selection) / pi_selection,
-                         level = 0.9)
+li <- glmnet_inference(sel$fit, d$X, d$y, s = lam, selection_rows = sel$rows, level = 0.9)
+li$scalar_noise
 summ <- li$summary()
 summ$variable <- ifelse(summ$index == 0, "(Intercept)", paste0("x", summ$index))
 summ
@@ -129,8 +119,8 @@ selection. Data splitting refits the selected model on the half of the data not 
 selection:
 
 ```{r}
-splitting <- function(d, prob, li, level = 0.9) {
-  held_out <- setdiff(seq_len(nrow(d$X)), prob$sub)
+splitting <- function(d, rows, li, level = 0.9) {
+  held_out <- setdiff(seq_len(nrow(d$X)), rows)
   X1 <- cbind(1, d$X)[held_out, li$E + 1, drop = FALSE]
   fit <- glm.fit(X1, d$y[held_out], family = binomial())
   est <- unname(coef(fit))
@@ -140,7 +130,7 @@ splitting <- function(d, prob, li, level = 0.9) {
   data.frame(index = li$E, estimate = est, lower_conf = est - q * sd, upper_conf = est + q * sd)
 }
 li$`_naive`
-splitting(d, prob, li)
+splitting(d, sel$rows, li)
 ```
 
 The held-out refit targets the coefficients of the best-fitting logistic model on $X_E$. That
@@ -151,18 +141,15 @@ is the same as the target above when $E$ contains all the true signals.
 ```{r}
 one_replication <- function() {
   d <- make_data(n)
-  prob <- select(d)
-  full <- full_score(d, prob$Q_hat)
-  li <- LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D, prob$L, prob$U,
-                           full$Z, full$Sigma, NULL, (1 - pi_selection) / pi_selection,
-                           level = 0.9)
+  sel <- select(d)
+  li <- glmnet_inference(sel$fit, d$X, d$y, s = lam, selection_rows = sel$rows, level = 0.9)
   summ <- li$summary()
   keep <- summ$index != 0   # report the selected variables, not the intercept
   truth <- target(li)[keep]
   covers <- function(df) (df$lower_conf <= truth & truth <= df$upper_conf)
   lengths <- function(df) df$upper_conf - df$lower_conf
   tabs <- list(carving = summ[keep, ], naive = li$`_naive`[keep, ],
-               splitting = splitting(d, prob, li)[keep, ])
+               splitting = splitting(d, sel$rows, li)[keep, ])
   data.frame(method = rep(names(tabs), each = sum(keep)),
              cover = unlist(lapply(tabs, covers)), length = unlist(lapply(tabs, lengths)),
              signal = rep(beta[summ$index[keep]] != 0, length(tabs)))
@@ -176,9 +163,7 @@ data.frame(coverage = tapply(results$cover, results$method, mean),
 
 Carving and data splitting both have close to the nominal 90% coverage. Carving also uses
 the half of the data that selected the model, so its intervals are shorter. The naive
-intervals ignore selection and undercover, almost entirely on the selected null variables.
-Carving is a little below nominal on the true signals, which reflects the large-sample
-approximations behind the Gaussian model for $(Z, \omega)$:
+intervals ignore selection and undercover, almost entirely on the selected null variables:
 
 ```{r}
 with(results, tapply(cover, list(method, signal = signal), mean))
