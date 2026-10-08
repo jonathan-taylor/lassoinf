@@ -3,6 +3,10 @@ project:
   title: lassoinf
   authors:
     - name: Jonathan Taylor
+    - name: Kevin Fry
+    - name: Snigdha Panigrahi
+    - name: Alden Green
+    - name: Sifan Liu
   exports:
     - format: pdf
       template: plain_latex_book
