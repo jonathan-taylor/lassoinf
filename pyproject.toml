@@ -30,7 +30,7 @@ dependencies = [
     "matplotlib",
     "pandas",
     "pylops",
-    "glmstar>=0.1.2"
+    "glmstar>=0.1.3"
 ]
 
 [project.optional-dependencies]
