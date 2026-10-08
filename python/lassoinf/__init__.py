@@ -10,10 +10,7 @@ except PackageNotFoundError:
     except (ImportError, LookupError):
         __version__ = "unknown"
 
-from .lasso import LassoInference, spec_from_glmnet
-from .glmnet import extract_glmnet_problem
-from .glm_problem import glmnet_problem, glmstar_problem, GLMProblem
-from .glm_inference import glm_inference, glmstar_inference
+from .lasso import LassoInference
 from .affine_constraints import AffineConstraints
 from .custom_estimand import (SelectionCoordinates,
                               ScreenedSelection,

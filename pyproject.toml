@@ -29,16 +29,14 @@ dependencies = [
     "scipy",
     "matplotlib",
     "pandas",
-    "pylops",
-    "glmstar"
+    "pylops"
 ]
 
 [project.optional-dependencies]
 test = ['pytest',
         'pandas',
         "joblib",
-	"cvxpy",
-	"coxdev==0.1.4"]
+	"cvxpy"]
 dev = [
     "pytest",
     "scipy",

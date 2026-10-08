@@ -13,9 +13,6 @@ py.install_sources(
   'python/lassoinf/bivariate_normal.py',
   'python/lassoinf/affine_constraints.py',
   'python/lassoinf/lasso.py',
-  'python/lassoinf/glmnet.py',
-  'python/lassoinf/glm_problem.py',
-  'python/lassoinf/glm_inference.py',
   'python/lassoinf/custom_estimand.py',
   subdir: 'lassoinf'
 )
