@@ -112,6 +112,24 @@ SEXP wrap_operator(std::shared_ptr<lassoinf::LinearOperator> op) {
     return Rcpp::internal::make_new_object(new LinearOp(std::move(op)));
 }
 
+// c * op, sharing op (no copy of its data)
+class ScaledOperator : public lassoinf::LinearOperator {
+public:
+    ScaledOperator(std::shared_ptr<lassoinf::LinearOperator> op, double c) : op_(std::move(op)), c_(c) {}
+    Eigen::Index rows() const override { return op_->rows(); }
+    Eigen::Index cols() const override { return op_->cols(); }
+    Eigen::VectorXd multiply(const Eigen::VectorXd& x) const override { return c_ * op_->multiply(x); }
+    Eigen::VectorXd multiply_transpose(const Eigen::VectorXd& x) const override { return c_ * op_->multiply_transpose(x); }
+private:
+    std::shared_ptr<lassoinf::LinearOperator> op_;
+    double c_;
+};
+
+SEXP linear_op_scaled(LinearOp* L, double c) {
+    return Rcpp::internal::make_new_object(
+        new LinearOp(std::make_shared<ScaledOperator>(L->op, c), c * L->diag));
+}
+
 // ---- constraints ----
 
 Rcpp::List lasso_post_selection_constraints_wrapper(
@@ -300,6 +318,7 @@ RCPP_MODULE(lassoinf_cpp) {
         .method("cols", &LinearOp::cols)
         .method("diagonal", &LinearOp::diagonal)
         .method("to_dense", &LinearOp::to_dense)
+        .method("scaled", &linear_op_scaled)
         ;
 
     class_<lassoinf::SelectionCoordinates>("SelectionCoordinatesCpp")

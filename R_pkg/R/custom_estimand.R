@@ -15,7 +15,8 @@
 #' @param X A numeric design matrix.
 #' @param weights Observation weights, length \code{nrow(X)}.
 #' @return A \code{LinearOp} with methods \code{multiply}, \code{multiply_transpose},
-#'   \code{rows}, \code{cols}, \code{diagonal} and \code{to_dense}.
+#'   \code{rows}, \code{cols}, \code{diagonal}, \code{to_dense} and \code{scaled(c)}
+#'   (\code{c} times the operator, sharing its data).
 #' @export
 dense_operator <- function(M) new(LinearOp, as.matrix(M))
 

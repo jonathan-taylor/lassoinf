@@ -18,7 +18,8 @@ xtvx_operator(X, weights = rep(1, nrow(X)))
 }
 \value{
 A \code{LinearOp} with methods \code{multiply}, \code{multiply_transpose},
-  \code{rows}, \code{cols}, \code{diagonal} and \code{to_dense}.
+  \code{rows}, \code{cols}, \code{diagonal}, \code{to_dense} and \code{scaled(c)}
+  (\code{c} times the operator, sharing its data).
 }
 \description{
 Matrix-free operators for \code{Q_hat}, \code{Sigma} and

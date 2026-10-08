@@ -16,6 +16,7 @@ The simplest use of `lassoinf` takes a standard `glmnet` fit on all the data, at
 $\lambda$, and gives intervals and p-values for the selected coefficients that account for
 the selection. Nothing is held out and no noise is added. This is the polyhedral approach of
 Lee et al. (2016), here with the linearization of a GLM used throughout the package.
+`glmnet_inference` does it in one call; we also show what it computes.
 
 ## Setup
 
@@ -68,11 +69,7 @@ the fit does not satisfy the KKT conditions closely enough.
 ## Inference
 
 ```{r}
-prob <- glmnet_problem_from_fit(fit, d$X, d$y, s = lam)
-Z <- -prob$G_hat + drop(prob$Q_hat %*% prob$beta_hat)
-li <- LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D, prob$L, prob$U,
-                         Z_full = Z, Sigma = prob$Q_hat / n, scalar_noise = 0,
-                         level = 0.9)
+li <- glmnet_inference(fit, d$X, d$y, s = lam, level = 0.9)
 summ <- li$summary()
 summ$variable <- ifelse(summ$index == 0, "(Intercept)", paste0("x", summ$index))
 summ
@@ -95,12 +92,24 @@ For comparison, `li$"_naive"` holds Wald intervals that ignore selection:
 li$`_naive`
 ```
 
+`glmnet_inference` is the following, with `prob` the LASSO problem glmnet solved and
+`scalar_noise = 0` for no randomization:
+
+```{r}
+prob <- glmnet_problem_from_fit(fit, d$X, d$y, s = lam)
+Z <- -prob$G_hat + drop(prob$Q_hat %*% prob$beta_hat)
+li_manual <- LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D, prob$L, prob$U,
+                                Z_full = Z, Sigma = prob$Q_hat / n, scalar_noise = 0,
+                                level = 0.9)
+all.equal(li_manual$summary(), li$summary())
+```
+
 ## For a gaussian response
 
 For `family = "gaussian"` the loss is $\frac{1}{2n}\|y - X\beta\|^2$, so
-$\hat{Q} = X'X / n$ and $\text{Var}(Z) = \sigma^2 \hat{Q} / n$: use
-`Sigma = sigma2_hat * prob$Q_hat / n` with an estimate of $\sigma^2$ (for example from the
-full least squares fit when $n > p$). The relaxed and LASSO information agree.
+$\hat{Q} = X'X / n$ and $\text{Var}(Z) = \sigma^2 \hat{Q} / n$. `glmnet_inference` estimates
+$\sigma^2$ from the full least squares fit when $n > p$; otherwise pass `dispersion`. The
+relaxed and LASSO information agree.
 
 ## Coverage over repeated experiments
 
@@ -108,11 +117,7 @@ full least squares fit when $n > p$). The relaxed and LASSO information agree.
 one_replication <- function() {
   d <- make_data(n)
   fit <- glmnet::glmnet(d$X, d$y, family = "binomial", lambda = lambda_path, control = list(thresh = 1e-14))
-  prob <- glmnet_problem_from_fit(fit, d$X, d$y, s = lam)
-  Z <- -prob$G_hat + drop(prob$Q_hat %*% prob$beta_hat)
-  li <- LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D, prob$L, prob$U,
-                           Z_full = Z, Sigma = prob$Q_hat / n, scalar_noise = 0,
-                           level = 0.9)
+  li <- glmnet_inference(fit, d$X, d$y, s = lam, level = 0.9)
   summ <- li$summary()
   keep <- summ$index != 0   # report the selected variables, not the intercept
   truth <- target(li)[keep]
