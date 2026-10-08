@@ -27,9 +27,19 @@ estimand_value(estimand, Z)
 
 \item{Z}{A score vector.}
 }
+\value{
+\code{contrast_estimand} and \code{covariance_estimand}: estimand
+  specifications (lists of class \code{ContrastEstimand} and \code{CovarianceEstimand}),
+  for \code{contrast_inference}, \code{custom_estimand_inference} and
+  \code{estimand_summary}. \code{estimand_value}: the value of the estimator at \code{Z}.
+}
 \description{
 \code{contrast_estimand(eta, offset)}: estimator
 \code{sum(eta * Z_full) + offset} for the estimand \code{sum(eta * E[Z_full]) + offset}.
 \code{covariance_estimand(theta_hat, variance, score_cov)}: estimator given by its
 value, \code{Var(theta_hat)} and \code{Cov(Z_full, theta_hat)}; requires \code{Sigma_noise}.
+}
+\examples{
+e <- contrast_estimand(c(1, -1, 0), offset = 0.5)
+estimand_value(e, c(2, 1, 5))
 }

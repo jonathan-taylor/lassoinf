@@ -23,3 +23,16 @@ A list with \code{estimate}, \code{lower_conf}, \code{upper_conf},
 Inference for \code{theta = sum(eta * E[Z_full]) + offset}, as in
 \code{LassoInference$summary()}.
 }
+\examples{
+\dontshow{if (requireNamespace("glmnet", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+set.seed(1)
+n <- 100; p <- 10
+x <- matrix(rnorm(n * p), n, p)
+y <- x[, 1] - x[, 2] + rnorm(n)
+fit <- glmnet::glmnet(x, y, lambda = c(0.3, 0.2), control = list(thresh = 1e-14))
+li <- glmnet_inference(fit, x, y, level = 0.9)   # index 0 is the intercept
+# the sum of the coefficients of x1 and x2 in the selected model
+eta <- li$contrasts[["1"]] + li$contrasts[["2"]]
+contrast_inference(li, eta)[c("estimate", "lower_conf", "upper_conf", "p_value")]
+\dontshow{\}) # examplesIf}
+}

@@ -13,7 +13,14 @@ glmnet_scaling(x, weights = rep(1, nrow(x)), standardize = TRUE)
 
 \item{standardize}{As passed to \code{glmnet}.}
 }
+\value{
+The column scales, a vector of length \code{ncol(x)}.
+}
 \description{
 Weighted standard deviations of the columns (with or without an
 intercept), 1 if not standardizing.
+}
+\examples{
+x <- matrix(rnorm(40), 10, 4)
+glmnet_scaling(x)
 }

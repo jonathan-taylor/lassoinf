@@ -32,3 +32,16 @@ Named vector \code{c(lower, upper, p_value)}.
 \description{
 Equal-tailed interval and two-sided p-value for \code{H0: theta = null_value}.
 }
+\examples{
+\dontshow{if (requireNamespace("glmnet", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+set.seed(1)
+n <- 100; p <- 10
+x <- matrix(rnorm(n * p), n, p)
+y <- x[, 1] - x[, 2] + rnorm(n)
+fit <- glmnet::glmnet(x, y, lambda = c(0.3, 0.2), control = list(thresh = 1e-14))
+li <- glmnet_inference(fit, x, y, level = 0.9)   # index 0 is the intercept
+v <- li$contrasts[["1"]]   # the coefficient of x1 in the selected model
+contrast <- li$si$compute_contrast(v)
+truncated_normal_inference(contrast, contrast$naive_variance, li$A, li$b, level = 0.9)
+\dontshow{\}) # examplesIf}
+}

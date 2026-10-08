@@ -7,6 +7,11 @@
 Evaluates exact bounds and inference parameters for the selectively truncated bivariate normal distribution.
 Follows the bivariate normal computations of Liu (2023).
 }
+\examples{
+tbn <- TruncBivariateNormal$new(a_coeff = 1, b_coeff = 1, L = 1, U = Inf, sig_omega = 1)
+tbn$cdf(theta = 0, x = 1.5)
+tbn$equal_tailed_interval(1.5, alpha = 0.1)
+}
 \references{
 Liu, S. (2023). An exact sampler for inference after polyhedral model
 selection. \emph{arXiv preprint}. \doi{10.48550/arXiv.2308.10346}
