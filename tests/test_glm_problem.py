@@ -77,16 +77,18 @@ def _check_problem(prob, X, y, family, w, offset, fit_intercept, lam, alpha=1., 
     f = lambda theta: _smooth_objective(theta, X, y, family, w, offset, fit_intercept, ridge)
     np.testing.assert_allclose(prob.G_hat, _numerical_gradient(f, prob.beta_hat), atol=1e-6 * (1 + lam))
 
-    # 3. Q is the Hessian: derivative of the extracted gradient
-    def gradient(theta):
+    # 3. with information='lasso', Q is the Hessian: derivative of the extracted gradient
+    def problem(theta, information):
         a0, coef = (theta[0], theta[1:]) if fit_intercept else (0., theta)
         return glmnet_problem(X, y, coef, a0, lam, family=family, weights=w, offset=offset, alpha=alpha,
                               penalty_factor=pf, exclude=exclude, standardize=standardize,
-                              fit_intercept=fit_intercept, y_scale=y_scale).G_hat
+                              fit_intercept=fit_intercept, y_scale=y_scale, information=information)
+    gradient = lambda theta: problem(theta, 'lasso').G_hat
     h = 1e-6
     H = np.column_stack([(gradient(prob.beta_hat + h * e) - gradient(prob.beta_hat - h * e)) / (2 * h)
                          for e in np.eye(len(prob.beta_hat))])
-    np.testing.assert_allclose(prob.Q_hat, H, atol=1e-5 * np.abs(H).max())
+    np.testing.assert_allclose(problem(prob.beta_hat, 'lasso').Q_hat, H, atol=1e-5 * np.abs(H).max())
+    np.testing.assert_allclose(problem(prob.beta_hat, 'relaxed').G_hat, prob.G_hat, atol=1e-12)
 
     # 4. the selection constraints hold at the data used for selection
     Z_noisy = -prob.G_hat + prob.Q_hat @ prob.beta_hat
@@ -276,3 +278,41 @@ def test_glm_inference_end_to_end(data, family):
         results.append((LI.summary_.values, inactive_summary(screen).values))
     np.testing.assert_allclose(results[0][0], results[1][0], rtol=1e-5)
     np.testing.assert_allclose(results[0][1], results[1][1], rtol=1e-5)
+
+
+@pytest.mark.parametrize('family,fit_intercept', list(itertools.product(['binomial', 'poisson'], [True, False])))
+def test_relaxed_information(data, family, fit_intercept):
+    # Q_hat at one Newton step on the selected coordinates from the LASSO solution
+    X, df = data
+    y, w, offset = df[family].values, df['w'].values, df['o'].values
+    lam = 0.03
+    coef, a0 = _solve_cvxpy(X, y, family, w, offset, fit_intercept, lam, 1., None, (),
+                            np.full(P, -np.inf), np.full(P, np.inf), True, 1.)
+    coef = np.where(np.abs(coef) > 1e-8, coef, 0.)
+    prob = glmnet_problem(X, y, coef, a0, lam, family=family, weights=w, offset=offset,
+                          fit_intercept=fit_intercept)
+    lasso = glmnet_problem(X, y, coef, a0, lam, family=family, weights=w, offset=offset,
+                           fit_intercept=fit_intercept, information='lasso')
+    np.testing.assert_allclose(prob.G_hat, lasso.G_hat)
+    X1 = np.column_stack([np.ones(N), X]) if fit_intercept else X
+    active = np.nonzero(lasso.beta_hat)[0]
+    if fit_intercept:
+        active = np.union1d([0], active)
+    wn = w / w.sum()
+    inv_link = (lambda e: 1 / (1 + np.exp(-e))) if family == 'binomial' else np.exp
+    mu = inv_link(offset + X1 @ lasso.beta_hat)
+    b = lasso.beta_hat.copy()
+    b[active] -= np.linalg.solve(lasso.Q_hat[np.ix_(active, active)], X1[:, active].T @ (wn * (mu - y)))
+    mu = inv_link(offset + X1 @ b)
+    var = mu * (1 - mu) if family == 'binomial' else mu
+    np.testing.assert_allclose(prob.Q_hat, X1.T @ (X1 * (wn * var)[:, None]), atol=1e-10)
+
+
+def test_relaxed_information_gaussian(data):
+    X, df = data
+    y = df['gaussian'].values
+    coef, a0 = _solve_cvxpy(X, y, 'gaussian', np.ones(N), np.zeros(N), True, 0.03, 1., None, (),
+                            np.full(P, -np.inf), np.full(P, np.inf), True, 1.)
+    relaxed = glmnet_problem(X, y, coef, a0, 0.03)
+    lasso = glmnet_problem(X, y, coef, a0, 0.03, information='lasso')
+    np.testing.assert_allclose(relaxed.Q_hat, lasso.Q_hat)

@@ -143,6 +143,22 @@ def _mean_and_variance(family, eta):
     raise ValueError(f'family must be one of {FAMILIES}, got {family!r}')
 
 
+def _relaxed_mean_and_variance(X_active, y, w, eta, mu, var, family):
+    """
+    Mean and variance at the one-step relaxed fit on the columns of X_active: one Newton
+    step for the unpenalized loss from the LASSO solution, with the Hessian there,
+    beta_E - H_EE^{-1} grad_E (for the LASSO grad_E = -D_E sign(beta_E), so this undoes the
+    shrinkage). None if H_EE is singular.
+    """
+    grad = X_active.T @ (w * (mu - y))
+    hess = X_active.T @ (X_active * (w * var)[:, None])
+    try:
+        step = np.linalg.solve(hess, grad)
+    except np.linalg.LinAlgError:
+        return None
+    return _mean_and_variance(family, eta - X_active @ step)
+
+
 def glmnet_problem(X,
                    y,
                    coef,
@@ -160,7 +176,8 @@ def glmnet_problem(X,
                    fit_intercept=True,
                    scaling=None,
                    y_scale=None,
-                   hessian='dense'):
+                   hessian='dense',
+                   information='relaxed'):
     """
     The bounded LASSO problem glmnet solved, at its solution (coef, intercept).
 
@@ -177,6 +194,14 @@ def glmnet_problem(X,
     y_scale : the ridge term is divided by y_scale; default is R glmnet's convention
         (glmnet_response_scale for gaussian, 1 otherwise). glmstar uses 1.
     hessian : 'dense' (array) or 'operator' (matrix-free X'VX, for wide designs)
+    information : where Q_hat is evaluated: 'relaxed' (default), a one-step relaxed fit,
+        one Newton step for the unpenalized loss on the selected coordinates (the intercept
+        and the nonzero coefficients) from the LASSO solution, beta_E - H_EE^{-1} grad_E with
+        the Hessian H at the LASSO solution (limits and the ridge term are ignored); or
+        'lasso', the LASSO solution. The LASSO solution is shrunk, so for
+        binomial and poisson its information overstates the information at the truth and
+        Q_hat / n understates Var(Z); the relaxed fit avoids this. The two agree for
+        gaussian. G_hat is always at the LASSO solution.
 
     Returns
     -------
@@ -186,6 +211,8 @@ def glmnet_problem(X,
         raise ValueError(f'family must be one of {FAMILIES}, got {family!r}')
     if hessian not in ('dense', 'operator'):
         raise ValueError("hessian must be 'dense' or 'operator'")
+    if information not in ('relaxed', 'lasso'):
+        raise ValueError("information must be 'relaxed' or 'lasso'")
 
     X = np.asarray(X, dtype=float)
     n, p = X.shape
@@ -214,6 +241,17 @@ def glmnet_problem(X,
     ridge[excluded] = 0.
     grad = X.T @ (w * (mu - y)) + ridge * coef
     D = lambda_val * alpha * pf * scaling
+
+    # gradient at the LASSO solution, Hessian (possibly) at the relaxed fit
+    active = np.nonzero(coef != 0)[0]
+    if information == 'relaxed' and family != 'gaussian' and (fit_intercept or len(active) > 0):
+        X_active = np.column_stack([np.ones(n)] * fit_intercept + [X[:, active]])
+        relaxed = _relaxed_mean_and_variance(X_active, y, w, eta, mu, var, family)
+        if relaxed is None:
+            warnings.warn('the Hessian on the selected coordinates is singular; '
+                          'using the information at the LASSO solution')
+        else:
+            var = relaxed[1]
 
     if hessian == 'dense':
         Q = X.T @ (X * (w * var)[:, None]) + np.diag(ridge)
@@ -254,9 +292,10 @@ def _glmstar_family(glmnet_obj):
     raise ValueError(f'unsupported family {type(base).__name__}; supported: {FAMILIES}')
 
 
-def glmstar_problem(glmnet_obj, X, y, lambda_val=None, hessian='dense'):
+def glmstar_problem(glmnet_obj, X, y, lambda_val=None, hessian='dense', information='relaxed'):
     """
     GLMProblem for a fitted glmstar ``GLMNet`` at one of its lambda values.
+    ``information`` is as for :func:`glmnet_problem`.
 
     X, y : the data passed to ``fit`` (y may be a DataFrame with response,
         weight and offset columns, as for glmstar).
@@ -293,7 +332,8 @@ def glmstar_problem(glmnet_obj, X, y, lambda_val=None, hessian='dense'):
                           fit_intercept=G.fit_intercept,
                           scaling=np.asarray(G.design_.scaling_),
                           y_scale=1.,
-                          hessian=hessian)
+                          hessian=hessian,
+                          information=information)
     _check_converged(problem, lambdas[k])
     return problem
 

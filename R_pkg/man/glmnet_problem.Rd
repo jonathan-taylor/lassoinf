@@ -23,7 +23,8 @@ glmnet_problem(
   intercept = TRUE,
   scaling = NULL,
   y_scale = NULL,
-  hessian = c("dense", "operator")
+  hessian = c("dense", "operator"),
+  information = c("relaxed", "lasso")
 )
 
 glmnet_problem_from_fit(
@@ -34,6 +35,7 @@ glmnet_problem_from_fit(
   weights = NULL,
   offset = NULL,
   hessian = c("dense", "operator"),
+  information = c("relaxed", "lasso"),
   envir = parent.frame()
 )
 }
@@ -60,6 +62,15 @@ glmnet_problem_from_fit(
 convention (scale of \code{y} for gaussian, 1 otherwise).}
 
 \item{hessian}{\code{"dense"} (matrix) or \code{"operator"} (matrix-free \code{LinearOp}).}
+
+\item{information}{Where \code{Q_hat} is evaluated: \code{"relaxed"} (default), a
+one-step relaxed fit, one Newton step for the unpenalized loss on the selected
+coordinates (the intercept and the nonzero coefficients) from the LASSO solution,
+\code{beta_E - H_EE^{-1} grad_E} with the Hessian \code{H} at the LASSO solution
+(limits and the ridge term are ignored); or \code{"lasso"}, the LASSO solution. The LASSO
+solution is shrunk, so for binomial and poisson its information overstates the
+information at the truth and \code{Q_hat / n} understates \code{Var(Z)}; the relaxed fit
+avoids this. The two agree for gaussian. \code{G_hat} is always at the LASSO solution.}
 
 \item{fit}{A fitted \code{glmnet} object.}
 

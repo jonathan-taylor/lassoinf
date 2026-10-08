@@ -73,6 +73,14 @@ glmnet_scaling <- function(x, weights = rep(1, nrow(x)), standardize = TRUE) {
 #' @param y_scale The ridge term is divided by \code{y_scale}; default glmnet's
 #'   convention (scale of \code{y} for gaussian, 1 otherwise).
 #' @param hessian \code{"dense"} (matrix) or \code{"operator"} (matrix-free \code{LinearOp}).
+#' @param information Where \code{Q_hat} is evaluated: \code{"relaxed"} (default), a
+#'   one-step relaxed fit, one Newton step for the unpenalized loss on the selected
+#'   coordinates (the intercept and the nonzero coefficients) from the LASSO solution,
+#'   \code{beta_E - H_EE^{-1} grad_E} with the Hessian \code{H} at the LASSO solution
+#'   (limits and the ridge term are ignored); or \code{"lasso"}, the LASSO solution. The LASSO
+#'   solution is shrunk, so for binomial and poisson its information overstates the
+#'   information at the truth and \code{Q_hat / n} understates \code{Var(Z)}; the relaxed fit
+#'   avoids this. The two agree for gaussian. \code{G_hat} is always at the LASSO solution.
 #' @return A list with \code{beta_hat}, \code{G_hat}, \code{Q_hat}, \code{D}, \code{L},
 #'   \code{U} and \code{intercept}; coordinates are \code{(intercept, coef)} when
 #'   \code{intercept = TRUE}.
@@ -82,8 +90,10 @@ glmnet_problem <- function(x, y, coef, a0 = 0, lambda, family = "gaussian",
                            penalty.factor = rep(1, ncol(x)), exclude = NULL,
                            lower.limits = -Inf, upper.limits = Inf,
                            standardize = TRUE, intercept = TRUE,
-                           scaling = NULL, y_scale = NULL, hessian = c("dense", "operator")) {
+                           scaling = NULL, y_scale = NULL, hessian = c("dense", "operator"),
+                           information = c("relaxed", "lasso")) {
   hessian <- match.arg(hessian)
+  information <- match.arg(information)
   if (!family %in% .glmnet_families) stop("family must be one of ", paste(.glmnet_families, collapse = ", "))
   x <- as.matrix(x)
   n <- nrow(x); p <- ncol(x)
@@ -122,6 +132,11 @@ glmnet_problem <- function(x, y, coef, a0 = 0, lambda, family = "gaussian",
     out <- list(beta_hat = coef, G_hat = grad, D = D, L = lower, U = upper)
     ridge1 <- ridge
   }
+  if (information == "relaxed" && family != "gaussian") {
+    mv <- .relaxed_mean_variance(X1, y, w, eta,
+                                 which(out$beta_hat != 0 | (intercept & seq_along(out$beta_hat) == 1)),
+                                 family, mv)
+  }
   out$Q_hat <- if (hessian == "dense") {
     crossprod(X1, X1 * (w * mv$var)) + diag(ridge1, length(ridge1))
   } else {
@@ -129,6 +144,25 @@ glmnet_problem <- function(x, y, coef, a0 = 0, lambda, family = "gaussian",
   }
   out$intercept <- intercept
   out
+}
+
+# mean and variance at the one-step relaxed fit on the columns `active` of X1: one Newton
+# step for the unpenalized loss from the LASSO solution, with the Hessian there,
+#   beta_E - H_EE^{-1} grad_E
+# (for the LASSO grad_E = -D_E sign(beta_E), so this undoes the shrinkage). Falls back to
+# `lasso_mv` if H_EE is singular.
+.relaxed_mean_variance <- function(X1, y, w, eta, active, family, lasso_mv) {
+  if (length(active) == 0) return(lasso_mv)
+  XE <- X1[, active, drop = FALSE]
+  grad <- crossprod(XE, w * (lasso_mv$mu - y))
+  hess <- crossprod(XE, XE * (w * lasso_mv$var))
+  step <- tryCatch(solve(hess, grad), error = function(e) NULL)
+  if (is.null(step)) {
+    warning("the Hessian on the selected coordinates is singular; ",
+            "using the information at the LASSO solution")
+    return(lasso_mv)
+  }
+  .mean_variance(family, eta - drop(XE %*% step))
 }
 
 #' KKT violation of the bounded LASSO
@@ -169,8 +203,10 @@ kkt_violation <- function(beta, G, D, L, U, tol = 1e-8) {
 #' @param envir Environment in which to evaluate the arguments of \code{fit$call}.
 #' @export
 glmnet_problem_from_fit <- function(fit, x, y, s = NULL, weights = NULL, offset = NULL,
-                                    hessian = c("dense", "operator"), envir = parent.frame()) {
+                                    hessian = c("dense", "operator"),
+                                    information = c("relaxed", "lasso"), envir = parent.frame()) {
   hessian <- match.arg(hessian)
+  information <- match.arg(information)
   family <- .glmnet_fit_family(fit)
   if (is.null(s)) {
     k <- length(fit$lambda)
@@ -205,7 +241,8 @@ glmnet_problem_from_fit <- function(fit, x, y, s = NULL, weights = NULL, offset 
                  upper.limits = arg("upper.limits", Inf),
                  standardize = arg("standardize", TRUE),
                  intercept = arg("intercept", TRUE),
-                 hessian = hessian)
+                 hessian = hessian,
+                 information = information)
   violation <- max(kkt_violation(problem$beta_hat, problem$G_hat, problem$D, problem$L, problem$U))
   if (violation > 1e-4 * fit$lambda[k]) {
     warning(sprintf("fit violates the KKT conditions by %.1e * lambda; it may not have converged (decrease thresh)",

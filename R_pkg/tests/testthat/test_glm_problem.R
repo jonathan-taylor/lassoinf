@@ -143,3 +143,29 @@ test_that("inference after a GLM fit", {
   expect_equal(nrow(summaries[[1]][[1]]), length(LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D,
                                                                      prob$L, prob$U, Z, prob$Q_hat, NULL, 0.5)$E))
 })
+
+test_that("information = 'relaxed' evaluates Q_hat at the one-step relaxed fit", {
+  set.seed(11)
+  y <- ys$binomial
+  fit <- glmnet(x, y, family = "binomial", lambda = c(0.2, 0.1, 0.05), thresh = 1e-14)
+  relaxed <- glmnet_problem_from_fit(fit, x, y, s = 0.05)
+  lasso <- glmnet_problem_from_fit(fit, x, y, s = 0.05, information = "lasso")
+  expect_equal(relaxed$G_hat, lasso$G_hat)
+  X1 <- cbind(1, x)
+  active <- which(relaxed$beta_hat != 0)
+  mu_lasso <- plogis(drop(X1 %*% lasso$beta_hat))
+  # one Newton step on the active coordinates from the LASSO solution
+  b <- lasso$beta_hat
+  b[active] <- b[active] - solve(lasso$Q_hat[active, active], crossprod(X1[, active], mu_lasso - y) / n)
+  mu <- plogis(drop(X1 %*% b))
+  expect_equal(relaxed$Q_hat, crossprod(X1, X1 * (mu * (1 - mu))) / n, tolerance = 1e-10)
+  # on the active set the gradient is -D sign(beta), so the step undoes the shrinkage
+  expect_equal(b[active], lasso$beta_hat[active] +
+                 drop(solve(lasso$Q_hat[active, active], (lasso$D * sign(lasso$beta_hat))[active])),
+               tolerance = 1e-6)
+  expect_equal(lasso$Q_hat, crossprod(X1, X1 * (mu_lasso * (1 - mu_lasso))) / n, tolerance = 1e-10)
+  # gaussian: the information does not depend on the fit
+  fit_g <- glmnet(x, ys$gaussian, lambda = c(0.2, 0.1), thresh = 1e-14)
+  expect_equal(glmnet_problem_from_fit(fit_g, x, ys$gaussian)$Q_hat,
+               glmnet_problem_from_fit(fit_g, x, ys$gaussian, information = "lasso")$Q_hat)
+})
