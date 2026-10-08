@@ -10,8 +10,7 @@ class XTVXOperator(LinearOperator):
         self.X = X
         self.V = V
         n = X.shape[1]
-        self.shape = (n, n)
-        self.dtype = np.dtype(np.float64)
+        super().__init__(np.float64, (n, n))
 
     def _matvec(self, x):
         return self.X.T @ (self.V @ (self.X @ x))

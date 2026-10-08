@@ -8,8 +8,7 @@ class CompositeOperator(LinearOperator):
     Q = sum_i (S_i + U_i @ V_i^T + diag(b_i))
     """
     def __init__(self, shape, S=None, U=None, V=None, b=None, components=None):
-        self.shape = shape
-        self.dtype = np.dtype(np.float64)
+        super().__init__(np.float64, shape)
         self.components = list(components) if components is not None else []
         
         m, n = shape
