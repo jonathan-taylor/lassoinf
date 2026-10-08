@@ -8,7 +8,8 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      eval = requireNamespace("glmnet", quietly = TRUE))
 ```
 
 `glmnet_problem_from_fit` reads a fitted `glmnet` object and returns the LASSO problem it

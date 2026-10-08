@@ -8,7 +8,8 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      eval = requireNamespace("glmnet", quietly = TRUE))
 ```
 
 After the LASSO selects an active set $E$, a common heuristic screens the inactive

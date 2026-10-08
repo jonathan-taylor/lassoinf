@@ -8,7 +8,8 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      eval = requireNamespace("glmnet", quietly = TRUE))
 ```
 
 This vignette shows the basic workflow of `lassoinf`. We fit a LASSO to a randomized

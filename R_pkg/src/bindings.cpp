@@ -3,18 +3,18 @@
 // [[Rcpp::depends(RcppEigen)]]
 
 // 1. Include the headers
-#include "../../cpp/include/affine_constraints.hpp"
-#include "../../cpp/include/discrete_family.h"
-#include "../../cpp/include/gaussian_family.hpp"
-#include "../../cpp/include/custom_estimand.hpp"
+#include "lassoinf/include/affine_constraints.hpp"
+#include "lassoinf/include/discrete_family.h"
+#include "lassoinf/include/gaussian_family.hpp"
+#include "lassoinf/include/custom_estimand.hpp"
 
 // 2. Unity build: include the C++ sources directly to avoid duplicate symbols
 //    and bypass the need for a complex Makefile to compile them individually.
-#include "../../cpp/src/affine_constraints.cpp"
-#include "../../cpp/src/lasso_post_selection_constraints.cpp"
-#include "../../cpp/src/discrete_family.cpp"
-#include "../../cpp/src/gaussian_family.cpp"
-#include "../../cpp/src/custom_estimand.cpp"
+#include "lassoinf/src/affine_constraints.cpp"
+#include "lassoinf/src/lasso_post_selection_constraints.cpp"
+#include "lassoinf/src/discrete_family.cpp"
+#include "lassoinf/src/gaussian_family.cpp"
+#include "lassoinf/src/custom_estimand.cpp"
 
 using namespace Rcpp;
 

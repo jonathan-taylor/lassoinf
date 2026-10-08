@@ -1,7 +1,3 @@
-#' @useDynLib lassoinf, .registration=TRUE
-#' @importFrom Rcpp loadModule
-NULL
-
 loadModule("lassoinf_cpp", TRUE)
 
 # --- Bivariate Normal Implementation ---
@@ -15,8 +11,7 @@ bivariate_normal_cdf <- function(h, k, rho) {
   if (rho < -0.999999) {
     return(max(0, pnorm(h) + pnorm(k) - 1))
   }
-  
-  requireNamespace("mvtnorm", quietly = TRUE)
+
   sigma <- matrix(c(1, rho, rho, 1), 2, 2)
   as.numeric(mvtnorm::pmvnorm(upper = c(h, k), mean = c(0, 0), sigma = sigma))
 }
@@ -82,6 +77,11 @@ compute_gaussian_conditional_stats <- function(mu_x, sig_x, sig_omega, cx, comeg
 #' TruncBivariateNormal Class
 #'
 #' @description Evaluates exact bounds and inference parameters for the selectively truncated bivariate normal distribution.
+#' Follows the bivariate normal computations of Liu (2023).
+#'
+#' @references
+#' Liu, S. (2023). An exact sampler for inference after polyhedral model
+#' selection. \emph{arXiv preprint}. \doi{10.48550/arXiv.2308.10346}
 #'
 #' @export
 TruncBivariateNormal <- R6::R6Class("TruncBivariateNormal",
@@ -293,6 +293,15 @@ prox_lasso_bounds <- function(v, t, D, L, U) {
 #' This class mirrors the Python `lassoinf.LassoInference` dataclass, 
 #' providing identical parameters and functional parity.
 #'
+#' @references
+#' Tian, X. and Taylor, J. (2018). Selective inference with a randomized
+#' response. \emph{The Annals of Statistics}, 46(2), 679--710.
+#' \doi{10.1214/17-AOS1564}
+#'
+#' Panigrahi, S., Fry, K. and Taylor, J. (2024). Exact selective inference
+#' with randomization. \emph{Biometrika}, 111(4), 1109--1127.
+#' \doi{10.1093/biomet/asae019}
+#'
 #' @export
 LassoInference <- R6::R6Class("LassoInference",
   public = list(
@@ -330,7 +339,7 @@ LassoInference <- R6::R6Class("LassoInference",
     v_Ec = NULL,
     #' @field W Inverse of Q_hat restricted to the active set.
     W = NULL,
-    #' @field score Inactive score operator U_{-E} (\code{LinearOp}).
+    #' @field score Inactive score operator \code{U_{-E}} (a \code{LinearOp}).
     score = NULL,
     #' @field Z_noisy The score used for selection.
     Z_noisy = NULL,

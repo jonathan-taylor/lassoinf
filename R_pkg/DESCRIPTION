@@ -1,12 +1,31 @@
 Package: lassoinf
-Title: Selective Inference Tools
+Title: Selective Inference for the Randomized Lasso
 Version: 0.1.0
-Authors@R: person("Jonathan", "Taylor", email = "someone@example.com", role = c("aut", "cre"))
-Description: Computes post-selection inference for the lasso leveraging a high-performance C++ backend.
+Authors@R: c(
+    person("Jonathan", "Taylor", email = "jtaylo@stanford.edu",
+           role = c("aut", "cre", "cph")),
+    person("Kevin", "Fry", role = "aut"),
+    person("Snigdha", "Panigrahi", role = "aut"),
+    person("Sifan", "Liu", role = c("ctb", "cph"),
+           comment = "truncated bivariate normal computations, see inst/COPYRIGHTS"))
+Description: Confidence intervals and p-values for parameters chosen by the
+    (randomized) lasso, valid after selection. Implements the polyhedral
+    approach of Lee, Sun, Sun and Taylor (2016) <doi:10.1214/15-AOS1371>,
+    the randomized response of Tian and Taylor (2018) <doi:10.1214/17-AOS1564>
+    and the exact randomized inference of Panigrahi, Fry and Taylor (2024)
+    <doi:10.1093/biomet/asae019>, with the truncated bivariate normal
+    computations of Liu (2023) <doi:10.48550/arXiv.2308.10346>. Includes
+    inference for user-specified estimands, screening of inactive variables
+    and problems fitted by 'glmnet'. Computations use a 'C++' backend with
+    matrix-free linear operators for wide designs.
 License: BSD_3_clause + file LICENSE
+Copyright: See inst/COPYRIGHTS for the code adapted from Sifan Liu (MIT).
+URL: https://github.com/jonathan-taylor/lassoinf
+BugReports: https://github.com/jonathan-taylor/lassoinf/issues
 Encoding: UTF-8
+Depends: R (>= 3.5.0)
 LinkingTo: Rcpp, RcppEigen
-Imports: Rcpp, mvtnorm, R6
-RoxygenNote: 7.3.3
+Imports: methods, mvtnorm, R6, Rcpp, stats
 Suggests: glmnet, knitr, rmarkdown, testthat
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.1.0
