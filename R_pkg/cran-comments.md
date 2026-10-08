@@ -7,7 +7,7 @@ This is a new submission.
 * local macOS (aarch64), R 4.5.3
 * GitHub Actions: macOS (release), Windows (release), Ubuntu (devel, release, oldrel-1):
   Status OK
-* win-builder (R-devel)
+* win-builder: Windows, R-devel (2026-10-05 r90641 ucrt): 1 note (below)
 
 ## R CMD check results
 
@@ -16,6 +16,11 @@ This is a new submission.
 * checking CRAN incoming feasibility ... NOTE
   Maintainer: 'Jonathan Taylor <jtaylo@stanford.edu>'
   New submission
+
+  Possibly misspelled words in DESCRIPTION: Liu, Panigrahi, Tian, estimands
+
+  These are correctly spelled: the surnames of the authors of the cited papers, and
+  "estimands", the standard statistical term for the quantities being estimated.
 
 ## Notes for the reviewers
 
