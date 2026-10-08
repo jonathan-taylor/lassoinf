@@ -113,6 +113,29 @@ li$`_naive`
 li$`_splitting`
 ```
 
+## Full-model targets
+
+With `target = "full"` the intervals are instead for the $E$ coordinates of the full-model
+coefficients, $\left((X'X)^{-1}X'\mu\right)_E$, with contrasts given by the columns $E$
+of $\hat{Q}^{-1}$.
+
+**Note:** the full-model target requires $\hat{Q}$ to be invertible ($n > p$ in regression)
+and a solve with $\hat{Q}$ for each selected variable. If `Q_hat` is a matrix this is a
+single Cholesky factorization, costing $O(p^3)$. If it is a `LinearOp`, each solve uses
+conjugate gradient, which can take many matvecs with `Q_hat` when it is poorly conditioned.
+To avoid these solves, pass `Q_solve`, a function with `Q_solve(B)` equal to `solve(Q_hat, B)`
+for an $n \times k$ matrix `B`, e.g. from a Cholesky factor cached across fits with the
+same design.
+
+```{r}
+li_full <- LassoInference$new(beta_hat, G_hat, Q, rep(lam, p), NULL, NULL,
+                              Z_full, Sigma, Sigma_noise, level = 0.9, target = "full")
+summ_full <- li_full$summary()
+summ_full$truth <- beta[summ_full$index + 1]
+summ_full$cover <- summ_full$lower_conf <= summ_full$truth & summ_full$truth <= summ_full$upper_conf
+summ_full
+```
+
 ## Coverage over repeated experiments
 
 The randomized intervals should cover their targets 90% of the time. The naive intervals

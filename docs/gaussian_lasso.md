@@ -170,3 +170,39 @@ carve_df['truth'] = [(inference._contrasts[j].direction * true_Z).sum() for j in
 carve_df['cover'] = (carve_df['lower_conf'] < carve_df['truth']) * (carve_df['upper_conf'] > carve_df['truth'])
 carve_df
 ```
+
+### Full-model targets
+
+By default (`target='selected'`) the intervals are for the coefficients of the selected
+model, $\beta_E = (X_E'X_E)^{-1}X_E'\mu$. With `target='full'` they are instead for the
+$E$ coordinates of the full-model coefficients, $\left((X'X)^{-1}X'\mu\right)_E$, with
+contrasts given by the columns $E$ of $\hat{Q}^{-1}$.
+
+```{warning}
+The full-model target requires $\hat{Q}$ to be invertible ($n > p$ in regression) and a
+solve with $\hat{Q}$ for each selected variable. If `Q_hat` is a dense array this is a
+single Cholesky factorization, costing $O(p^3)$; if it is sparse, a sparse LU. If `Q_hat`
+is a matrix-free operator, each solve uses conjugate gradient, which can take many
+matvecs with `Q_hat` when it is poorly conditioned. To avoid these solves, pass
+`Q_solve`, a callable with `Q_solve(B)` equal to $\hat{Q}^{-1}B$ for an $(n, k)$ array
+$B$, e.g. from a Cholesky factor cached across fits with the same design.
+```
+
+```{code-cell} ipython3
+full = LassoInference(
+    beta_hat=beta_hat,
+    G_hat=G_hat,
+    Q_hat=Q_hat,
+    D=D,
+    L=L_bound,
+    U=U_bound,
+    Z_full=Z_full,
+    Sigma=Sigma,
+    Sigma_noise=Sigma_noise,
+    target='full'
+)
+full_df = full.summary_
+full_df['truth'] = np.linalg.solve(X.T @ X, true_Z)[full_df.index]
+full_df['cover'] = (full_df['lower_conf'] < full_df['truth']) * (full_df['upper_conf'] > full_df['truth'])
+full_df
+```

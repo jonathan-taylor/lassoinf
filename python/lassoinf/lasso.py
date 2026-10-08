@@ -1,8 +1,11 @@
 from dataclasses import dataclass
+from typing import Callable
 
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
+from scipy.linalg import cho_factor, cho_solve
+from scipy.sparse.linalg import aslinearoperator, cg, splu
 from scipy.stats import norm as normal_dbn
 
 from .affine_constraints import AffineConstraints
@@ -14,6 +17,20 @@ from .bivariate_normal import TruncBivariateNormal
 
 @dataclass
 class LassoInference:
+    """
+    Selective inference for the coefficients of the LASSO active set E.
+
+    target : 'selected' (default) or 'full'.
+        'selected': coefficients of the selected model, Q_hat[E, E]^{-1} Z_full[E].
+        'full': the E coordinates of the full-model coefficients Q_hat^{-1} Z_full.
+        This requires Q_hat to be invertible (n > p in regression) and a solve
+        with Q_hat for each active variable: one Cholesky factorization if Q_hat is
+        a dense array, a sparse LU if sparse, and otherwise |E| conjugate gradient
+        solves, each costing many matvecs with Q_hat.
+    Q_solve : optional callable for target='full'.
+        Q_solve(B) returns Q_hat^{-1} B for an (n, k) array B, e.g. from a cached
+        Cholesky factor, replacing the solves above. Ignored for target='selected'.
+    """
     beta_hat: np.ndarray
     G_hat: np.ndarray
     Q_hat: np.ndarray
@@ -25,6 +42,8 @@ class LassoInference:
     Sigma_noise: np.ndarray | None = None
     scalar_noise: float = np.nan
     level: float = 0.95
+    target: str = 'selected'
+    Q_solve: Callable | None = None
 
     def check_kkt(self, tol=1e-5):
         """
@@ -147,18 +166,25 @@ class LassoInference:
             scalar_noise=self.scalar_noise,
         )
 
-    def compute_intervals(self, inference_method=None):
+    def compute_intervals(self, inference_method=None, target=None):
+        if target is not None:
+            self.target = target
+        if self.target not in ('selected', 'full'):
+            raise ValueError(f"target must be 'selected' or 'full', got {self.target!r}")
         n = self.Q_hat.shape[0] if hasattr(self.Q_hat, 'shape') else len(self.beta_hat)
         self._contrasts = {}
         betas, lowers, uppers, pvals = [], [], [], []
 
         # compute confidence intervals for the parameters using the "free" variables from the constraints
         if len(self.E) > 0:
-            W = self.W
+            if self.target == 'full':
+                V = full_model_contrasts(self.Q_hat, self.E, Q_solve=self.Q_solve)
+            else:
+                V = np.zeros((n, len(self.E)))
+                V[self.E] = self.W
 
             for k, j in enumerate(self.E):
-                v = np.zeros(n)
-                v[self.E] = W[:, k]
+                v = V[:, k]
                 
                 # The target estimate theta_hat
                 theta_hat = v.T @ self.Z_full
@@ -234,6 +260,41 @@ class LassoInference:
                 )
             raise ValueError(f"Unknown inference method: {inference_method}")
 
+
+
+def full_model_contrasts(Q, E, Q_solve=None, rtol=1e-10):
+    """
+    Columns E of Q^{-1}: the contrasts for the full-model coefficients
+    (Q^{-1} Z)_E. Q must be invertible.
+
+    Q_solve, if given, maps an (n, k) array B to Q^{-1} B. Otherwise, dense Q: one Cholesky factorization (cheaper and more stable than
+    inverting Q). Sparse Q: sparse LU. Otherwise: one conjugate gradient
+    solve per column.
+    """
+    E = np.asarray(E, dtype=int)
+    n = Q.shape[0]
+    rhs = np.zeros((n, len(E)))
+    rhs[E, np.arange(len(E))] = 1.
+    if Q_solve is not None:
+        V = np.asarray(Q_solve(rhs), dtype=float)
+        if V.shape != rhs.shape:
+            raise ValueError(f"Q_solve returned shape {V.shape}, expected {rhs.shape}")
+        return V
+    if isinstance(Q, np.ndarray):
+        try:
+            return cho_solve(cho_factor(Q), rhs)
+        except np.linalg.LinAlgError:
+            raise ValueError("target='full' requires Q_hat positive definite")
+    if sp.issparse(Q):
+        return splu(sp.csc_matrix(Q)).solve(rhs)
+    Q_op = aslinearoperator(Q)
+    V = np.zeros_like(rhs)
+    for k in range(len(E)):
+        V[:, k], info = cg(Q_op, rhs[:, k], rtol=rtol, maxiter=10 * n)
+        if info != 0:
+            raise ValueError(f"conjugate gradient did not converge for variable {E[k]} "
+                             "(target='full' requires Q_hat positive definite)")
+    return V
 
 
 def largest_eigenvalue_bound_Q(Q, num_iters=4):

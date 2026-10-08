@@ -277,6 +277,53 @@ matvec <- function(Q, v) {
   if (inherits(Q, "Rcpp_LinearOp")) Q$multiply(v) else as.vector(Q %*% v)
 }
 
+# Columns E (1-based) of Q^{-1}: contrasts for the full-model coefficients
+# (Q^{-1} Z)_E. Q_solve, if given, maps an n x k matrix B to Q^{-1} B.
+# Otherwise, dense Q: one Cholesky factorization. LinearOp: one conjugate
+# gradient solve per column.
+full_model_contrasts <- function(Q, E, Q_solve = NULL, tol = 1e-10, maxiter = NULL) {
+  n <- if (inherits(Q, "Rcpp_LinearOp")) Q$cols() else nrow(Q)
+  rhs <- matrix(0, n, length(E))
+  rhs[cbind(E, seq_along(E))] <- 1
+  if (!is.null(Q_solve)) {
+    V <- as.matrix(Q_solve(rhs))
+    if (!identical(dim(V), dim(rhs)))
+      stop(sprintf("Q_solve returned a %s matrix, expected %d x %d",
+                   paste(dim(V), collapse = " x "), n, length(E)))
+    return(V)
+  }
+  if (!inherits(Q, "Rcpp_LinearOp")) {
+    R <- tryCatch(chol(as.matrix(Q)), error = function(e)
+      stop("target = 'full' requires Q_hat positive definite"))
+    return(backsolve(R, forwardsolve(t(R), rhs)))
+  }
+  if (is.null(maxiter)) maxiter <- 10 * n
+  V <- matrix(0, n, length(E))
+  for (k in seq_along(E)) {
+    b <- rhs[, k]
+    x <- rep(0, n)
+    r <- b
+    d <- r
+    rs <- sum(r^2)
+    converged <- FALSE
+    for (it in seq_len(maxiter)) {
+      Qd <- Q$multiply(d)
+      alpha <- rs / sum(d * Qd)
+      x <- x + alpha * d
+      r <- r - alpha * Qd
+      rs_new <- sum(r^2)
+      if (sqrt(rs_new) <= tol) { converged <- TRUE; break }
+      d <- r + (rs_new / rs) * d
+      rs <- rs_new
+    }
+    if (!converged)
+      stop(sprintf("conjugate gradient did not converge for variable %d ", E[k] - 1),
+           "(target = 'full' requires Q_hat positive definite)")
+    V[, k] <- x
+  }
+  V
+}
+
 prox_lasso_bounds <- function(v, t, D, L, U) {
   n <- length(v)
   if (is.null(L)) L <- rep(-Inf, n)
@@ -292,6 +339,16 @@ prox_lasso_bounds <- function(v, t, D, L, U) {
 #' @description Computes post-selection inference for the lasso.
 #' This class mirrors the Python `lassoinf.LassoInference` dataclass, 
 #' providing identical parameters and functional parity.
+#'
+#' @details With \code{target = "selected"} (default) the intervals are for the
+#' coefficients of the selected model, \code{solve(Q_hat[E, E], Z_full[E])}. With
+#' \code{target = "full"} they are for the \code{E} coordinates of the full-model
+#' coefficients \code{solve(Q_hat, Z_full)}. This requires \code{Q_hat} to be
+#' invertible (n > p in regression) and a solve with \code{Q_hat} for each active
+#' variable: one Cholesky factorization if \code{Q_hat} is a matrix, otherwise
+#' \code{|E|} conjugate gradient solves, each costing many matvecs with \code{Q_hat}.
+#' A function \code{Q_solve(B)} returning \code{solve(Q_hat, B)} for an n x k matrix
+#' \code{B}, e.g. from a cached Cholesky factor, replaces these solves.
 #'
 #' @export
 LassoInference <- R6::R6Class("LassoInference",
@@ -336,6 +393,10 @@ LassoInference <- R6::R6Class("LassoInference",
     Z_noisy = NULL,
     #' @field level Confidence level.
     level = 0.95,
+    #' @field target \code{"selected"} or \code{"full"}: see Details.
+    target = "selected",
+    #' @field Q_solve Optional function computing \code{solve(Q_hat, B)}: see Details.
+    Q_solve = NULL,
     #' @field si AffineConstraints C++ wrapper instance.
     si = NULL,
     #' @field intervals Selective inference intervals.
@@ -365,7 +426,13 @@ LassoInference <- R6::R6Class("LassoInference",
     #' @param scalar_noise Variance scaling if Sigma_noise is NULL. Default is \code{NaN}.
     #' @param tol Tolerance for active set and KKT conditions. Default is \code{1e-6}.
     #' @param level Confidence level. Default is 0.95.
-    initialize = function(beta_hat, G_hat, Q_hat, D, L=NULL, U=NULL, Z_full, Sigma, Sigma_noise=NULL, scalar_noise=NaN, tol = 1e-6, level = 0.95) {
+    #' @param target \code{"selected"} (default) or \code{"full"}: see Details.
+    #' @param Q_solve Optional function with \code{Q_solve(B) = solve(Q_hat, B)} for
+    #'   \code{target = "full"}; ignored for \code{"selected"}. Default is \code{NULL}.
+    initialize = function(beta_hat, G_hat, Q_hat, D, L=NULL, U=NULL, Z_full, Sigma, Sigma_noise=NULL, scalar_noise=NaN, tol = 1e-6, level = 0.95,
+                          target = c("selected", "full"), Q_solve = NULL) {
+      self$target <- match.arg(target)
+      self$Q_solve <- Q_solve
       self$beta_hat <- beta_hat
       self$G_hat <- G_hat
       self$Q_hat <- Q_hat
@@ -423,12 +490,15 @@ LassoInference <- R6::R6Class("LassoInference",
       
       if (length(self$E) > 0) {
         E_r <- self$E + 1
-        W <- self$W
+        if (self$target == "full") {
+          V <- full_model_contrasts(self$Q_hat, E_r, Q_solve = self$Q_solve)
+        } else {
+          V <- matrix(0, n, length(E_r))
+          V[E_r, ] <- self$W
+        }
         
         for (k in seq_along(E_r)) {
-          j <- E_r[k]
-          v <- rep(0, n)
-          v[E_r] <- W[, k]
+          v <- V[, k]
           
           theta_hat <- sum(v * self$Z_full)
           variance <- sum(v * matvec(self$Sigma, v))
