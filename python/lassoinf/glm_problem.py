@@ -16,7 +16,8 @@ variables are fixed at 0.
 
 For the gaussian family R's glmnet fits the standardized response :math:`y / s_y`, which
 divides the ridge term by :math:`s_y` (the weighted standard deviation of :math:`y`, or its
-weighted root mean square without an intercept); glmstar does not. See ``y_scale``.
+weighted root mean square without an intercept); glmstar's ``GLMNet`` does not, its C++
+path estimators (``GaussNet``) do. See ``y_scale``.
 
 In the original coordinates :math:`(\\beta_0, \\beta)` this is a bounded LASSO with weights
 :math:`D_j = \\lambda \\alpha pf_j s_j` (0 for the intercept) and smooth part
@@ -254,9 +255,19 @@ def _glmstar_family(glmnet_obj):
     raise ValueError(f'unsupported family {type(base).__name__}; supported: {FAMILIES}')
 
 
+def _is_cpp_path(glmnet_obj):
+    from glmnet.paths.fastnet import FastNetMixin
+    return isinstance(glmnet_obj, FastNetMixin)
+
+
 def glmstar_problem(glmnet_obj, X, y, lambda_val=None, hessian='dense'):
     """
     GLMProblem for a fitted glmstar ``GLMNet`` at one of its lambda values.
+
+    Also accepts glmstar's C++ path estimators ``GaussNet``, ``LogNet`` and
+    ``FishNet``. These run R's glmnet code (glmnetpp), so they follow R's
+    conventions: they standardize internally (``design_.scaling_`` is 1) and,
+    for ``GaussNet``, divide the ridge term by the scale of y.
 
     X, y : the data passed to ``fit`` (y may be a DataFrame with response,
         weight and offset columns, as for glmstar).
@@ -275,7 +286,15 @@ def glmstar_problem(glmnet_obj, X, y, lambda_val=None, hessian='dense'):
     X_arr, _, response, offset, weight = G.get_data_arrays(X, y)
     X_arr = np.asarray(X_arr.toarray() if sp.issparse(X_arr) else X_arr, dtype=float)
 
-    penalty_factor = G.penalty_factor
+    lower, upper = G.lower_limits, G.upper_limits
+    if _is_cpp_path(G):
+        scaling, y_scale = None, None
+        # infinite limits are stored as glmnet's sentinel +-control.big
+        big = G.control.big
+        lower = np.where(np.asarray(lower) <= -big, -np.inf, lower)
+        upper = np.where(np.asarray(upper) >= big, np.inf, upper)
+    else:
+        scaling, y_scale = np.asarray(G.design_.scaling_), 1.
     problem = glmnet_problem(X_arr,
                           response,
                           coef=G.coefs_[k],
@@ -285,14 +304,14 @@ def glmstar_problem(glmnet_obj, X, y, lambda_val=None, hessian='dense'):
                           weights=weight,
                           offset=offset,
                           alpha=G.alpha,
-                          penalty_factor=penalty_factor,
+                          penalty_factor=G.penalty_factor,
                           exclude=G.excluded_,
-                          lower_limits=G.lower_limits,
-                          upper_limits=G.upper_limits,
+                          lower_limits=lower,
+                          upper_limits=upper,
                           standardize=G.standardize,
                           fit_intercept=G.fit_intercept,
-                          scaling=np.asarray(G.design_.scaling_),
-                          y_scale=1.,
+                          scaling=scaling,
+                          y_scale=y_scale,
                           hessian=hessian)
     _check_converged(problem, lambdas[k])
     return problem

@@ -8,12 +8,13 @@ import cvxpy as cp
 from scipy.special import expit
 import statsmodels.genmod.families as smf
 
-from glmnet import GLMNet
+from glmnet import GLMNet, GaussNet, LogNet, FishNet
 from glmnet.glmnet import GLMNetControl
+from glmnet.paths.fastnet import FastNetControl
 
 from lassoinf import LassoInference
 from lassoinf.lasso import lasso_post_selection_constraints
-from lassoinf.glm_problem import glmnet_problem, glmstar_problem, kkt_violation
+from lassoinf.glm_problem import glmnet_problem, glmstar_problem, glmnet_response_scale, kkt_violation
 from lassoinf.custom_estimand import ScreenedSelection, inactive_summary
 
 N, P = 120, 8
@@ -171,6 +172,41 @@ def test_glmstar_unconverged_warns(data):
         glmstar_problem(G, X, df, lambda_val=0.04)
     with pytest.raises(ValueError, match='lambda_values_'):
         glmstar_problem(G, X, df, lambda_val=0.05)
+
+
+# ---- glmstar's C++ path estimators (R's glmnet code) ----
+
+PATH_ESTIMATORS = {'gaussian': GaussNet, 'binomial': LogNet, 'poisson': FishNet}
+
+
+@pytest.mark.parametrize('family,standardize,fit_intercept,option',
+                         list(itertools.product(SM_FAMILIES, [True, False], [True, False],
+                                                {**OPTIONS, **GLMSTAR_BROKEN})))
+def test_glmstar_path_problem(data, family, standardize, fit_intercept, option):
+    # unlike GLMNet, these handle exclude and penalty factors 0 / inf; they follow
+    # R's conventions (internal standardization, ridge term divided by the scale of y)
+    X, df = data
+    opts = {**OPTIONS, **GLMSTAR_BROKEN}[option]
+    G = PATH_ESTIMATORS[family](standardize=standardize, fit_intercept=fit_intercept, response_id=family,
+                                nlambda=20, control=FastNetControl(thresh=1e-14, fdev=0),
+                                **{k: (list(v) if k == 'exclude' else np.copy(v) if isinstance(v, np.ndarray) else v)
+                                   for k, v in opts.items()})
+    G.fit(X, df)
+    lam = G.lambda_values_[8]
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        prob = glmstar_problem(G, X, df, lambda_val=lam)
+    y = df[family].values
+    w = df['w'].values if opts.get('weight_id') else np.ones(N)
+    offset = df['o'].values if opts.get('offset_id') else np.zeros(N)
+    y_scale = glmnet_response_scale(y, w, fit_intercept) if family == 'gaussian' else 1.
+    _check_problem(prob, X, y, family, w, offset, fit_intercept, lam,
+                   alpha=opts.get('alpha', 1.), pf=opts.get('penalty_factor'),
+                   exclude=opts.get('exclude', ()), standardize=standardize, y_scale=y_scale)
+    # infinite limits are infinite, not glmnet's sentinel
+    i = 1 if fit_intercept else 0
+    assert np.all(np.isinf(prob.L[i:]) | (np.abs(prob.L[i:]) < 1))
+    assert np.all(np.isinf(prob.U[i:]) | (np.abs(prob.U[i:]) < 1))
 
 
 # ---- the core extraction against an independent solve of glmnet's objective ----

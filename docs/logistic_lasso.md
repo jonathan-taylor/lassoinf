@@ -161,3 +161,93 @@ inference = LassoInference(
 carve_df = inference.summary_
 carve_df
 ```
+
+## The same selection with glmstar
+
+[glmstar](https://github.com/jonathan-taylor/glmstar) fits glmnet's problem in Python. Its path
+estimator `LogNet` runs R's glmnet code, and `glmstar_problem` reads off the LASSO problem a
+fit solved, in the original coordinates: the solution, the gradient and Hessian of the smooth
+part, the penalty weights and the bounds. These are the selection inputs of `LassoInference`.
+Here we refit the selection problem above with glmstar instead of cvxpy.
+
+glmnet minimizes
+
+$$
+\frac{1}{n} \sum_i \ell(y_i, x_i^T\beta) + \lambda \sum_j \text{pf}_j |\beta_j|,
+$$
+
+with $\ell$ the negative log-likelihood and the penalty factors $\text{pf}$ rescaled to sum
+to $p$. Dividing the cvxpy objective
+above by $n$, we need $\lambda\, \text{pf}_j = D_j / n$: we take $\text{pf} = D$ (including
+its 0 for the unpenalized feature) and $\lambda = \sum_j D_j / (pn)$. There is no intercept
+and no standardization, and the bounds are passed as limits. glmnet fits a path of $\lambda$
+values, so we fit one ending at ours. `glmstar_problem` warns if the fit does not satisfy
+the KKT conditions closely enough, so a small `thresh` matters. We use glmstar's path
+solvers (`LogNet`, and `GaussNet` or `FishNet` for other families) rather than its IRLS
+estimator `GLMNet`: they solve glmnet's problem exactly, including penalty factors of 0.
+
+```{code-cell} ipython3
+:tags: [remove-stderr]
+
+from glmnet import LogNet
+from glmnet.paths.fastnet import FastNetControl
+from lassoinf import glmstar_problem
+from lassoinf.glm_problem import kkt_violation
+
+lam_glmnet = D_weight.sum() / (p * n)
+glmstar_fit = LogNet(fit_intercept=False,
+                     standardize=False,
+                     penalty_factor=D_weight.copy(),  # glmstar rescales it in place
+                     lower_limits=L_bound,
+                     upper_limits=U_bound,
+                     lambda_values=lam_glmnet * np.exp(np.linspace(np.log(20), 0, 30)),
+                     control=FastNetControl(thresh=1e-14))
+glmstar_fit.fit(X_noisy, y_noisy)
+glm_prob = glmstar_problem(glmstar_fit, X_noisy, y_noisy, lambda_val=lam_glmnet)
+```
+
+glmstar's problem is on the per-observation scale. Multiplying the gradient, the Hessian and
+the penalty weights by $n$ puts it on the scale of the cvxpy problem, where it should agree
+with the cvxpy solution up to the accuracy of SCS:
+
+```{code-cell} ipython3
+glm_args = glm_prob.lasso_args()
+for k in ['G_hat', 'Q_hat', 'D']:
+    glm_args[k] = n * glm_args[k]
+
+pd.DataFrame({'cvxpy': beta_hat, 'glmstar': glm_args['beta_hat']}).round(4)
+```
+
+```{code-cell} ipython3
+print('max |D difference|:', np.abs(glm_args['D'] - D).max())
+print('max |beta difference|:', np.abs(glm_args['beta_hat'] - beta_hat).max())
+print('max |Q difference| / max |Q|:', np.abs(glm_args['Q_hat'] - Q_hat).max() / np.abs(Q_hat).max())
+```
+
+The inference uses the same $Z_{full}$ and $\Sigma$:
+
+```{code-cell} ipython3
+glmstar_inference = LassoInference(**glm_args,
+                                   Z_full=Z_full,
+                                   Sigma=Sigma,
+                                   Sigma_noise=Sigma)
+glmstar_inference.summary_
+```
+
+Side by side with the cvxpy results:
+
+```{code-cell} ipython3
+cols = ['lower_conf', 'upper_conf', 'p_value']
+pd.concat({'cvxpy': carve_df[cols], 'glmstar': glmstar_inference.summary_[cols]}, axis=1).round(4)
+```
+
+The two fits agree up to the accuracy of the cvxpy solution. Both satisfy the KKT conditions
+of the same problem; `kkt_violation` checks a fit from any solver against them. SCS returns
+small nonzero values instead of exact zeros, so for cvxpy we treat coefficients below `1e-4`
+in absolute value as 0:
+
+```{code-cell} ipython3
+print('KKT violation, glmstar:', glm_prob.kkt_violation() * n)
+print('KKT violation, cvxpy:',
+      np.max(kkt_violation(beta_hat, G_hat, D, L_bound, U_bound, tol=1e-4)))
+```
