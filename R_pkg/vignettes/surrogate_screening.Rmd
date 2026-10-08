@@ -258,6 +258,20 @@ coverage_table <- function(results) {
 }
 ```
 
+```{r, include = FALSE}
+# The simulations take a few minutes, so their results are saved in
+# surrogate_screening_sims.rds (simulate() sets its own seed, so they are the same).
+# Set LASSOINF_RERUN_SIMS=true and rebuild the vignette to recompute them.
+sims_file <- "surrogate_screening_sims.rds"
+if (!file.exists(sims_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")) {
+  saveRDS(list(indep = simulate(rho = 0, amp = 3, nsim = 50),
+               ar = simulate(rho = 0.8, amp = 5, nsim = 30)), sims_file)
+}
+sims <- readRDS(sims_file)
+results_indep <- sims$indep
+results_ar <- sims$ar
+```
+
 ## Example 1: independent features
 
 ```{r}
@@ -303,7 +317,7 @@ head(compare_p_values(a), 10)
 
 Over 50 replications:
 
-```{r}
+```{r, eval = -1}
 results_indep <- simulate(rho = 0, amp = 3, nsim = 50)
 coverage_table(results_indep)
 with(results_indep, tapply(reject, list(method, added_signal = added_signal), mean))
@@ -353,7 +367,7 @@ head(compare_p_values(a), 10)
 
 Over 30 replications:
 
-```{r}
+```{r, eval = -1}
 results_ar <- simulate(rho = 0.8, amp = 5, nsim = 30)
 coverage_table(results_ar)
 with(results_ar, tapply(reject, list(method, dropped_signal = dropped_signal,
