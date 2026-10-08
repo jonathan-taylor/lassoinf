@@ -48,7 +48,7 @@ numerical_gradient <- function(f, theta, h = 1e-6) {
 check_glmnet_fit <- function(family, standardize, intercept, opts, use_family_object = FALSE) {
   fam_arg <- if (use_family_object) get(family)() else family
   args <- c(list(x = x, y = ys[[family]], family = fam_arg, standardize = standardize,
-                 intercept = intercept, thresh = 1e-14, nlambda = 20), opts)
+                 intercept = intercept, control = list(thresh = 1e-14), nlambda = 20), opts)
   fit <- do.call(glmnet, args)
   k <- min(8, length(fit$lambda))
   lam <- fit$lambda[k]
@@ -111,14 +111,14 @@ test_that("family objects and exclude as a function", {
   for (family in c("binomial", "poisson")) {
     check_glmnet_fit(family, TRUE, TRUE, list(), use_family_object = TRUE)
   }
-  fit <- glmnet(x, ys$gaussian, exclude = function(x, y, weights) c(2, 5), thresh = 1e-14, nlambda = 20)
+  fit <- glmnet(x, ys$gaussian, exclude = function(x, y, weights) c(2, 5), control = list(thresh = 1e-14), nlambda = 20)
   prob <- glmnet_problem_from_fit(fit, x, ys$gaussian, s = fit$lambda[8])
   expect_equal(prob$L[c(2, 5) + 1], c(0, 0))
   expect_lt(max(kkt_violation(prob$beta_hat, prob$G_hat, prob$D, prob$L, prob$U)), 2e-5 * fit$lambda[8])
 })
 
 test_that("unconverged fits warn; lambda must be on the path", {
-  fit <- glmnet(x, ys$poisson, family = "poisson", lambda = c(0.08, 0.04), thresh = 1e-2)
+  fit <- glmnet(x, ys$poisson, family = "poisson", lambda = c(0.08, 0.04), control = list(thresh = 1e-2))
   expect_warning(glmnet_problem_from_fit(fit, x, ys$poisson, s = 0.04), "KKT")
   expect_error(glmnet_problem_from_fit(fit, x, ys$poisson, s = 0.05), "fit\\$lambda")
   expect_error(glmnet_problem(x, ys$gaussian, rep(0, p), 0, 0.1, family = "gamma"), "family")
@@ -127,7 +127,7 @@ test_that("unconverged fits warn; lambda must be on the path", {
 test_that("inference after a GLM fit", {
   set.seed(5)
   fit <- glmnet(x, ys$binomial, family = "binomial", upper.limits = c(0.1, rep(Inf, p - 1)),
-                thresh = 1e-14, nlambda = 20)
+                control = list(thresh = 1e-14), nlambda = 20)
   lam <- fit$lambda[6]
   prob <- glmnet_problem_from_fit(fit, x, ys$binomial, s = lam)
   op <- glmnet_problem_from_fit(fit, x, ys$binomial, s = lam, hessian = "operator")
@@ -147,7 +147,7 @@ test_that("inference after a GLM fit", {
 test_that("information = 'relaxed' evaluates Q_hat at the one-step relaxed fit", {
   set.seed(11)
   y <- ys$binomial
-  fit <- glmnet(x, y, family = "binomial", lambda = c(0.2, 0.1, 0.05), thresh = 1e-14)
+  fit <- glmnet(x, y, family = "binomial", lambda = c(0.2, 0.1, 0.05), control = list(thresh = 1e-14))
   relaxed <- glmnet_problem_from_fit(fit, x, y, s = 0.05)
   lasso <- glmnet_problem_from_fit(fit, x, y, s = 0.05, information = "lasso")
   expect_equal(relaxed$G_hat, lasso$G_hat)
@@ -165,14 +165,14 @@ test_that("information = 'relaxed' evaluates Q_hat at the one-step relaxed fit",
                tolerance = 1e-6)
   expect_equal(lasso$Q_hat, crossprod(X1, X1 * (mu_lasso * (1 - mu_lasso))) / n, tolerance = 1e-10)
   # gaussian: the information does not depend on the fit
-  fit_g <- glmnet(x, ys$gaussian, lambda = c(0.2, 0.1), thresh = 1e-14)
+  fit_g <- glmnet(x, ys$gaussian, lambda = c(0.2, 0.1), control = list(thresh = 1e-14))
   expect_equal(glmnet_problem_from_fit(fit_g, x, ys$gaussian)$Q_hat,
                glmnet_problem_from_fit(fit_g, x, ys$gaussian, information = "lasso")$Q_hat)
 })
 
 test_that("scalar_noise = 0 (no randomization) runs", {
   y <- ys$binomial
-  fit <- glmnet(x, y, family = "binomial", lambda = c(0.2, 0.1, 0.05), thresh = 1e-14)
+  fit <- glmnet(x, y, family = "binomial", lambda = c(0.2, 0.1, 0.05), control = list(thresh = 1e-14))
   prob <- glmnet_problem_from_fit(fit, x, y, s = 0.05)
   Z <- -prob$G_hat + drop(prob$Q_hat %*% prob$beta_hat)
   li <- LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D, prob$L, prob$U,

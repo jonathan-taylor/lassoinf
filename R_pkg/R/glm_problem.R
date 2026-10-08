@@ -245,7 +245,7 @@ glmnet_problem_from_fit <- function(fit, x, y, s = NULL, weights = NULL, offset 
                  information = information)
   violation <- max(kkt_violation(problem$beta_hat, problem$G_hat, problem$D, problem$L, problem$U))
   if (violation > 1e-4 * fit$lambda[k]) {
-    warning(sprintf("fit violates the KKT conditions by %.1e * lambda; it may not have converged (decrease thresh)",
+    warning(sprintf("fit violates the KKT conditions by %.1e * lambda; it may not have converged (decrease thresh, e.g. control = list(thresh = 1e-14))",
                     violation / fit$lambda[k]))
   }
   problem

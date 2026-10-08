@@ -59,7 +59,7 @@ d <- make_data(n)
 
 lam <- 0.03
 lambda_path <- lam * exp(seq(log(10), 0, length.out = 30))
-fit <- glmnet::glmnet(d$X, d$y, family = "binomial", lambda = lambda_path, thresh = 1e-14)
+fit <- glmnet::glmnet(d$X, d$y, family = "binomial", lambda = lambda_path, control = list(thresh = 1e-14))
 ```
 
 We fit a path ending at $\lambda$ with a small `thresh`: `glmnet_problem_from_fit` warns if
@@ -107,7 +107,7 @@ full least squares fit when $n > p$). The relaxed and LASSO information agree.
 ```{r}
 one_replication <- function() {
   d <- make_data(n)
-  fit <- glmnet::glmnet(d$X, d$y, family = "binomial", lambda = lambda_path, thresh = 1e-14)
+  fit <- glmnet::glmnet(d$X, d$y, family = "binomial", lambda = lambda_path, control = list(thresh = 1e-14))
   prob <- glmnet_problem_from_fit(fit, d$X, d$y, s = lam)
   Z <- -prob$G_hat + drop(prob$Q_hat %*% prob$beta_hat)
   li <- LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D, prob$L, prob$U,

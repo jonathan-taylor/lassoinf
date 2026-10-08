@@ -76,7 +76,7 @@ lambda_path <- lam * exp(seq(log(10), 0, length.out = 30))
 select <- function(d) {
   sub <- sample(nrow(d$X), round(pi_selection * nrow(d$X)))
   fit <- glmnet::glmnet(d$X[sub, ], d$y[sub], family = "binomial",
-                        lambda = lambda_path, thresh = 1e-14)
+                        lambda = lambda_path, control = list(thresh = 1e-14))
   prob <- glmnet_problem_from_fit(fit, d$X[sub, ], d$y[sub], s = lam)
   prob$sub <- sub
   prob

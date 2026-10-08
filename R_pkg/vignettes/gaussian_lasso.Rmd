@@ -75,7 +75,7 @@ the smooth part at it, $G = X'(X\hat{\beta} - y_{noisy})$, and its Hessian, $Q =
 ```{r}
 lam <- 2 * sqrt(n)
 fit <- glmnet::glmnet(X, y_noisy, lambda = lam / n, intercept = FALSE,
-                      standardize = FALSE, thresh = 1e-14)
+                      standardize = FALSE, control = list(thresh = 1e-14))
 beta_hat <- as.numeric(coef(fit))[-1]
 G_hat <- drop(crossprod(X, X %*% beta_hat - y_noisy))
 which(beta_hat != 0)
@@ -128,7 +128,7 @@ one_replication <- function() {
   sigma2_rand <- (1 - pi_selection) / pi_selection * sigma2_hat
   y_noisy <- y + rnorm(n, sd = sqrt(sigma2_rand))
   fit <- glmnet::glmnet(X, y_noisy, lambda = lam / n, intercept = FALSE,
-                        standardize = FALSE, thresh = 1e-14)
+                        standardize = FALSE, control = list(thresh = 1e-14))
   beta_hat <- as.numeric(coef(fit))[-1]
   if (all(beta_hat == 0)) return(NULL)
   G_hat <- drop(crossprod(X, X %*% beta_hat - y_noisy))

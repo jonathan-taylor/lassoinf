@@ -86,7 +86,7 @@ lam <- 0.8 * sqrt(2 * n * log(p))
 
 lasso_inference <- function(d) {
   fit <- glmnet::glmnet(d$X, d$y_noisy, lambda = lam / n, intercept = FALSE,
-                        standardize = FALSE, thresh = 1e-14)
+                        standardize = FALSE, control = list(thresh = 1e-14))
   beta_hat <- as.numeric(coef(fit))[-1]
   beta_hat[abs(beta_hat) < 1e-6] <- 0
   G_hat <- drop(crossprod(d$X, d$X %*% beta_hat - d$y_noisy))
