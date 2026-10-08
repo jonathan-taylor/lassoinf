@@ -159,14 +159,10 @@ def test_glmstar_problem(data, family, standardize, fit_intercept, option):
 
 
 FAST_NETS = {'gaussian': GaussNet, 'binomial': LogNet, 'poisson': FishNet}
-# glmstar 0.1.1: GaussNet and FishNet fail with weights
-FAST_BROKEN = {('gaussian', 'weights'), ('gaussian', 'alpha_weights'),
-               ('poisson', 'weights'), ('poisson', 'alpha_weights')}
 
 
 @pytest.mark.parametrize('family,standardize,fit_intercept,option',
-                         [c for c in itertools.product(FAST_NETS, [True, False], [True, False], OPTIONS)
-                          if (c[0], c[3]) not in FAST_BROKEN])
+                         list(itertools.product(FAST_NETS, [True, False], [True, False], OPTIONS)))
 def test_glmstar_fastnet_problem(data, family, standardize, fit_intercept, option):
     # the C++ paths standardize internally, so their design_.scaling_ is all ones
     X, df = data
