@@ -12,6 +12,19 @@ the kept variables and the signs of their gradients; for \code{top_k} with
 and its sign (O(p) constraints), with \code{"exact"} on all (kept, dropped) pairs.
 Can be passed wherever a \code{LassoInference} is accepted by the estimand functions.
 }
+\examples{
+\dontshow{if (requireNamespace("glmnet", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+set.seed(1)
+n <- 100; p <- 10
+x <- matrix(rnorm(n * p), n, p)
+y <- x[, 1] - x[, 2] + rnorm(n)
+fit <- glmnet::glmnet(x, y, lambda = c(0.3, 0.2), control = list(thresh = 1e-14))
+li <- glmnet_inference(fit, x, y, level = 0.9)   # index 0 is the intercept
+screen <- ScreenedSelection$new(li, top_k = 3)
+screen$screened
+inactive_summary(screen)
+\dontshow{\}) # examplesIf}
+}
 \section{Public fields}{
   \if{html}{\out{<div class="r6-fields">}}
   \describe{

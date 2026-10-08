@@ -26,8 +26,34 @@ custom_estimand_inference(
 
 \item{null_value}{Null value for the p-value.}
 }
+\value{
+A list as from \code{contrast_inference}: \code{estimate}, \code{lower_conf},
+  \code{upper_conf}, \code{p_value}, \code{variance} and \code{contrast}.
+}
 \description{
 For \code{(theta_hat, Z_full)} jointly Gaussian with known
 \code{Var(theta_hat)} and \code{Cov(Z_full, theta_hat)}. Requires \code{Sigma_noise};
 with \code{scalar_noise}, express the estimand as a contrast.
+}
+\examples{
+\dontshow{if (requireNamespace("glmnet", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+set.seed(1)
+n <- 100; p <- 10
+x <- matrix(rnorm(n * p), n, p)
+y <- x[, 1] - x[, 2] + rnorm(n)
+# randomized response y + omega with Var(omega) = kappa, sigma^2 = 1 known
+kappa <- 0.5
+y_noisy <- y + rnorm(n, sd = sqrt(kappa))
+Q <- crossprod(x); Z <- drop(crossprod(x, y))
+lam <- 2 * sqrt(n)
+fit <- glmnet::glmnet(x, y_noisy, lambda = lam / n, intercept = FALSE,
+                      standardize = FALSE, control = list(thresh = 1e-14))
+b <- as.numeric(coef(fit))[-1]
+G <- drop(crossprod(x, x \%*\% b - y_noisy))
+li <- LassoInference$new(b, G, Q, rep(lam, p), NULL, NULL, Z, Q, kappa * Q, level = 0.9)
+# the estimator sum(eta * Z), specified by its variance and covariance with Z
+eta <- li$contrasts[[1]]
+custom_estimand_inference(li, sum(eta * Z), sum(eta * (Q \%*\% eta)),
+                          drop(Q \%*\% eta))[c("lower_conf", "upper_conf", "p_value")]
+\dontshow{\}) # examplesIf}
 }

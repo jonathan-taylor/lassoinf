@@ -23,6 +23,10 @@
 #' @param x Design matrix.
 #' @param weights Observation weights.
 #' @param standardize As passed to \code{glmnet}.
+#' @return The column scales, a vector of length \code{ncol(x)}.
+#' @examples
+#' x <- matrix(rnorm(40), 10, 4)
+#' glmnet_scaling(x)
 #' @export
 glmnet_scaling <- function(x, weights = rep(1, nrow(x)), standardize = TRUE) {
   if (!standardize) return(rep(1, ncol(x)))
@@ -84,6 +88,15 @@ glmnet_scaling <- function(x, weights = rep(1, nrow(x)), standardize = TRUE) {
 #' @return A list with \code{beta_hat}, \code{G_hat}, \code{Q_hat}, \code{D}, \code{L},
 #'   \code{U} and \code{intercept}; coordinates are \code{(intercept, coef)} when
 #'   \code{intercept = TRUE}.
+#' @examplesIf requireNamespace("glmnet", quietly = TRUE)
+#' set.seed(1)
+#' x <- matrix(rnorm(100 * 5), 100, 5)
+#' y <- rbinom(100, 1, plogis(x[, 1]))
+#' fit <- glmnet::glmnet(x, y, family = "binomial", lambda = c(0.1, 0.05),
+#'                       control = list(thresh = 1e-14))
+#' prob <- glmnet_problem_from_fit(fit, x, y)
+#' prob$beta_hat
+#' max(kkt_violation(prob$beta_hat, prob$G_hat, prob$D, prob$L, prob$U))
 #' @export
 glmnet_problem <- function(x, y, coef, a0 = 0, lambda, family = "gaussian",
                            weights = NULL, offset = NULL, alpha = 1,
@@ -172,6 +185,11 @@ glmnet_problem <- function(x, y, coef, a0 = 0, lambda, family = "gaussian",
 #' @param beta,G,D,L,U Solution, gradient of the smooth part, penalty weights and limits
 #'   (e.g. from \code{glmnet_problem}).
 #' @param tol Tolerance for being at 0 or at a limit.
+#' @return The violation for each coordinate, nonnegative.
+#' @examples
+#' # beta = (1, 0) solves min (beta - c(2, 0.5))^2 / 2 + |beta|_1
+#' beta <- c(1, 0)
+#' kkt_violation(beta, G = beta - c(2, 0.5), D = c(1, 1), L = c(-Inf, -Inf), U = c(Inf, Inf))
 #' @export
 kkt_violation <- function(beta, G, D, L, U, tol = 1e-8) {
   zero <- abs(beta) <= tol

@@ -89,3 +89,15 @@ weights and limits, in the original coordinates: the inputs of
 \code{LassoInference}. \code{glmnet_problem_from_fit} reads the settings from a
 fitted \code{glmnet} object.
 }
+\examples{
+\dontshow{if (requireNamespace("glmnet", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+set.seed(1)
+x <- matrix(rnorm(100 * 5), 100, 5)
+y <- rbinom(100, 1, plogis(x[, 1]))
+fit <- glmnet::glmnet(x, y, family = "binomial", lambda = c(0.1, 0.05),
+                      control = list(thresh = 1e-14))
+prob <- glmnet_problem_from_fit(fit, x, y)
+prob$beta_hat
+max(kkt_violation(prob$beta_hat, prob$G_hat, prob$D, prob$L, prob$U))
+\dontshow{\}) # examplesIf}
+}

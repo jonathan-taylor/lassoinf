@@ -36,3 +36,14 @@ A data frame as from \code{estimand_summary}, with integer \code{index}.
 \description{
 Selective inference for inactive variables
 }
+\examples{
+\dontshow{if (requireNamespace("glmnet", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+set.seed(1)
+n <- 100; p <- 10
+x <- matrix(rnorm(n * p), n, p)
+y <- x[, 1] - x[, 2] + rnorm(n)
+fit <- glmnet::glmnet(x, y, lambda = c(0.3, 0.2), control = list(thresh = 1e-14))
+li <- glmnet_inference(fit, x, y, level = 0.9)   # index 0 is the intercept
+head(inactive_summary(li))
+\dontshow{\}) # examplesIf}
+}

@@ -131,7 +131,6 @@ double DiscreteFamily::E(double theta, const std::function<double(double)>& func
 double DiscreteFamily::Var(double theta, const std::function<double(double)>& func) {
     double mu = E(theta, func);
     return E(theta, [func, mu](double x) {
-        double val = x - mu; // Assuming func is identity for simplicity, but using func correctly
         double f_val = func(x) - mu;
         return f_val * f_val;
     });
