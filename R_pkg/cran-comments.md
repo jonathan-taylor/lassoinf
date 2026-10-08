@@ -5,6 +5,9 @@ This is a new submission.
 ## Test environments
 
 * local macOS (aarch64), R 4.5.3
+* GitHub Actions: macOS (release), Windows (release), Ubuntu (devel, release, oldrel-1):
+  Status OK
+* win-builder (R-devel)
 
 ## R CMD check results
 
