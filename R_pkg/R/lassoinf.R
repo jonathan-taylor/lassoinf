@@ -371,7 +371,11 @@ LassoInference <- R6::R6Class("LassoInference",
     #' @param Z_full The unpenalized score.
     #' @param Sigma Covariance of Z_full.
     #' @param Sigma_noise Covariance of Z_noisy. Default is \code{NULL}.
-    #' @param scalar_noise Variance scaling if Sigma_noise is NULL. Default is \code{NaN}.
+    #' @param scalar_noise If \code{Sigma_noise} is \code{NULL}, the noise covariance is
+    #'   \code{scalar_noise * Sigma}. \code{scalar_noise = 0} is no randomization (the
+    #'   polyhedral lemma, with \code{Z_full} equal to the selection score
+    #'   \code{-G_hat + Q_hat beta_hat}); as in the Python package, values below 0.001 are
+    #'   raised to 0.001 for numerical stability. Default is \code{NaN}.
     #' @param tol Tolerance for active set and KKT conditions. Default is \code{1e-6}.
     #' @param level Confidence level. Default is 0.95.
     initialize = function(beta_hat, G_hat, Q_hat, D, L=NULL, U=NULL, Z_full, Sigma, Sigma_noise=NULL, scalar_noise=NaN, tol = 1e-6, level = 0.95) {
@@ -384,6 +388,11 @@ LassoInference <- R6::R6Class("LassoInference",
       self$Z_full <- Z_full
       self$Sigma <- Sigma
       self$Sigma_noise <- Sigma_noise
+      if (is.null(Sigma_noise)) {
+        if (!isTRUE(scalar_noise >= 0)) stop("if Sigma_noise is NULL, scalar_noise must be >= 0")
+        if (scalar_noise > 0 && scalar_noise < 0.001) warning("for numerical stability using scalar_noise = 0.001")
+        scalar_noise <- max(scalar_noise, 0.001)
+      }
       self$scalar_noise <- scalar_noise
       self$level <- level
       

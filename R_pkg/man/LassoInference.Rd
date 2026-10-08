@@ -119,7 +119,11 @@ with randomization. \emph{Biometrika}, 111(4), 1109--1127.
       \item{\code{Z_full}}{The unpenalized score.}
       \item{\code{Sigma}}{Covariance of Z_full.}
       \item{\code{Sigma_noise}}{Covariance of Z_noisy. Default is \code{NULL}.}
-      \item{\code{scalar_noise}}{Variance scaling if Sigma_noise is NULL. Default is \code{NaN}.}
+      \item{\code{scalar_noise}}{If \code{Sigma_noise} is \code{NULL}, the noise covariance is
+\code{scalar_noise * Sigma}. \code{scalar_noise = 0} is no randomization (the
+polyhedral lemma, with \code{Z_full} equal to the selection score
+\code{-G_hat + Q_hat beta_hat}); as in the Python package, values below 0.001 are
+raised to 0.001 for numerical stability. Default is \code{NaN}.}
       \item{\code{tol}}{Tolerance for active set and KKT conditions. Default is \code{1e-6}.}
       \item{\code{level}}{Confidence level. Default is 0.95.}
     }

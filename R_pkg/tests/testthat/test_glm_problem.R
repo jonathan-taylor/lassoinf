@@ -169,3 +169,18 @@ test_that("information = 'relaxed' evaluates Q_hat at the one-step relaxed fit",
   expect_equal(glmnet_problem_from_fit(fit_g, x, ys$gaussian)$Q_hat,
                glmnet_problem_from_fit(fit_g, x, ys$gaussian, information = "lasso")$Q_hat)
 })
+
+test_that("scalar_noise = 0 (no randomization) runs", {
+  y <- ys$binomial
+  fit <- glmnet(x, y, family = "binomial", lambda = c(0.2, 0.1, 0.05), thresh = 1e-14)
+  prob <- glmnet_problem_from_fit(fit, x, y, s = 0.05)
+  Z <- -prob$G_hat + drop(prob$Q_hat %*% prob$beta_hat)
+  li <- LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D, prob$L, prob$U,
+                           Z, prob$Q_hat / n, NULL, 0)
+  expect_equal(li$scalar_noise, 0.001)
+  summ <- li$summary()
+  expect_true(all(summ$lower_conf <= summ$upper_conf))
+  expect_true(all(summ$p_value >= 0 & summ$p_value <= 1))
+  expect_error(LassoInference$new(prob$beta_hat, prob$G_hat, prob$Q_hat, prob$D, prob$L, prob$U,
+                                  Z, prob$Q_hat / n, NULL, -1), "scalar_noise")
+})
