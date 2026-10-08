@@ -8,12 +8,13 @@ import cvxpy as cp
 from scipy.special import expit
 import statsmodels.genmod.families as smf
 
-from glmnet import GLMNet
+from glmnet import GLMNet, GaussNet, LogNet, FishNet
 from glmnet.glmnet import GLMNetControl
+from glmnet.paths.fastnet import FastNetControl
 
 from lassoinf import LassoInference
 from lassoinf.lasso import lasso_post_selection_constraints
-from lassoinf.glm_problem import glmnet_problem, glmstar_problem, kkt_violation
+from lassoinf.glm_problem import glmnet_problem, glmstar_problem, glmnet_response_scale, kkt_violation
 from lassoinf.custom_estimand import ScreenedSelection, inactive_summary
 
 N, P = 120, 8
@@ -155,6 +156,36 @@ def test_glmstar_problem(data, family, standardize, fit_intercept, option):
     if option == 'limits':
         # the limits bind
         assert np.sum((prob.beta_hat >= prob.U - 1e-8) | (prob.beta_hat <= prob.L + 1e-8)) >= 1
+
+
+FAST_NETS = {'gaussian': GaussNet, 'binomial': LogNet, 'poisson': FishNet}
+# glmstar 0.1.1: GaussNet and FishNet fail with weights
+FAST_BROKEN = {('gaussian', 'weights'), ('gaussian', 'alpha_weights'),
+               ('poisson', 'weights'), ('poisson', 'alpha_weights')}
+
+
+@pytest.mark.parametrize('family,standardize,fit_intercept,option',
+                         [c for c in itertools.product(FAST_NETS, [True, False], [True, False], OPTIONS)
+                          if (c[0], c[3]) not in FAST_BROKEN])
+def test_glmstar_fastnet_problem(data, family, standardize, fit_intercept, option):
+    # the C++ paths standardize internally, so their design_.scaling_ is all ones
+    X, df = data
+    opts = OPTIONS[option]
+    G = FAST_NETS[family](standardize=standardize, fit_intercept=fit_intercept, response_id=family,
+                          nlambda=20, control=FastNetControl(thresh=1e-14, fdev=0),
+                          **{k: np.copy(v) if isinstance(v, np.ndarray) else v for k, v in opts.items()})
+    G.fit(X, df)
+    lam = G.lambda_values_[8]
+    with warnings.catch_warnings():
+        warnings.simplefilter('error')
+        prob = glmstar_problem(G, X, df, lambda_val=lam)
+    w = df['w'].values if opts.get('weight_id') else np.ones(N)
+    offset = df['o'].values if opts.get('offset_id') else np.zeros(N)
+    y = df[family].values
+    y_scale = glmnet_response_scale(y, w, fit_intercept) if family == 'gaussian' else 1.
+    _check_problem(prob, X, y, family, w, offset, fit_intercept, lam,
+                   alpha=opts.get('alpha', 1.), pf=opts.get('penalty_factor'),
+                   standardize=standardize, y_scale=y_scale)
 
 
 @pytest.mark.xfail(strict=True, reason='glmstar 0.1.1: exclude off by one; penalty factor 0 / inf fails')

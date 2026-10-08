@@ -192,7 +192,7 @@ def glmnet_problem(X,
     standardize, fit_intercept : as passed to glmnet (exclude 0-based)
     scaling : column scales s_j; default is glmnet's convention (see glmnet_scaling)
     y_scale : the ridge term is divided by y_scale; default is R glmnet's convention
-        (glmnet_response_scale for gaussian, 1 otherwise). glmstar uses 1.
+        (glmnet_response_scale for gaussian, 1 otherwise). glmstar's IRLS GLMNet uses 1.
     hessian : 'dense' (array) or 'operator' (matrix-free X'VX, for wide designs)
     information : where Q_hat is evaluated: 'relaxed' (default), a one-step relaxed fit,
         one Newton step for the unpenalized loss on the selected coordinates (the intercept
@@ -314,6 +314,15 @@ def glmstar_problem(glmnet_obj, X, y, lambda_val=None, hessian='dense', informat
     X_arr, _, response, offset, weight = G.get_data_arrays(X, y)
     X_arr = np.asarray(X_arr.toarray() if sp.issparse(X_arr) else X_arr, dtype=float)
 
+    # The C++ paths (LogNet, GaussNet, FishNet) fit with an unstandardized design_ and
+    # standardize internally, as R's glmnet does, so design_.scaling_ is all ones: use
+    # glmnet's conventions for the column scales and the gaussian response scale.
+    from glmnet.paths.fastnet import FastNetMixin
+    if isinstance(G, FastNetMixin):
+        scaling, y_scale = None, None
+    else:
+        scaling, y_scale = np.asarray(G.design_.scaling_), 1.
+
     penalty_factor = G.penalty_factor
     problem = glmnet_problem(X_arr,
                           response,
@@ -330,8 +339,8 @@ def glmstar_problem(glmnet_obj, X, y, lambda_val=None, hessian='dense', informat
                           upper_limits=G.upper_limits,
                           standardize=G.standardize,
                           fit_intercept=G.fit_intercept,
-                          scaling=np.asarray(G.design_.scaling_),
-                          y_scale=1.,
+                          scaling=scaling,
+                          y_scale=y_scale,
                           hessian=hessian,
                           information=information)
     _check_converged(problem, lambdas[k])
