@@ -17,6 +17,14 @@
 #' @return A \code{LinearOp} with methods \code{multiply}, \code{multiply_transpose},
 #'   \code{rows}, \code{cols}, \code{diagonal}, \code{to_dense} and \code{scaled(c)}
 #'   (\code{c} times the operator, sharing its data).
+#' @examples
+#' set.seed(1)
+#' x <- matrix(rnorm(50 * 5), 50, 5)
+#' v <- rnorm(5)
+#' Q <- xtvx_operator(x)
+#' all.equal(Q$multiply(v), drop(crossprod(x) %*% v))
+#' all.equal(Q$scaled(2)$to_dense(), 2 * crossprod(x))
+#' dense_operator(crossprod(x))$rows()
 #' @export
 dense_operator <- function(M) new(LinearOp, as.matrix(M))
 
@@ -39,6 +47,13 @@ xtvx_operator <- function(X, weights = rep(1, nrow(X))) {
 #' @param score_cov Covariance of \code{Z_full} with the estimator.
 #' @param estimand A contrast estimand.
 #' @param Z A score vector.
+#' @return \code{contrast_estimand} and \code{covariance_estimand}: estimand
+#'   specifications (lists of class \code{ContrastEstimand} and \code{CovarianceEstimand}),
+#'   for \code{contrast_inference}, \code{custom_estimand_inference} and
+#'   \code{estimand_summary}. \code{estimand_value}: the value of the estimator at \code{Z}.
+#' @examples
+#' e <- contrast_estimand(c(1, -1, 0), offset = 0.5)
+#' estimand_value(e, c(2, 1, 5))
 #' @export
 contrast_estimand <- function(eta, offset = 0) {
   structure(list(eta = as.numeric(eta), offset = offset), class = "ContrastEstimand")
@@ -71,6 +86,18 @@ estimand_value <- function(estimand, Z) sum(estimand$eta * Z) + estimand$offset
 #' coordinates by constants, so they give the same contrast with a shifted value.
 #' Everything is computed with \code{Q_hat} matrix-vector products.
 #'
+#' @examplesIf requireNamespace("glmnet", quietly = TRUE)
+#' set.seed(1)
+#' n <- 100; p <- 10
+#' x <- matrix(rnorm(n * p), n, p)
+#' y <- x[, 1] - x[, 2] + rnorm(n)
+#' fit <- glmnet::glmnet(x, y, lambda = c(0.3, 0.2), control = list(thresh = 1e-14))
+#' li <- glmnet_inference(fit, x, y, level = 0.9)   # index 0 is the intercept
+#' coords <- SelectionCoordinates$new(li)
+#' coords$E_c
+#' # coefficient of the first inactive variable in the model E u {j}
+#' res <- contrast_inference(li, coords$inactive_coef(coords$E_c[1]))
+#' res[c("lower_conf", "upper_conf", "p_value")]
 #' @export
 SelectionCoordinates <- R6::R6Class("SelectionCoordinates",
   public = list(
@@ -152,6 +179,16 @@ SelectionCoordinates <- R6::R6Class("SelectionCoordinates",
 #' and its sign (O(p) constraints), with \code{"exact"} on all (kept, dropped) pairs.
 #' Can be passed wherever a \code{LassoInference} is accepted by the estimand functions.
 #'
+#' @examplesIf requireNamespace("glmnet", quietly = TRUE)
+#' set.seed(1)
+#' n <- 100; p <- 10
+#' x <- matrix(rnorm(n * p), n, p)
+#' y <- x[, 1] - x[, 2] + rnorm(n)
+#' fit <- glmnet::glmnet(x, y, lambda = c(0.3, 0.2), control = list(thresh = 1e-14))
+#' li <- glmnet_inference(fit, x, y, level = 0.9)   # index 0 is the intercept
+#' screen <- ScreenedSelection$new(li, top_k = 3)
+#' screen$screened
+#' inactive_summary(screen)
 #' @export
 ScreenedSelection <- R6::R6Class("ScreenedSelection",
   public = list(
@@ -228,6 +265,16 @@ ScreenedSelection <- R6::R6Class("ScreenedSelection",
 #' @param level Confidence level.
 #' @param null_value Null value of the estimand.
 #' @return Named vector \code{c(lower, upper, p_value)}.
+#' @examplesIf requireNamespace("glmnet", quietly = TRUE)
+#' set.seed(1)
+#' n <- 100; p <- 10
+#' x <- matrix(rnorm(n * p), n, p)
+#' y <- x[, 1] - x[, 2] + rnorm(n)
+#' fit <- glmnet::glmnet(x, y, lambda = c(0.3, 0.2), control = list(thresh = 1e-14))
+#' li <- glmnet_inference(fit, x, y, level = 0.9)   # index 0 is the intercept
+#' v <- li$contrasts[["1"]]   # the coefficient of x1 in the selected model
+#' contrast <- li$si$compute_contrast(v)
+#' truncated_normal_inference(contrast, contrast$naive_variance, li$A, li$b, level = 0.9)
 #' @export
 truncated_normal_inference <- function(contrast, variance, A, b, level = 0.95, null_value = 0) {
   bar_s <- contrast$bar_s
@@ -265,6 +312,16 @@ truncated_normal_inference <- function(contrast, variance, A, b, level = 0.95, n
 #' @param null_value Null value for the p-value.
 #' @return A list with \code{estimate}, \code{lower_conf}, \code{upper_conf},
 #'   \code{p_value}, \code{variance} and \code{contrast}.
+#' @examplesIf requireNamespace("glmnet", quietly = TRUE)
+#' set.seed(1)
+#' n <- 100; p <- 10
+#' x <- matrix(rnorm(n * p), n, p)
+#' y <- x[, 1] - x[, 2] + rnorm(n)
+#' fit <- glmnet::glmnet(x, y, lambda = c(0.3, 0.2), control = list(thresh = 1e-14))
+#' li <- glmnet_inference(fit, x, y, level = 0.9)   # index 0 is the intercept
+#' # the sum of the coefficients of x1 and x2 in the selected model
+#' eta <- li$contrasts[["1"]] + li$contrasts[["2"]]
+#' contrast_inference(li, eta)[c("estimate", "lower_conf", "upper_conf", "p_value")]
 #' @export
 contrast_inference <- function(selection, estimand, level = NULL, null_value = 0) {
   if (!inherits(estimand, "ContrastEstimand")) estimand <- contrast_estimand(estimand)
@@ -289,6 +346,27 @@ contrast_inference <- function(selection, estimand, level = NULL, null_value = 0
 #' @param score_cov Covariance of \code{Z_full} with the estimator.
 #' @param level Confidence level (default: the selection's level).
 #' @param null_value Null value for the p-value.
+#' @return A list as from \code{contrast_inference}: \code{estimate}, \code{lower_conf},
+#'   \code{upper_conf}, \code{p_value}, \code{variance} and \code{contrast}.
+#' @examplesIf requireNamespace("glmnet", quietly = TRUE)
+#' set.seed(1)
+#' n <- 100; p <- 10
+#' x <- matrix(rnorm(n * p), n, p)
+#' y <- x[, 1] - x[, 2] + rnorm(n)
+#' # randomized response y + omega with Var(omega) = kappa, sigma^2 = 1 known
+#' kappa <- 0.5
+#' y_noisy <- y + rnorm(n, sd = sqrt(kappa))
+#' Q <- crossprod(x); Z <- drop(crossprod(x, y))
+#' lam <- 2 * sqrt(n)
+#' fit <- glmnet::glmnet(x, y_noisy, lambda = lam / n, intercept = FALSE,
+#'                       standardize = FALSE, control = list(thresh = 1e-14))
+#' b <- as.numeric(coef(fit))[-1]
+#' G <- drop(crossprod(x, x %*% b - y_noisy))
+#' li <- LassoInference$new(b, G, Q, rep(lam, p), NULL, NULL, Z, Q, kappa * Q, level = 0.9)
+#' # the estimator sum(eta * Z), specified by its variance and covariance with Z
+#' eta <- li$contrasts[[1]]
+#' custom_estimand_inference(li, sum(eta * Z), sum(eta * (Q %*% eta)),
+#'                           drop(Q %*% eta))[c("lower_conf", "upper_conf", "p_value")]
 #' @export
 custom_estimand_inference <- function(selection, theta_hat, variance, score_cov, level = NULL, null_value = 0) {
   li <- .lasso_inference(selection)
@@ -309,6 +387,15 @@ custom_estimand_inference <- function(selection, theta_hat, variance, score_cov,
 #' @param null_value Null value for the p-values.
 #' @return A data frame with columns \code{index}, \code{estimate}, \code{lower_conf},
 #'   \code{upper_conf}, \code{p_value}.
+#' @examplesIf requireNamespace("glmnet", quietly = TRUE)
+#' set.seed(1)
+#' n <- 100; p <- 10
+#' x <- matrix(rnorm(n * p), n, p)
+#' y <- x[, 1] - x[, 2] + rnorm(n)
+#' fit <- glmnet::glmnet(x, y, lambda = c(0.3, 0.2), control = list(thresh = 1e-14))
+#' li <- glmnet_inference(fit, x, y, level = 0.9)   # index 0 is the intercept
+#' estimand_summary(li, list(x1 = li$contrasts[["1"]],
+#'                            sum = li$contrasts[["1"]] + li$contrasts[["2"]]))
 #' @export
 estimand_summary <- function(selection, estimands, level = NULL, null_value = 0) {
   rows <- lapply(estimands, function(spec) {
@@ -340,6 +427,14 @@ estimand_summary <- function(selection, estimands, level = NULL, null_value = 0)
 #' @param null_value Null value for the p-values.
 #' @param Q_diag Optional diagonal of \code{Q_hat}.
 #' @return A data frame as from \code{estimand_summary}, with integer \code{index}.
+#' @examplesIf requireNamespace("glmnet", quietly = TRUE)
+#' set.seed(1)
+#' n <- 100; p <- 10
+#' x <- matrix(rnorm(n * p), n, p)
+#' y <- x[, 1] - x[, 2] + rnorm(n)
+#' fit <- glmnet::glmnet(x, y, lambda = c(0.3, 0.2), control = list(thresh = 1e-14))
+#' li <- glmnet_inference(fit, x, y, level = 0.9)   # index 0 is the intercept
+#' head(inactive_summary(li))
 #' @export
 inactive_summary <- function(selection, estimand = "coef", basis = "refit", variables = NULL,
                              level = NULL, null_value = 0, Q_diag = NULL) {

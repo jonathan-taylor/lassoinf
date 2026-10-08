@@ -83,6 +83,10 @@ compute_gaussian_conditional_stats <- function(mu_x, sig_x, sig_omega, cx, comeg
 #' Liu, S. (2023). An exact sampler for inference after polyhedral model
 #' selection. \emph{arXiv preprint}. \doi{10.48550/arXiv.2308.10346}
 #'
+#' @examples
+#' tbn <- TruncBivariateNormal$new(a_coeff = 1, b_coeff = 1, L = 1, U = Inf, sig_omega = 1)
+#' tbn$cdf(theta = 0, x = 1.5)
+#' tbn$equal_tailed_interval(1.5, alpha = 0.1)
 #' @export
 TruncBivariateNormal <- R6::R6Class("TruncBivariateNormal",
   public = list(
@@ -302,6 +306,25 @@ prox_lasso_bounds <- function(v, t, D, L, U) {
 #' with randomization. \emph{Biometrika}, 111(4), 1109--1127.
 #' \doi{10.1093/biomet/asae019}
 #'
+#' @examplesIf requireNamespace("glmnet", quietly = TRUE)
+#' set.seed(1)
+#' n <- 100; p <- 10
+#' x <- matrix(rnorm(n * p), n, p)
+#' y <- x[, 1] - x[, 2] + rnorm(n)
+#' # randomized gaussian LASSO 1/2 ||y + omega - x b||^2 + lam ||b||_1, sigma^2 = 1,
+#' # Var(omega) = kappa
+#' kappa <- 0.5
+#' y_noisy <- y + rnorm(n, sd = sqrt(kappa))
+#' lam <- 2 * sqrt(n)
+#' fit <- glmnet::glmnet(x, y_noisy, lambda = lam / n, intercept = FALSE,
+#'                       standardize = FALSE, control = list(thresh = 1e-14))
+#' b <- as.numeric(coef(fit))[-1]
+#' Q <- crossprod(x)
+#' G <- drop(crossprod(x, x %*% b - y_noisy))
+#' li <- LassoInference$new(b, G, Q, D = rep(lam, p), Z_full = drop(crossprod(x, y)),
+#'                          Sigma = Q, scalar_noise = kappa, level = 0.9)
+#' li$summary()
+#' # for a glmnet fit, glmnet_inference() builds these arguments
 #' @export
 LassoInference <- R6::R6Class("LassoInference",
   public = list(

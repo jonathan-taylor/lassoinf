@@ -12,7 +12,15 @@ kkt_violation(beta, G, D, L, U, tol = 1e-08)
 
 \item{tol}{Tolerance for being at 0 or at a limit.}
 }
+\value{
+The violation for each coordinate, nonnegative.
+}
 \description{
 Coordinatewise violation of \code{0 in G + D d|beta| + N_[L, U](beta)};
 0 at the exact solution. Coordinates with \code{L = U} are fixed and skipped.
+}
+\examples{
+# beta = (1, 0) solves min (beta - c(2, 0.5))^2 / 2 + |beta|_1
+beta <- c(1, 0)
+kkt_violation(beta, G = beta - c(2, 0.5), D = c(1, 1), L = c(-Inf, -Inf), U = c(Inf, Inf))
 }

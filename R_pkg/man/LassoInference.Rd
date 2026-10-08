@@ -8,6 +8,28 @@ Computes post-selection inference for the lasso.
 This class mirrors the Python `lassoinf.LassoInference` dataclass, 
 providing identical parameters and functional parity.
 }
+\examples{
+\dontshow{if (requireNamespace("glmnet", quietly = TRUE)) withAutoprint(\{ # examplesIf}
+set.seed(1)
+n <- 100; p <- 10
+x <- matrix(rnorm(n * p), n, p)
+y <- x[, 1] - x[, 2] + rnorm(n)
+# randomized gaussian LASSO 1/2 ||y + omega - x b||^2 + lam ||b||_1, sigma^2 = 1,
+# Var(omega) = kappa
+kappa <- 0.5
+y_noisy <- y + rnorm(n, sd = sqrt(kappa))
+lam <- 2 * sqrt(n)
+fit <- glmnet::glmnet(x, y_noisy, lambda = lam / n, intercept = FALSE,
+                      standardize = FALSE, control = list(thresh = 1e-14))
+b <- as.numeric(coef(fit))[-1]
+Q <- crossprod(x)
+G <- drop(crossprod(x, x \%*\% b - y_noisy))
+li <- LassoInference$new(b, G, Q, D = rep(lam, p), Z_full = drop(crossprod(x, y)),
+                         Sigma = Q, scalar_noise = kappa, level = 0.9)
+li$summary()
+# for a glmnet fit, glmnet_inference() builds these arguments
+\dontshow{\}) # examplesIf}
+}
 \references{
 Tian, X. and Taylor, J. (2018). Selective inference with a randomized
 response. \emph{The Annals of Statistics}, 46(2), 679--710.

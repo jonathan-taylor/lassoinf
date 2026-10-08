@@ -27,3 +27,12 @@ Matrix-free operators for \code{Q_hat}, \code{Sigma} and
 matrix; \code{xtvx_operator(X, weights)} represents \code{t(X) \%*\% diag(weights) \%*\% X}
 without forming it, which is what wide designs (n << p) need.
 }
+\examples{
+set.seed(1)
+x <- matrix(rnorm(50 * 5), 50, 5)
+v <- rnorm(5)
+Q <- xtvx_operator(x)
+all.equal(Q$multiply(v), drop(crossprod(x) \%*\% v))
+all.equal(Q$scaled(2)$to_dense(), 2 * crossprod(x))
+dense_operator(crossprod(x))$rows()
+}
