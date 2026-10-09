@@ -28,8 +28,14 @@ The target application is the uniLasso.
 
 4. **For the uniLasso, a single interval is typical but not guaranteed.** A brute-force count
    along `w` gave one interval in 449 of 450 random instances. The exception had a second piece
-   3.7 to 4.4 sd from the observed `w`, coming from a sum-of-ratios inactive row. So the code
-   must handle unions, but in practice the extra pieces are rare and far in the tails.
+   3.7 to 4.4 sd from the observed `w`, coming from an inactive row (a cubic, see 5). So the
+   code must handle unions, but in practice the extra pieces are rare and far in the tails.
+5. **For the well-specified uniLasso, rows have at most two moving ratios.** With `Σ = σ²Q`
+   and the target `e_k' Q_EE⁻¹ Z_E`, `Cov(C_E, θ̂) = σ² e_k / diag(Q)_E` is one-hot. So the
+   only active penalty that moves along `w` is `D_k`. Active rows are single ratios
+   (quadratics). Inactive rows also involve their own `D_j`, whose `C_j` moves, so they are
+   cubics. Both checked numerically. This resolves finding 3 for the uniLasso, with closed
+   forms and no bracketing. Misspecified `Σ` brings back the general case.
 
 ## Phase 1: single-ratio constraints (Python prototype) — done
 
@@ -79,15 +85,15 @@ Tests (`tests/test_ratio_constraints.py`):
 
 ## Phase 3: the lasso with data-dependent penalty factors
 
-Depends on the decision about finding 3. The current proposal:
-
 - Express each lasso constraint row as an affine function of `w` plus `Σ_k M_ik D_k(w)`, with
-  `D_k(w) = B_k(w) / C_k(w)`. `M` comes from `lasso_post_selection_constraints` (columns
-  `E` and the row's own inactive coordinate).
-- Find each row's set on the sign interval `I`, which has no poles, by bracketing the sign
-  changes of the rational function on a grid over `w_obs ± K` standard deviations, refined by
-  `brentq`. Single-ratio rows use the closed form. Polynomial roots are an alternative for
-  small `|E|`.
+  `D_k(w) = B_k(w) / C_k(w)`. `M` comes from `lasso_post_selection_constraints`. Only ratios
+  whose `B_k` or `C_k` moves along `w` are kept; the rest fold into the constant.
+- Generalize the row solver from one ratio to a few. On the sign interval `I`, which has no
+  poles, multiply by the product of the moving `C_k` (known sign), and solve the polynomial
+  inequality from its real roots (degree `#ratios + 1`: 2 or 3 for the well-specified
+  uniLasso). Use a closed form for degree 2 and polynomial roots for higher degree.
+- Many moving ratios per row (misspecified `Σ`) could make that ill-conditioned. If so, fall
+  back to bracketing the sign changes on `w_obs ± K` sd. This is deferred until needed.
 - uniLasso example and test: `C_j = β̂_j^uni` from the selection data, `B_j = λ s_C,j`, sign
   bounds from `s_C`. Check calibration by simulation.
 - Docs: a uniLasso vignette.
@@ -99,12 +105,13 @@ expose them in `R_pkg`. This only happens once the Python API is settled.
 
 ## Open questions
 
-1. **Finding 3.** Is the numerical route (a finite union of intervals per row, found by
-   bracketing) acceptable for the lasso? Or did you have a reformulation in mind that keeps
-   each row a single ratio, for example conditioning on more?
-2. **uniLasso parametrization.** Is `D_j = λ / |β̂_j^uni|`, with `B = λ s_C` and `C = β̂^uni`,
-   what you meant by "B = 1 and C are penalty factors roughly 1/cor"? That phrasing reads as
-   `D = B/C = cor`, which is the reciprocal.
-3. **Selection data.** In the randomized or carving setting, should `B` and `C` always be
-   computed from the selection data, as finding 2 requires? Or do you also want the case where
-   they come from the full data (the 2-d region)?
+Resolved:
+
+- uniLasso parametrization: `D_j = λ / |β̂_j^uni|`, with `B = λ s_C`, `C = β̂^uni`.
+- `B` and `C` are computed from the selection data.
+- Finding 3, for the well-specified uniLasso: at most two ratios per row (finding 5).
+
+Open:
+
+1. Targets other than individual coefficients, or a misspecified `Σ`: how far do we go with
+   many ratios per row?

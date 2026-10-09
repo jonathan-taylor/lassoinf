@@ -260,6 +260,26 @@ with score $Z = X'y$, $\hat{\beta}^{\text{uni}}_j = Z_j / \|X_j\|_2^2$ is linear
 is computed from the selection data it is linear in $Z + \omega$, so the randomized reduction
 applies exactly, with $\text{Cov}(C, Z) = \text{diag}(\|X_j\|_2^{-2})\, \Sigma$.
 
+**Individual coefficients in the well-specified model have at most two ratios per row.**
+When $\Sigma = \sigma^2 Q$, the target $\hat{\theta} = e_k' Q_{EE}^{-1} Z_E$ has
+
+$$
+\text{Cov}(Z, \hat{\theta})_E = \sigma^2 Q_{EE} Q_{EE}^{-1} e_k = \sigma^2 e_k, \qquad
+\text{Cov}(Z, \hat{\theta})_{j} = \sigma^2 Q_{jE} Q_{EE}^{-1} e_k \quad (j \notin E).
+$$
+
+So $\text{Cov}(C_E, \hat{\theta})$ is one-hot: along $w$ the only active penalty that moves is
+the target's own, $D_k$. The others are constant and fold into $b$.
+
+* Active rows involve only $D_k$. They are single ratios, so each is a **quadratic**.
+* The two rows of an inactive $j$ involve $D_k$ and their own $D_j$, and $C_j$ generally does
+  move ($Q_{jE} Q_{EE}^{-1} e_k \neq 0$). Multiplying by $C_k C_j$, whose sign is known on the
+  sign interval, gives a **cubic**.
+
+So every row's set has closed-form endpoints, from the roots of a polynomial of degree at most
+3. If the model is misspecified (e.g. a sandwich $\Sigma$), $\text{Cov}(C_E, \hat{\theta})$ is no
+longer one-hot, and a row can involve up to $|E| + 1$ ratios.
+
 **How many intervals?** Here $B$ is constant, and on its sign branch $B_j/C_j = \lambda/|C_j(w)|$ is
 positive, convex, and infinite at the pole. A row asking that a line lie below it can still
 hold on two pieces. That doesn't happen when the line is proportional to $C_j(w)$: for an
@@ -267,9 +287,9 @@ inactive $j$ with $E$ empty, the score is $\|X_j\|_2^2 C_j$, and $k C \leq \lamb
 $C > 0$ is a single interval. A brute-force check of the full uniLasso event along $w$
 (450 random instances, $p$ from 6 to 15, feature correlation up to $0.95$) found a single
 interval in all but one instance. In that one, a second piece lay 3.7 to 4.4 standard
-deviations from the observed $w$. It came from an inactive row involving all five active
-penalties, and it ended at the point where another feature's univariate coefficient changes
-sign. So a single interval is typical, but not guaranteed.
+deviations from the observed $w$. It came from an inactive row, a cubic in $D_k$ and $D_j$,
+and it ended at the point where another feature's univariate coefficient changes sign. So a
+single interval is typical, but not guaranteed.
 
 +++
 
