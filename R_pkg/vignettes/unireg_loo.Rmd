@@ -1,0 +1,237 @@
+---
+title: "uniReg with and without leave-one-out"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{uniReg with and without leave-one-out}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6.5, fig.height = 3.6,
+                      eval = requireNamespace("uniLasso", quietly = TRUE))
+has_pkg <- requireNamespace("uniLasso", quietly = TRUE)
+```
+
+In `vignette("unireg")`, the bootstrap intervals of `uniLasso::ci.uniReg()` behave very
+differently with and without leave-one-out fits. With the default `loo = TRUE` they cover
+the weak nonzero coefficients poorly, and never when the univariate sign is wrong. With
+`loo = FALSE` they do much better. Both versions constrain the coefficients to the same
+signs, so why the difference? This vignette explains it. The short answer: with
+leave-one-out fits, uniReg is not least squares with sign constraints. It is a uniLasso
+with a penalty that grows as the univariate slope shrinks, and that penalty sets weak
+coefficients to zero whatever their sign.
+
+## Both versions use the same signs
+
+uniReg fits $y$ on features built from the univariate regressions, with nonnegative
+coefficients $\theta_j \geq 0$. It reports $\hat{\beta}_j = b_j \hat{\theta}_j$, where $b_j$ is
+the slope of the univariate regression of $y$ on $x_j$. That holds with or without
+leave-one-out:
+
+* `loo = FALSE` uses the univariate fits $\eta_j = \bar{y} + b_j(x_j - \bar{x}_j)$ as features.
+  This is least squares with the constraints $\text{sign}(\beta_j) \in \{0, \text{sign}(b_j)\}$.
+* `loo = TRUE` uses their leave-one-out versions $F_j$.
+
+Either way $\text{sign}(\hat{\beta}_j) \in \{0, \text{sign}(b_j)\}$. When a true coefficient is
+small, of order $n^{-1/2}$, its univariate slope $b_j$ has the wrong sign with substantial
+probability, and then both versions can only set it to zero or give it the wrong sign. The
+two versions make the same sign errors.
+
+## Leave-one-out acts as a penalty
+
+`vignette("unilasso_loo")` shows that the leave-one-out uniLasso at $\lambda$ solves the
+plain uniLasso with $n\lambda$ replaced by $n\lambda + 2\sigma^2$, to first order. The 2
+is the trace of each univariate hat matrix. So uniReg with `loo = TRUE` ($\lambda = 0$) is
+approximately the plain uniLasso with $n\lambda = 2\sigma^2$, with penalty factors
+$2\sigma^2/|b_j|$.
+
+The orthogonal case shows what this does. With centered, orthogonal features, the
+uniLasso's KKT conditions $b_j c_j'(\tilde{y} - C\hat{\beta}) = n\lambda$ give
+$b_j S_j (b_j - \hat{\beta}_j) = n\lambda$, so
+
+$$
+\hat{\beta}_j = b_j \left(1 - \frac{n\lambda}{S_j b_j^2}\right)_+
+= b_j \left(1 - \frac{2}{t_j^2}\right)_+ \quad \text{for } n\lambda = 2\sigma^2,
+$$
+
+where $S_j = \|x_j - \bar{x}_j\|^2$ and $t_j = b_j \sqrt{S_j}/\sigma$ is the univariate
+$t$-statistic. **uniReg with leave-one-out drops every feature with $|t_j| < \sqrt{2}$, and
+shrinks the rest by the factor $1 - 2/t_j^2$.** A coefficient with $t_j = 2$ is halved.
+Without leave-one-out, $\lambda = 0$ and there is no shrinkage at all.
+
+A check, with orthogonal features and $\hat{\sigma}^2$ from the full least squares fit:
+
+```{r}
+set.seed(6)
+n <- 400; p <- 10
+x <- qr.Q(qr(scale(matrix(rnorm(n * p), n, p), scale = FALSE))) * sqrt(n)  # centered, orthogonal
+y <- drop(x %*% (c(2.5, -2, 1.5, 1, rep(0, p - 4)) / sqrt(n))) + rnorm(n)
+fit <- uniLasso::uniReg(x, y, control = list(thresh = 1e-14))           # loo = TRUE
+S <- colSums(x^2)
+b <- drop(crossprod(x, y - mean(y))) / S
+sigma2_hat <- sum(resid(lm(y ~ x))^2) / (n - p - 1)
+t <- b * sqrt(S / sigma2_hat)
+round(rbind(t = t, uniReg_loo = as.numeric(fit$beta), formula = b * pmax(1 - 2 / t^2, 0),
+            uniReg_no_loo = as.numeric(uniLasso::uniReg(x, y, loo = FALSE)$beta)), 4)
+```
+
+The formula matches up to the $O_p(n^{-1/2})$ error of the approximation. Features with
+$|t_j| < \sqrt{2}$ are zero.
+
+The shrinkage is of the same order as the standard error. A coefficient of size
+$\beta_j = \bar{\beta}_j/\sqrt{n}$ has $t_j = O_p(1)$, so the shrinkage
+$2 b_j / t_j^2$ is $O_p(n^{-1/2})$, like the noise in $\hat{\beta}_j$. It does not go away
+as $n$ grows.
+
+## What the bootstrap sees
+
+`ci.uniReg()` refits uniReg to resampled data and reports the 5% and 95% quantiles of
+the refitted coefficients. We repeat its bootstrap and keep the replicates. The design
+is that of `vignette("unireg")`: correlation 0.5 between features and
+$\beta = 0.18\,(1, -0.8, 0.6, 0, \dots, 0)$. There the marginal effect of $x_2$ is zero
+($-0.8 + 0.5 \times (1 + 0.6) = 0$), so its univariate sign is close to a coin flip, while
+$x_1$ has a marginal effect of $0.9 \times 0.18$.
+
+```{r}
+n <- 200; p <- 8
+beta <- 0.18 * c(1, -0.8, 0.6, rep(0, p - 3))
+make_data <- function() {
+  x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+  list(x = x, y = drop(x %*% beta) + rnorm(n))
+}
+
+boot_coefs <- function(d, loo, B = 200) {
+  replicate(B, {
+    w <- tabulate(sample(nrow(d$x), replace = TRUE), nbins = nrow(d$x))
+    as.numeric(coef(uniLasso::uniReg(d$x, d$y, weights = w, loo = loo,
+                                     control = list(thresh = 1e-12))))[-1]
+  })
+}
+
+one_replication <- function(B = 200) {
+  d <- make_data()
+  b_uni <- apply(d$x, 2, function(xj) cov(xj, d$y) / var(xj))
+  do.call(rbind, lapply(c(TRUE, FALSE), function(loo) {
+    draws <- boot_coefs(d, loo, B)
+    fit <- as.numeric(coef(uniLasso::uniReg(d$x, d$y, loo = loo, control = list(thresh = 1e-12))))[-1]
+    do.call(rbind, lapply(1:2, function(j) {
+      q <- quantile(draws[j, ], c(0.05, 0.95))
+      data.frame(coefficient = paste0("x", j), loo = loo,
+                 univariate_sign = ifelse(sign(b_uni[j]) == sign(beta[j]), "right", "wrong"),
+                 fit_is_zero = fit[j] == 0, boot_at_zero = mean(draws[j, ] == 0),
+                 boot_on_true_side = mean(sign(draws[j, ]) == sign(beta[j])),
+                 cover = q[1] <= beta[j] && beta[j] <= q[2])
+    }))
+  }))
+}
+
+simulate <- function(nsim, seed = 1) {
+  set.seed(seed)
+  do.call(rbind, replicate(nsim, one_replication(), simplify = FALSE))
+}
+```
+
+```{r, include = FALSE}
+# The simulations take a few minutes, so their results are saved in unireg_loo_sims.rds
+# (simulate() sets its own seed, so they are the same). Set LASSOINF_RERUN_SIMS=true and
+# rebuild the vignette to recompute them.
+sims_file <- "unireg_loo_sims.rds"
+if (!file.exists(sims_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")) {
+  saveRDS(simulate(nsim = 60), sims_file)
+}
+results <- readRDS(sims_file)
+```
+
+```{r, eval = if (has_pkg) -1 else FALSE}
+results <- simulate(nsim = 60)
+cols <- c("fit_is_zero", "boot_at_zero", "boot_on_true_side", "cover")
+tab <- aggregate(results[cols], results[c("coefficient", "univariate_sign", "loo")], mean)
+tab$cases <- aggregate(results["cover"], results[c("coefficient", "univariate_sign", "loo")], length)$cover
+tab[cols] <- lapply(tab[cols], round, 2)
+tab[order(tab$coefficient, tab$univariate_sign, !tab$loo), ]
+```
+
+The columns are the fraction of data sets in which uniReg's own fit is zero, and, averaged
+over data sets, the fractions of bootstrap replicates that are zero and that are on the
+true side of zero; `cover` is the coverage of the 90% percentile interval.
+
+Three things happen.
+
+1. **With leave-one-out, weak coefficients are zero in most fits and most replicates,
+   whatever their sign.** The penalty $2\sigma^2/|b_j|$ is large exactly when $b_j$ is
+   small. Even $x_1$, with the right sign, is often zero. A percentile interval from a
+   bootstrap distribution with most of its mass at zero is close to $[0, 0]$, or reaches
+   only a little way from zero toward the truth, so it misses the true value.
+2. **Without leave-one-out there is no penalty.** A coefficient with the right univariate
+   sign is estimated by sign-constrained least squares, unshrunk, and the bootstrap
+   intervals cover close to nominal.
+3. **When the univariate sign is wrong, the bootstrap without leave-one-out can still
+   cover.** Here the marginal effect is near zero, so the univariate sign also flips
+   across bootstrap samples. In the samples where it is right, the coefficient is free to
+   take its unpenalized value on the true side, which spreads the bootstrap distribution
+   across zero. With leave-one-out, the same samples have a small $|b_j^*|$ and hence a
+   large penalty, and the coefficient stays at zero.
+
+One data set where $x_2$'s univariate sign is wrong. The points are the 200 bootstrap
+replicates of its coefficient (jittered vertically), and the bar under them is the 90%
+percentile interval that `ci.uniReg()` would report. With leave-one-out, the bar is the
+single point $[0, 0]$:
+
+```{r, include = FALSE}
+ink <- "#0b0b0b"; ink2 <- "#52514e"; grid_col <- "#e5e4e0"
+pal <- c(loo = "#eb6834", no_loo = "#1baf7a")
+replicate_plot <- function(draws, truth, labels, main) {
+  op <- par(mar = c(4.2, 6.5, 2.2, 1), las = 1, col.axis = ink2, col.lab = ink2, fg = ink2)
+  on.exit(par(op))
+  xlim <- range(c(unlist(draws), truth, 0)) + c(-0.02, 0.02)
+  plot(NA, xlim = xlim, ylim = c(0.4, length(draws) + 0.6), yaxt = "n", bty = "n",
+       xlab = "Bootstrap replicate of the uniReg coefficient", ylab = "", main = main,
+       col.main = ink, font.main = 1, cex.main = 1)
+  abline(v = pretty(xlim), col = grid_col)
+  abline(v = 0, col = ink2)
+  abline(v = truth, lty = 2, col = ink)
+  axis(2, at = seq_along(draws), labels = labels, tick = FALSE, col.axis = ink)
+  for (k in seq_along(draws)) {
+    points(draws[[k]], k + runif(length(draws[[k]]), -0.25, 0.25), pch = 19, cex = 0.7,
+           col = adjustcolor(pal[k], 0.55))
+    q <- quantile(draws[[k]], c(0.05, 0.95))
+    segments(q[1], k - 0.38, q[2], k - 0.38, lwd = 3, col = pal[k])
+  }
+  text(truth, length(draws) + 0.55, "true value", pos = 4, col = ink, cex = 0.85)
+}
+```
+
+```{r, fig.alt = "Bootstrap replicates of the coefficient of x2 for one data set. With leave-one-out nearly all replicates are exactly zero; without, they spread across zero and the 90% interval reaches the true value."}
+set.seed(11)
+repeat {
+  d <- make_data()
+  b2 <- cov(d$x[, 2], d$y) / var(d$x[, 2])
+  if (sign(b2) != sign(beta[2])) break
+}
+draws <- list(boot_coefs(d, loo = TRUE)[2, ], boot_coefs(d, loo = FALSE)[2, ])
+replicate_plot(draws, beta[2], c("loo = TRUE", "loo = FALSE"),
+               "x2 with the wrong univariate sign")
+sapply(draws, function(v) c(at_zero = mean(v == 0), quantile(v, c(0.05, 0.95))))
+```
+
+## What this means for inference
+
+The leave-one-out uniReg is a shrinkage estimator. Its shrinkage, $2\sigma^2/(S_j |b_j|)$
+in the orthogonal case, is of the order of the standard error, so its sampling
+distribution is not centered at the true coefficient, and the percentile bootstrap
+inherits that bias. Without leave-one-out, the bias disappears. The percentile bootstrap
+then does reasonably in these simulations, but it has no guarantee near the boundary
+that the sign constraints create.
+
+The selective intervals of `unilasso_inference()` take another route. They condition on
+the selection and on the signs, and they estimate the full-model coefficient by least
+squares, without the constraint and without shrinkage. That makes them exact in the
+Gaussian linear model, but they need the `loo = FALSE` problem. For `loo = TRUE` fits,
+`vignette("unilasso_loo")` shows that inference at the shifted penalty
+$n\lambda + 2\hat{\sigma}^2$ is close to calibrated, though only to first order.
+
+## Reference
+
+Chatterjee, S., Hastie, T. and Tibshirani, R. (2025). Univariate-guided sparse regression.
+*arXiv preprint*. doi:10.48550/arXiv.2501.18360
