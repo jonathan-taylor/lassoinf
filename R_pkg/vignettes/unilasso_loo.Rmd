@@ -1,0 +1,441 @@
+---
+title: "The leave-one-out uniLasso is a shifted uniLasso"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The leave-one-out uniLasso is a shifted uniLasso}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      eval = requireNamespace("uniLasso", quietly = TRUE))
+has_pkg <- requireNamespace("uniLasso", quietly = TRUE)
+```
+
+By default, `uniLasso::uniLasso()` (`loo = TRUE`) fits its second-stage lasso to
+*leave-one-out* univariate fits. `unilasso_inference()` handles only `loo = FALSE`, the
+uniLasso whose penalty factors are exactly $1/|\hat{\beta}^{\text{uni}}_j|$
+(`vignette("unilasso")`). This vignette shows that the two are closely related:
+
+> The `loo = TRUE` solution at $\lambda$ solves, exactly, the `loo = FALSE` problem with
+> $n\lambda$ replaced by $n\lambda + \kappa_j$ for feature $j$, with $\kappa_j$ explicit.
+> Under local alternatives, $\kappa_j = 2\sigma^2 + O_p(n^{-1/2})$.
+
+So the leave-one-out uniLasso is, to first order, the plain uniLasso at the larger
+penalty $\lambda + 2\sigma^2/n$. The 2 is the trace of each univariate hat matrix (an
+intercept and a slope). The same shift explains the sparsity of uniReg with leave-one-out
+fits, and the correlation threshold Chatterjee, Hastie and Tibshirani (2025) observe in
+their Section 4.
+
+## Setup
+
+Data are $(x_i, y_i)$, $i = 1, \dots, n$, with $x_i \in \mathbb{R}^p$. Write
+$P = I - \mathbf{1}\mathbf{1}'/n$, $\tilde{y} = Py$, and $c_j = P x_j$ for the centered
+$j$-th feature, with $S_j = c_j' c_j$ and $C = [c_1, \dots, c_p]$.
+
+**Univariate fits.** The univariate regression of $y$ on $x_j$, with an intercept, has
+slope $b_j = c_j'\tilde{y} / S_j$, fitted values $\eta_j = \bar{y}\mathbf{1} + b_j c_j$ and
+residuals $r_j = y - \eta_j$. Its hat matrix and leverages are
+
+$$
+H_j = \frac{\mathbf{1}\mathbf{1}'}{n} + \frac{c_j c_j'}{S_j}, \qquad
+h_{ij} = \frac{1}{n} + \frac{c_{ij}^2}{S_j}, \qquad
+\sum_{i=1}^n h_{ij} = \text{tr}(H_j) = 2.
+$$
+
+**Leave-one-out fits.** The classical identity
+$y_i - \eta_{ij}^{(-i)} = r_{ij} / (1 - h_{ij})$ gives the leave-one-out fitted values
+
+$$
+F_j = \eta_j + \delta_j, \qquad \delta_{ij} = -\frac{h_{ij}}{1 - h_{ij}}\, r_{ij}.
+$$
+
+**The two uniLassos.** With $B = \text{diag}(b_1, \dots, b_p)$, the uniLasso fits, for
+features $G = [g_1, \dots, g_p]$,
+
+$$
+\hat{\theta} = \text{argmin}_{\theta_0, \theta \geq 0} \ \frac{1}{2n}\|y - \theta_0 \mathbf{1} - G\theta\|_2^2 + \lambda \sum_j \theta_j,
+\qquad \hat{\beta} = B\hat{\theta},
+$$
+
+with $G = F$ for `loo = TRUE` and $G = \eta$ for `loo = FALSE`. (This is glmnet's scaling of
+the loss, which the package uses; the paper writes $\frac{1}{n}$.) Profiling out
+$\theta_0$, the KKT conditions are
+
+$$
+\tilde{g}_j' \big(\tilde{y} - \tilde{G}\hat{\theta}\big) \leq n\lambda, \quad \text{with equality if } \hat{\theta}_j > 0,
+\qquad \tilde{G} = PG. \tag{KKT}
+$$
+
+For `loo = FALSE`, $P\eta = CB$. With $r = \tilde{y} - C\hat{\beta}$, (KKT) reads
+$b_j c_j' r \leq n\lambda$. Dividing by $|b_j|$, with $s_j = \text{sign}(b_j)$,
+
+$$
+s_j c_j' r \leq \frac{n\lambda}{|b_j|}, \quad \text{with equality if } \hat{\beta}_j \neq 0, \qquad \text{sign}(\hat{\beta}_j) \in \{0, s_j\}.
+$$
+
+These are the KKT conditions of the lasso with penalty factors $1/|b_j|$ and the sign
+constraints, in the score coordinates $Z = C'\tilde{y}$, $Q = C'C$ of this package:
+$c_j' r = Z_j - (Q\hat{\beta})_j$ and $D_j = n\lambda / |b_j|$. This is the paper's
+Proposition 1.
+
+## An exact identity
+
+Write $\Delta = [\delta_1, \dots, \delta_p]$, $\tilde{\delta}_j = P\delta_j$ and
+$\tilde{\Delta} = P\Delta$.
+
+**Lemma.** Let $\hat{\theta}$ solve the `loo = TRUE` problem, $\hat{\beta} = B\hat{\theta}$ and
+$r = \tilde{y} - C\hat{\beta}$. Then for every $j$,
+
+$$
+b_j c_j' r \leq n\lambda + \kappa_j, \quad \text{with equality if } \hat{\theta}_j > 0,
+$$
+
+where
+
+$$
+\kappa_j = \underbrace{\sum_{i=1}^n \frac{h_{ij}}{1 - h_{ij}}\, r_{ij}\, r_i}_{A_j}
+\;+\; \underbrace{b_j\, c_j' \tilde{\Delta} \hat{\theta}}_{B_j}
+\;+\; \underbrace{\tilde{\delta}_j' \tilde{\Delta} \hat{\theta}}_{C_j}.
+$$
+
+So $\hat{\beta}$ satisfies the KKT conditions, and hence (by convexity) solves the
+`loo = FALSE` uniLasso with the feature-specific penalties
+$D_j = (n\lambda + \kappa_j)/|b_j|$, provided $n\lambda + \kappa_j \geq 0$.
+
+*Proof.* Since $PF = P\eta + P\Delta = CB + \tilde{\Delta}$,
+
+$$
+\tilde{y} - \tilde{F}\hat{\theta} = \tilde{y} - C\hat{\beta} - \tilde{\Delta}\hat{\theta} = r - \tilde{\Delta}\hat{\theta},
+$$
+
+and therefore
+
+$$
+\tilde{F}_j'\big(\tilde{y} - \tilde{F}\hat{\theta}\big)
+= (b_j c_j + \tilde{\delta}_j)'(r - \tilde{\Delta}\hat{\theta})
+= b_j c_j' r + \tilde{\delta}_j' r - b_j c_j'\tilde{\Delta}\hat{\theta} - \tilde{\delta}_j'\tilde{\Delta}\hat{\theta}.
+$$
+
+Since $r$ is centered, $\tilde{\delta}_j' r = \delta_j' r = -A_j$, so the right side is
+$b_j c_j' r - \kappa_j$. Substituting into (KKT) for $G = F$ gives the claim. $\square$
+
+Nothing here is asymptotic. Since $\kappa_j$ depends on $\hat{\beta}$, the lemma is a
+fixed-point characterization; but $\kappa_j$ is computable from the data and the fit.
+
+## The size of $\kappa_j$
+
+The shift matters in the regime where selection is not trivial. Under local alternatives
+$\beta^* = \bar{\beta}/\sqrt{n}$, the slopes are $b_j = O_p(n^{-1/2})$, so the left side of
+the KKT conditions, $b_j c_j' r$, is $O_p(1)$. The interesting $\lambda$ therefore have
+$n\lambda = O(1)$, the same order as $\kappa_j$. The shift does not wash out as $n$ grows.
+
+**Proposition.** Suppose
+
+1. $p$ is fixed; the rows $x_i$ are i.i.d. with finite eighth moments and a positive
+   definite covariance;
+2. $y_i = \beta_0 + x_i'\beta^* + \varepsilon_i$ with $\varepsilon_i$ i.i.d., independent of
+   $X$, with mean 0, variance $\sigma^2$ and a finite fourth moment;
+3. $\beta^* = \bar{\beta}/\sqrt{n}$ for a fixed $\bar{\beta}$;
+4. $n\lambda = O(1)$ and $\hat{\theta} = O_p(1)$.
+
+Then for each $j$,
+
+$$
+\kappa_j = 2\sigma^2 + O_p(n^{-1/2}),
+\qquad A_j = 2\sigma^2 + O_p(n^{-1/2}),
+\qquad B_j = O_p(n^{-1}),
+\qquad C_j = O_p(n^{-1}).
+$$
+
+If moreover $x_i$ and $\varepsilon_i$ are Gaussian, then
+$\sqrt{n}\,\big(A_j/(2\sigma^2) - 1\big) \to N(0, 3)$.
+
+*Proof.* Write $\tilde{\varepsilon} = P\varepsilon$. Under (3), the univariate residual is
+$r_{ij} = \tilde{\varepsilon}_i + \rho_{ij}$ with $\rho_{ij} = c_i'\beta^* - b_j c_{ij}$, and the
+uniLasso residual is $r_i = \tilde{\varepsilon}_i + \rho_i$ with
+$\rho_i = c_i'(\beta^* - \hat{\beta})$. Here $c_i$ is the $i$-th row of $C$. Both
+$\beta^*$ and $\hat{\beta} = B\hat{\theta}$ are $O_p(n^{-1/2})$, so
+$|\rho_{ij}|, |\rho_i| \leq O_p(n^{-1/2})(1 + \|x_i\|)$. The leverages satisfy
+$\sum_i h_{ij} = 2$, $\sum_i h_{ij}^2 = O_p(n^{-1})$, $\sum_i h_{ij}^4 = O_p(n^{-3})$ and
+$\max_i h_{ij} = o_p(1)$, by (1).
+
+*$A_j$.* Expand $r_{ij} r_i = \tilde{\varepsilon}_i^2 + \tilde{\varepsilon}_i(\rho_{ij} + \rho_i) + \rho_{ij}\rho_i$:
+
+* $\sum_i h_{ij}\tilde{\varepsilon}_i^2 = \sigma^2 \sum_i h_{ij} + \sum_i h_{ij}(\varepsilon_i^2 - \sigma^2) + O_p(n^{-1})
+  = 2\sigma^2 + O_p\big((\sum_i h_{ij}^2)^{1/2}\big) = 2\sigma^2 + O_p(n^{-1/2})$. The middle
+  sum has mean zero given $X$ and variance $\text{Var}(\varepsilon^2)\sum_i h_{ij}^2$, and the
+  $O_p(n^{-1})$ collects the terms in $\bar{\varepsilon}$.
+* By Cauchy–Schwarz,
+  $|\sum_i h_{ij}\tilde{\varepsilon}_i(\rho_{ij} + \rho_i)| \leq (\sum_i h_{ij}\tilde{\varepsilon}_i^2)^{1/2}(\sum_i h_{ij}(\rho_{ij} + \rho_i)^2)^{1/2} = O_p(1)\, O_p(n^{-1/2})$,
+  and $\sum_i h_{ij}\rho_{ij}\rho_i = O_p(n^{-1})$.
+* The factor $1/(1 - h_{ij}) = 1 + h_{ij}/(1 - h_{ij})$ adds at most
+  $(1 - \max_i h_{ij})^{-1}(\sum_i h_{ij}^4)^{1/2}(\sum_i r_{ij}^2 r_i^2)^{1/2} = O_p(n^{-3/2})\,O_p(n^{1/2}) = O_p(n^{-1})$.
+
+*$B_j$.* For each $k$, $c_j'\delta_k = -\sum_i c_{ij} h_{ik} r_{ik}/(1 - h_{ik})$. Its leading
+part is $-\frac{1}{n} c_j' r_k - \frac{1}{S_k}\sum_i c_{ij} c_{ik}^2 r_{ik}$. Both
+$c_j' r_k = c_j'(I - H_k)\tilde{y}$ and $\sum_i c_{ij} c_{ik}^2 r_{ik}$ are $O_p(\sqrt{n})$: their
+$\tilde{\varepsilon}$ parts have mean zero and variance $O(n)$, and their $\rho$ parts are
+$n \cdot O_p(n^{-1/2})$. With $S_k \asymp n$, $c_j'\delta_k = O_p(n^{-1/2})$. Hence
+$c_j'\tilde{\Delta}\hat{\theta} = \sum_k \hat{\theta}_k c_j'\delta_k = O_p(n^{-1/2})$ by (4), and
+$B_j = b_j\, O_p(n^{-1/2}) = O_p(n^{-1})$.
+
+*$C_j$.* $|\tilde{\delta}_j'\tilde{\delta}_k| \leq \|\delta_j\|\,\|\delta_k\|$ and
+$\|\delta_j\|^2 = \sum_i h_{ij}^2 r_{ij}^2/(1 - h_{ij})^2 = O_p(n \cdot n^{-2}) = O_p(n^{-1})$, so
+$C_j = \sum_k \hat{\theta}_k \tilde{\delta}_j'\tilde{\delta}_k = O_p(n^{-1})$.
+
+*The Gaussian constant.* The fluctuation of $A_j$ is that of
+$\sum_i h_{ij}(\varepsilon_i^2 - \sigma^2)$, with variance $2\sigma^4\sum_i h_{ij}^2$. For
+Gaussian $x$, $E c_{ij}^4 = 3 (E c_{ij}^2)^2$, so
+$\sum_i h_{ij}^2 = \sum_i (1/n + c_{ij}^2/S_j)^2 = (1 + 2 + 3 + o_p(1))/n = (6 + o_p(1))/n$. The
+variance of $A_j/(2\sigma^2)$ is then $3/n$, and a Lindeberg CLT given $X$ gives the limit.
+$\square$
+
+With $\hat{\sigma}^2$ the residual variance of the full least squares fit,
+$2\hat{\sigma}^2 = (2/n)\sum_i \varepsilon_i^2 + O_p(n^{-1})$. So
+$\kappa_j - 2\hat{\sigma}^2 = \sum_i (h_{ij} - 2/n)(\varepsilon_i^2 - \sigma^2) + O_p(n^{-1})$,
+whose standard deviation in the Gaussian case is
+$\sigma^2 \sqrt{2\sum_i (h_{ij} - 2/n)^2} = 2\sigma^2/\sqrt{n}$. The plug-in shift is accurate
+to the same order as the true one.
+
+## Consequences
+
+**The penalty factors.** The `loo = TRUE` uniLasso at $\lambda$ is the `loo = FALSE`
+uniLasso with penalties
+
+$$
+D_j = \frac{n\lambda + 2\sigma^2}{|b_j|}\big(1 + O_p(n^{-1/2})\big),
+$$
+
+the relative error being uniform in $b_j$, since it is $(\kappa_j - 2\sigma^2)/(n\lambda + 2\sigma^2)$.
+In glmnet's units, $\lambda$ is replaced by $\lambda + 2\sigma^2/n$.
+
+**uniReg.** With $\lambda = 0$, `uniReg(loo = TRUE)` is to first order the uniLasso with
+$n\lambda = 2\sigma^2$, not sign-constrained least squares. The implicit penalty
+$2\sigma^2/|b_j|$ is part of why it is so sparse. It also biases its coefficients toward
+zero, which is why the bootstrap intervals of `ci.uniReg()` undercover the nonzero
+coefficients (`vignette("unireg")`).
+
+**The correlation threshold.** At $\hat{\theta} = 0$, the lemma with $r = \tilde{y}$ gives
+$\tilde{F}_j'\tilde{y} = b_j c_j'\tilde{y} - A_j \approx S_j b_j^2 - 2\sigma^2$. The
+leave-one-out feature is positively correlated with $y$ only if
+$\text{cor}(x_j, y)^2\,\|\tilde{y}\|^2 > 2\sigma^2$, that is
+$|\text{cor}(x_j, y)| \gtrsim \sqrt{2\sigma^2 / \|\tilde{y}\|^2} \approx \sqrt{2/n}$ when most of
+the variance of $y$ is noise. For $n = 300$ that is $0.082$: the paper's "larger than about
+0.08" (Section 4).
+
+**Without an intercept** in the univariate fits, $\text{tr}(H_j) = 1$ and the shift is
+$\sigma^2$.
+
+## Numerical checks
+
+### The identity
+
+The leave-one-out features of `uniLasso::uniInfo()` match the closed form, and a
+`loo = TRUE` fit satisfies the lemma to the solver's tolerance:
+
+```{r}
+library(lassoinf)
+set.seed(1)
+n <- 200; p <- 8
+x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+y <- drop(x %*% c(0.3, -0.2, 0.15, rep(0, p - 3))) + rnorm(n)
+
+loo_pieces <- function(x, y) {
+  n <- nrow(x)
+  C <- sweep(x, 2, colMeans(x))
+  S <- colSums(C^2)
+  b <- drop(crossprod(C, y - mean(y))) / S
+  eta <- mean(y) + sweep(C, 2, b, "*")
+  h <- 1 / n + sweep(C^2, 2, S, "/")
+  list(C = C, b = b, h = h, eta = eta, delta = -h / (1 - h) * (y - eta))
+}
+lp <- loo_pieces(x, y)
+info <- uniLasso::uniInfo(x, y, "gaussian", NULL, nit = 2, loo = TRUE, ridge = 0, eps = 1e-6)
+c(max_abs_F_difference = max(abs(info$F - (lp$eta + lp$delta))),
+  trace_H = unique(round(colSums(lp$h), 12)))
+
+kappa_terms <- function(lp, y, beta) {
+  theta <- beta / lp$b
+  r <- (y - mean(y)) - drop(lp$C %*% beta)
+  Dt <- sweep(lp$delta, 2, colMeans(lp$delta))
+  list(r = r, A = -drop(crossprod(Dt, r)), B = lp$b * drop(crossprod(lp$C, Dt %*% theta)),
+       C = drop(crossprod(Dt, Dt %*% theta)))
+}
+fit <- uniLasso::uniLasso(x, y, control = list(thresh = 1e-16))     # loo = TRUE
+k <- 15
+beta_hat <- as.numeric(fit$beta[, k])
+kt <- kappa_terms(lp, y, beta_hat)
+kappa <- kt$A + kt$B + kt$C
+lhs <- lp$b * drop(crossprod(lp$C, kt$r))                          # b_j c_j' r
+active <- beta_hat != 0
+c(active_max_error = max(abs(lhs[active] - n * fit$lambda[k] - kappa[active])),
+  inactive_max_violation = max(pmax(lhs[!active] - n * fit$lambda[k] - kappa[!active], 0)))
+sigma2_hat <- sum(resid(lm(y ~ x))^2) / (n - p - 1)
+round(kappa / (2 * sigma2_hat), 3)
+```
+
+### The rates
+
+Over repeated draws under local alternatives, with $n\lambda = 1$ and $\sigma^2 = 1$:
+
+```{r}
+bbar <- c(3, -2, 1.5, rep(0, p - 3))
+rates <- function(n, nsim = 60) {
+  out <- replicate(nsim, {
+    x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+    y <- drop(x %*% (bbar / sqrt(n))) + rnorm(n)
+    lp <- loo_pieces(x, y)
+    lam <- 1 / n
+    fit <- uniLasso::uniLasso(x, y, lambda = lam * exp(seq(log(30), 0, length.out = 25)),
+                              control = list(thresh = 1e-14))
+    kt <- kappa_terms(lp, y, as.numeric(fit$beta[, 25]))
+    sigma2_hat <- sum(resid(lm(y ~ x))^2) / (n - p - 1)
+    rbind(A = kt$A / 2, B = kt$B, C = kt$C, plug_in = (kt$A + kt$B + kt$C - 2 * sigma2_hat) / 2)
+  }, simplify = "array")
+  data.frame(n = n,
+             mean_A = mean(out["A", , ]),
+             sqrt_n_sd_A = sqrt(n) * sd(out["A", , ]),
+             n_median_abs_B = n * median(abs(out["B", , ])),
+             n_median_abs_C = n * median(abs(out["C", , ])),
+             sqrt_n_sd_plug_in = sqrt(n) * sd(out["plug_in", , ]))
+}
+```
+
+```{r, include = FALSE}
+# The simulation results are saved in unilasso_loo_sims.rds. Set LASSOINF_RERUN_SIMS=true
+# and rebuild the vignette to recompute them.
+sims_file <- "unilasso_loo_sims.rds"
+rerun <- !file.exists(sims_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")
+if (rerun) {
+  set.seed(2)
+  rate_table <- do.call(rbind, lapply(c(100, 400, 1600, 6400), rates))
+} else {
+  sims <- readRDS(sims_file)
+  rate_table <- sims$rates
+}
+```
+
+```{r, eval = if (has_pkg) -(1:2) else FALSE}
+set.seed(2)
+rate_table <- do.call(rbind, lapply(c(100, 400, 1600, 6400), rates))
+rate_table
+```
+
+`mean_A` is $A_j/(2\sigma^2)$, which tends to 1. `sqrt_n_sd_A` is stable near
+$\sqrt{3} \approx 1.73$, the Gaussian constant of the proposition. `n_median_abs_B` and
+`n_median_abs_C` are stable, so $B_j$ and $C_j$ are $O_p(n^{-1})$. `sqrt_n_sd_plug_in` is
+$\sqrt{n}$ times the standard deviation of $(\kappa_j - 2\hat{\sigma}^2)/2$, near 1 as derived
+above.
+
+### The selections
+
+A `loo = TRUE` fit at $\lambda$ against the `loo = FALSE` uniLasso at $\lambda$ and at
+$\lambda + 2\hat{\sigma}^2/n$: how often do they select the same variables with the same
+signs?
+
+```{r}
+agreement <- function(n, nsim = 40) {
+  beta <- c(0.5, -0.4, 0.3, rep(0, p - 3)) * sqrt(200 / n) * 1.5
+  same <- replicate(nsim, {
+    x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+    y <- drop(x %*% beta) + rnorm(n)
+    fit <- uniLasso::uniLasso(x, y)
+    C <- sweep(x, 2, colMeans(x)); Q <- crossprod(C); Z <- drop(crossprod(C, y - mean(y)))
+    sigma2_hat <- sum(resid(lm(y ~ x))^2) / (n - p - 1)
+    sapply(round(length(fit$lambda) * c(0.3, 0.5)), function(k) {
+      b <- sign(as.numeric(fit$beta[, k]))
+      c(at_lambda = identical(b, sign(round(unilasso_fit(Q, Z, n * fit$lambda[k]), 10))),
+        shifted = identical(b, sign(round(unilasso_fit(Q, Z, n * fit$lambda[k] + 2 * sigma2_hat), 10))))
+    })
+  })
+  data.frame(n = n, fits = 2 * nsim, same_at_lambda = sum(same["at_lambda", , ]),
+             same_shifted = sum(same["shifted", , ]))
+}
+```
+
+```{r, include = FALSE}
+if (rerun) {
+  set.seed(3)
+  agreement_table <- do.call(rbind, lapply(c(200, 1000, 5000), agreement))
+} else {
+  agreement_table <- sims$agreement
+}
+```
+
+```{r, eval = if (has_pkg) -(1:2) else FALSE}
+set.seed(3)
+agreement_table <- do.call(rbind, lapply(c(200, 1000, 5000), agreement))
+agreement_table
+```
+
+### Inference
+
+What does this mean for inference? We treat a `loo = TRUE` fit as the `loo = FALSE`
+uniLasso at the shifted penalty, with `UniLassoInference$new()`, and compute selective
+intervals for the full-model coefficients. We compare with the same at the unshifted
+$\lambda$. (`unilasso_inference()` itself refuses `loo = TRUE` fits.)
+
+```{r}
+loo_calibration <- function(n, shift, nsim_targets = 300) {
+  beta <- c(0.5, -0.4, 0.3, 0, 0, 0) * sqrt(200 / n)
+  q <- length(beta)
+  pivots <- c(); cover <- c()
+  while (length(pivots) < nsim_targets) {
+    x <- matrix(rnorm(n * q), n, q) %*% chol(0.5 * diag(q) + 0.5)
+    y <- drop(x %*% beta) + rnorm(n)
+    fit <- uniLasso::uniLasso(x, y)
+    k <- round(length(fit$lambda) * 0.4)
+    b <- as.numeric(fit$beta[, k])
+    if (all(b == 0)) next
+    C <- sweep(x, 2, colMeans(x)); Q <- crossprod(C); Z <- drop(crossprod(C, y - mean(y)))
+    sigma2_hat <- sum(resid(lm(y ~ x))^2) / (n - q - 1)
+    lam_Z <- n * fit$lambda[k] + if (shift) 2 * sigma2_hat else 0
+    ui <- UniLassoInference$new(b, Z, Q, lam = lam_Z, Z_full = Z, Sigma = sigma2_hat * Q,
+                                scalar_noise = 0, level = 0.9)
+    for (j in ui$E) {
+      r <- ui$results[[as.character(j)]]
+      pivots <- c(pivots, ui$pivot(j, beta[j + 1]))
+      cover <- c(cover, r$lower_conf <= beta[j + 1] && beta[j + 1] <= r$upper_conf)
+    }
+  }
+  data.frame(n = n, penalty = if (shift) "n lambda + 2 sigma2_hat" else "n lambda",
+             targets = length(pivots), ks_p_value = suppressWarnings(ks.test(pivots, "punif")$p.value),
+             coverage = mean(cover))
+}
+```
+
+```{r, include = FALSE}
+if (rerun) {
+  set.seed(4)
+  calibration_table <- do.call(rbind, lapply(c(200, 1000), function(n)
+    rbind(loo_calibration(n, TRUE), loo_calibration(n, FALSE))))
+  saveRDS(list(rates = rate_table, agreement = agreement_table,
+               calibration = calibration_table), sims_file)
+} else {
+  calibration_table <- sims$calibration
+}
+```
+
+```{r, eval = if (has_pkg) -(1:2) else FALSE}
+set.seed(4)
+calibration_table <- do.call(rbind, lapply(c(200, 1000), function(n)
+  rbind(loo_calibration(n, TRUE), loo_calibration(n, FALSE))))
+calibration_table
+```
+
+At the unshifted $\lambda$ the pivots are far from uniform and the 90% intervals cover
+little more than half the time. At the shifted penalty, the pivots are much closer to
+uniform. Coverage is near nominal at $n = 1000$, but below it at $n = 200$: the shift is
+only first order. A `loo = TRUE` fit satisfies the shifted KKT conditions only to
+$O_p(n^{-1/2})$. The one-step adjustment in `UniLassoInference` absorbs the difference, so
+the reported estimates are close to, but not exactly, the full-model least squares
+coefficients. Using the exact $\kappa_j$ of the lemma in place of $2\hat{\sigma}^2$, or
+polishing the fit, may do better at small $n$. This is why `unilasso_inference()` does not
+yet accept `loo = TRUE` fits.
+
+## Reference
+
+Chatterjee, S., Hastie, T. and Tibshirani, R. (2025). Univariate-guided sparse regression.
+*arXiv preprint*. doi:10.48550/arXiv.2501.18360

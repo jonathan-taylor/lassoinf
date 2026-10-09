@@ -11,6 +11,9 @@
   set `LASSOINF_RERUN_SIMS=true` to recompute): `vignette("unilasso")`,
   `vignette("unireg")` (comparing with `uniLasso::ci.uniReg()`) and
   `vignette("gaussian_lasso_polyhedral")`.
+* `vignette("unilasso_loo")`: a proof that the leave-one-out uniLasso (`loo = TRUE`) solves
+  the plain uniLasso at the penalty `n * lambda + kappa_j`, with
+  `kappa_j = 2 sigma^2 + O_p(n^(-1/2))`, with numerical checks.
 
 # lassoinf 0.1.0
 

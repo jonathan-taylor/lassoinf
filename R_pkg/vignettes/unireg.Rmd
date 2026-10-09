@@ -75,6 +75,9 @@ one_replication <- function(B = 200) {
   d <- make_data()
   reg <- uniLasso::uniReg(d$x, d$y, loo = FALSE, control = list(thresh = 1e-14))
   ui <- unilasso_inference(reg, d$x, d$y, level = 0.9)
+  # does the univariate slope have the sign of the coefficient?
+  b_uni <- apply(d$x, 2, function(xj) cov(xj, d$y) / var(xj))
+  sign_right <- sign(b_uni) == sign(beta)
   boot <- list(default = uniLasso::ci.uniReg(d$x, d$y, B = B, alpha = 0.1),
                loo_false = uniLasso::ci.uniReg(d$x, d$y, B = B, alpha = 0.1, loo = FALSE,
                                                control = list(thresh = 1e-14)))
@@ -83,12 +86,14 @@ one_replication <- function(B = 200) {
     r <- ui$results[[as.character(j - 1)]]
     if (!is.null(r)) {
       rows[[length(rows) + 1]] <- data.frame(method = "selective", variable = j, selected = TRUE,
+        sign_right = sign_right[j],
         cover = r$lower_conf <= beta[j] && beta[j] <= r$upper_conf, length = r$upper_conf - r$lower_conf)
     }
     for (b in names(boot)) {
       ci <- boot[[b]]
       rows[[length(rows) + 1]] <- data.frame(method = paste0("ci.uniReg (", b, ")"), variable = j,
-        selected = ci[j, 1] != 0, cover = ci[j, 2] <= beta[j] && beta[j] <= ci[j, 3],
+        selected = ci[j, 1] != 0, sign_right = sign_right[j],
+        cover = ci[j, 2] <= beta[j] && beta[j] <= ci[j, 3],
         length = ci[j, 3] - ci[j, 2])
     }
   }
@@ -128,6 +133,28 @@ coverage_table(results)
 
 For the selective intervals "all" and "selected" are the same: they exist only for selected
 variables. `median_length` is over selected variables.
+
+### When the univariate sign is wrong
+
+With these correlated features, the marginal effect of $x_2$ is
+$\text{Cov}(x_2, y) = -0.8 + 0.5\,(1 + 0.6) = 0$ (times 0.18). Its univariate slope then has
+the wrong sign about half of the time. Then the sign constraint restricts uniReg's
+coefficient to the wrong side of zero, or to zero. Coverage of the nonzero coefficients,
+by whether the univariate sign is right, and the number of intervals in each case:
+
+```{r}
+signals <- results[results$signal, ]
+with(signals, round(tapply(cover, list(method, univariate_sign = ifelse(sign_right, "right", "wrong")), mean), 3))
+with(signals, table(method, univariate_sign = ifelse(sign_right, "right", "wrong")))
+```
+
+With the default `loo = TRUE`, the bootstrap intervals never cover when the univariate sign
+is wrong: their bootstrap distribution stays on the wrong side. With `loo = FALSE` they
+lose less. When the marginal effect is near zero, the univariate sign also flips across
+bootstrap samples, which spreads the bootstrap distribution across zero. uniReg rarely
+selects a variable whose univariate sign is wrong, so selective intervals are seldom
+computed then. When they are, they are for the full-model coefficient, estimated by least
+squares without the constraint, so a wrong univariate sign does not keep them from covering.
 
 ```{r, include = FALSE}
 ink <- "#0b0b0b"; ink2 <- "#52514e"; grid_col <- "#e5e4e0"
