@@ -54,6 +54,10 @@ def compute_gaussian_conditional_stats(mu_x, sig_x, sig_omega, cx, comega, a, b,
     X ~ N(mu_x, sig_x^2)
     Omega ~ N(0, sig_omega^2)
 
+    a, b may also be arrays of the endpoints of disjoint intervals, in which case the
+    constraint is that cx*X + comega*Omega lies in their union; probabilities and
+    moments are then sums over the intervals.
+
     Returns a dictionary of results.
     """
     # 1. Properties of the constraint variable S = cx*X + comega*Omega
@@ -68,18 +72,19 @@ def compute_gaussian_conditional_stats(mu_x, sig_x, sig_omega, cx, comega, a, b,
     cov_xs = cx * var_x
     rho = cov_xs / (sig_x * sig_s)
 
-    # 2. Denominator: P(a <= S <= b)
+    # 2. Denominator: P(S in union of [a_k, b_k])
     # Standardize the bounds for S
-    alpha = (a - mu_s) / sig_s if a != -np.inf else -np.inf
-    beta = (b - mu_s) / sig_s if b != np.inf else np.inf
+    alpha = (np.atleast_1d(np.asarray(a, dtype=float)) - mu_s) / sig_s
+    beta = (np.atleast_1d(np.asarray(b, dtype=float)) - mu_s) / sig_s
+    lo_inf = np.isneginf(alpha)
+    hi_inf = np.isposinf(beta)
 
-    p_constraint = (norm.cdf(beta) if beta != np.inf else 1.0) - \
-                   (norm.cdf(alpha) if alpha != -np.inf else 0.0)
+    p_constraint = np.sum(norm.cdf(beta) - norm.cdf(alpha))
 
     if p_constraint < 1e-15:
         return {"error": "The constraint interval has negligible probability."}
 
-    # 3. Conditional Probability: P(X > t | a <= S <= b)
+    # 3. Conditional Probability: P(X > t | S in union of [a_k, b_k])
     prob_gt_t = None
     if t is not None:
         # We need P(X > t AND a <= S <= b) / P(a <= S <= b)
@@ -88,19 +93,22 @@ def compute_gaussian_conditional_stats(mu_x, sig_x, sig_omega, cx, comega, a, b,
         h_val = -(t - mu_x) / sig_x
 
         # New correlation with -Z_x is -rho
-        p_num_high = bivariate_normal_cdf(h_val, beta, -rho) if beta != np.inf else norm.cdf(h_val)
-        p_num_low = bivariate_normal_cdf(h_val, alpha, -rho) if alpha != -np.inf else 0.0
+        p_num = 0.
+        for al, be, li, hi in zip(alpha, beta, lo_inf, hi_inf):
+            p_num_high = norm.cdf(h_val) if hi else bivariate_normal_cdf(h_val, be, -rho)
+            p_num_low = 0.0 if li else bivariate_normal_cdf(h_val, al, -rho)
+            p_num += p_num_high - p_num_low
 
-        prob_gt_t = (p_num_high - p_num_low) / p_constraint
+        prob_gt_t = p_num / p_constraint
 
     # 4. Conditional Mean: E[X | S in [a, b]]
     # Using the truncated normal mean formula for S and linear regression
-    phi_alpha = norm.pdf(alpha) if alpha != -np.inf else 0
-    phi_beta = norm.pdf(beta) if beta != np.inf else 0
+    phi_alpha = np.where(lo_inf, 0., norm.pdf(alpha))
+    phi_beta = np.where(hi_inf, 0., norm.pdf(beta))
 
     # Ratio term for first moment of truncated S
     # E[S|S in [a,b]] = mu_s + sig_s * (phi(alpha) - phi(beta)) / P(a<S<b)
-    ratio_mean = (phi_alpha - phi_beta) / p_constraint
+    ratio_mean = np.sum(phi_alpha - phi_beta) / p_constraint
     mean_x_cond = mu_x + (cov_xs / sig_s) * ratio_mean
 
     # 5. Conditional Variance: Var(X | S in [a, b])
@@ -110,9 +118,10 @@ def compute_gaussian_conditional_stats(mu_x, sig_x, sig_omega, cx, comega, a, b,
 
     # Term 2: Variance of the regression component
     # Var(S|S in [a,b]) = sig_s^2 * [1 + (alpha*phi(alpha) - beta*phi(beta))/P - ratio_mean^2]
-    term_alpha = alpha * phi_alpha if alpha != -np.inf else 0
-    term_beta = beta * phi_beta if beta != np.inf else 0
-    ratio_var = (term_alpha - term_beta) / p_constraint
+    with np.errstate(invalid='ignore'):  # inf * 0 at infinite endpoints, replaced by 0
+        term_alpha = np.where(lo_inf, 0., alpha * phi_alpha)
+        term_beta = np.where(hi_inf, 0., beta * phi_beta)
+    ratio_var = np.sum(term_alpha - term_beta) / p_constraint
 
     var_s_cond = var_s * (1 + ratio_var - ratio_mean**2)
     explained_var_cond = (cov_xs / var_s)**2 * var_s_cond
@@ -140,6 +149,8 @@ class TruncBivariateNormal(discrete_family):
         TruncBivariateNormal models a continuous random variable Z 
         whose base measure is N(0, sig_x^2), conditioned on the event 
         L <= a_coeff * Z + b_coeff * omega <= U, where omega ~ N(0, sig_omega^2).
+        L and U may also be arrays of the endpoints of disjoint intervals, for the
+        event that a_coeff * Z + b_coeff * omega lies in their union.
         
         The parameter theta is the natural parameter, so that the underlying 
         normal (before truncation) has mean theta * sig_x^2.
