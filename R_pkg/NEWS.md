@@ -7,6 +7,10 @@
   a given solution, with or without randomization, and `unilasso_fit()` fits the uniLasso.
   See `vignette("unilasso")`.
 * `TruncBivariateNormal` accepts a union of intervals.
+* New vignettes with calibration simulations (results cached in `vignettes/*_sims.rds`;
+  set `LASSOINF_RERUN_SIMS=true` to recompute): `vignette("unilasso")`,
+  `vignette("unireg")` (comparing with `uniLasso::ci.uniReg()`) and
+  `vignette("gaussian_lasso_polyhedral")`.
 
 # lassoinf 0.1.0
 

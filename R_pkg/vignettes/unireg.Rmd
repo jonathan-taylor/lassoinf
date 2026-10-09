@@ -1,0 +1,183 @@
+---
+title: "Inference after uniReg, compared with the bootstrap"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Inference after uniReg, compared with the bootstrap}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6.5, fig.height = 4.6,
+                      eval = requireNamespace("uniLasso", quietly = TRUE))
+has_pkg <- requireNamespace("uniLasso", quietly = TRUE)
+```
+
+uniReg (Chatterjee, Hastie and Tibshirani, 2025) is the unpenalized uniLasso: least
+squares with the signs constrained to those of the univariate regressions,
+
+$$
+\min_{\beta_0, \beta} \ \frac{1}{2n}\|y - \beta_0 - X\beta\|_2^2
+\quad \text{subject to} \quad \text{sign}(\beta_j) \in \{0, \text{sign}(\hat{\beta}^{\text{uni}}_j)\},
+$$
+
+where $\hat{\beta}^{\text{uni}}_j$ is the slope of the univariate regression of $y$ on $x_j$.
+The sign constraints set some coefficients to zero, so uniReg selects variables.
+`uniLasso::uniReg(loo = FALSE)` solves this problem.
+
+The uniLasso package offers `ci.uniReg()`: percentile bootstrap intervals for each
+coefficient, from refitting uniReg to resampled data. `unilasso_inference()` instead gives
+selective intervals for the full-model coefficients of the variables uniReg selects. These
+condition on the selection and on the signs of the univariate coefficients, and are exact in
+the Gaussian linear model; see `vignette("unilasso")`. This vignette compares the two.
+
+```{r}
+library(lassoinf)
+n <- 200; p <- 8
+beta <- 0.18 * c(1, -0.8, 0.6, rep(0, p - 3))
+make_data <- function() {
+  x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+  list(x = x, y = drop(x %*% beta) + rnorm(n))
+}
+set.seed(0)
+d <- make_data()
+```
+
+## One data set
+
+```{r}
+reg <- uniLasso::uniReg(d$x, d$y, loo = FALSE, control = list(thresh = 1e-14))
+unilasso_inference(reg, d$x, d$y, level = 0.9)$summary()
+```
+
+`ci.uniReg()` passes its extra arguments to `uniReg()`. Its default, like uniReg's, is
+`loo = TRUE`, which regresses $y$ on leave-one-out univariate fits:
+
+```{r}
+set.seed(1)
+uniLasso::ci.uniReg(d$x, d$y, B = 200, alpha = 0.1)
+```
+
+## Coverage
+
+In each replication we compute three sets of 90% intervals for the true coefficients:
+
+* `unilasso_inference()` after `uniReg(loo = FALSE)`, for the selected variables;
+* `ci.uniReg()` with its default `loo = TRUE`, for every variable;
+* `ci.uniReg(loo = FALSE)`, for every variable.
+
+For the bootstrap we report coverage over all replications and also when its own fit
+selected the variable (a nonzero coefficient), the event the selective intervals condition
+on.
+
+```{r}
+one_replication <- function(B = 200) {
+  d <- make_data()
+  reg <- uniLasso::uniReg(d$x, d$y, loo = FALSE, control = list(thresh = 1e-14))
+  ui <- unilasso_inference(reg, d$x, d$y, level = 0.9)
+  boot <- list(default = uniLasso::ci.uniReg(d$x, d$y, B = B, alpha = 0.1),
+               loo_false = uniLasso::ci.uniReg(d$x, d$y, B = B, alpha = 0.1, loo = FALSE,
+                                               control = list(thresh = 1e-14)))
+  rows <- list()
+  for (j in seq_len(p)) {
+    r <- ui$results[[as.character(j - 1)]]
+    if (!is.null(r)) {
+      rows[[length(rows) + 1]] <- data.frame(method = "selective", variable = j, selected = TRUE,
+        cover = r$lower_conf <= beta[j] && beta[j] <= r$upper_conf, length = r$upper_conf - r$lower_conf)
+    }
+    for (b in names(boot)) {
+      ci <- boot[[b]]
+      rows[[length(rows) + 1]] <- data.frame(method = paste0("ci.uniReg (", b, ")"), variable = j,
+        selected = ci[j, 1] != 0, cover = ci[j, 2] <= beta[j] && beta[j] <= ci[j, 3],
+        length = ci[j, 3] - ci[j, 2])
+    }
+  }
+  do.call(rbind, rows)
+}
+
+simulate <- function(nsim, seed = 1) {
+  set.seed(seed)
+  do.call(rbind, replicate(nsim, one_replication(), simplify = FALSE))
+}
+```
+
+```{r, include = FALSE}
+# The simulations take several minutes, so their results are saved in unireg_sims.rds
+# (simulate() sets its own seed, so they are the same). Set LASSOINF_RERUN_SIMS=true and
+# rebuild the vignette to recompute them.
+sims_file <- "unireg_sims.rds"
+if (!file.exists(sims_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")) {
+  saveRDS(simulate(nsim = 150), sims_file)
+}
+results <- readRDS(sims_file)
+```
+
+```{r, eval = if (has_pkg) -1 else FALSE}
+results <- simulate(nsim = 150)
+results$signal <- beta[results$variable] != 0
+coverage_table <- function(r) {
+  f <- function(x) round(mean(x), 3)
+  do.call(rbind, lapply(split(r, r$method), function(m) data.frame(
+    method = m$method[1],
+    signal_all = f(m$cover[m$signal]), null_all = f(m$cover[!m$signal]),
+    signal_selected = f(m$cover[m$signal & m$selected]), null_selected = f(m$cover[!m$signal & m$selected]),
+    median_length = round(median(m$length[m$selected]), 3))))
+}
+coverage_table(results)
+```
+
+For the selective intervals "all" and "selected" are the same: they exist only for selected
+variables. `median_length` is over selected variables.
+
+```{r, include = FALSE}
+ink <- "#0b0b0b"; ink2 <- "#52514e"; grid_col <- "#e5e4e0"
+pal <- c("#2a78d6", "#eb6834", "#1baf7a")
+coverage_plot <- function(cov, labels, nominal, main) {
+  # cov: a matrix of coverages, variables in rows and methods in columns
+  k <- ncol(cov); m <- nrow(cov)
+  op <- par(mar = c(4.2, 7.5, 2.2, 1), las = 1, col.axis = ink2, col.lab = ink2, fg = ink2)
+  on.exit(par(op))
+  xlim <- c(min(0.25, floor(10 * min(cov, na.rm = TRUE)) / 10), 1)
+  # rows 1..m, with space below the last row for the legend
+  plot(NA, xlim = xlim, ylim = c(m + 0.5 + 0.55 * k, 0.4), yaxt = "n", bty = "n",
+       xlab = "Coverage of 90% intervals", ylab = "", main = main, col.main = ink,
+       font.main = 1, cex.main = 1)
+  abline(v = seq(0, 1, 0.1), col = grid_col)
+  abline(v = nominal, lty = 2, col = ink2)
+  axis(2, at = seq_len(m), labels = rownames(cov), tick = FALSE, col.axis = ink)
+  off <- seq(-0.22, 0.22, length.out = k)
+  pch <- c(19, 17, 15)
+  for (j in seq_len(k)) points(cov[, j], seq_len(m) + off[j], pch = pch[j], col = pal[j], cex = 1.3)
+  legend("bottomleft", legend = labels, pch = pch[seq_len(k)], col = pal[seq_len(k)], bty = "n",
+         text.col = ink, pt.cex = 1.3, inset = 0.02, bg = "white")
+}
+```
+
+```{r, echo = FALSE, fig.alt = "Coverage of 90% intervals for each coefficient: selective intervals near 90% for all coefficients; the default ci.uniReg undercovers the three signals and overcovers the nulls."}
+cov <- sapply(c("selective", "ci.uniReg (default)", "ci.uniReg (loo_false)"), function(meth) {
+  m <- results[results$method == meth, ]
+  tapply(m$cover, factor(m$variable, levels = seq_len(p)), mean)
+})
+rownames(cov) <- sprintf("x%d (%.3f)", seq_len(p), beta)
+coverage_plot(cov, c("selective, when selected", "ci.uniReg, default (loo = TRUE)", "ci.uniReg, loo = FALSE"),
+              0.9, "Coverage by coefficient (true value in parentheses)")
+```
+
+The selective intervals cover close to 90% for every coefficient, signal or null. With its
+default `loo = TRUE`, `ci.uniReg()` undercovers the nonzero coefficients badly and covers the
+zero ones essentially always. Leave-one-out fits shrink small univariate effects toward
+zero, which acts like an extra penalty on every coefficient, so the bootstrap intervals are
+centered on shrunken estimates. With `loo = FALSE` the bootstrap covers closer to nominal
+here, though it is conservative for the null coefficients. The percentile bootstrap has no
+guarantee for coefficients near the boundary that the sign constraints create.
+
+The selective intervals are longer than the bootstrap ones (see `median_length`), most of all
+for variables selected close to the selection boundary. That is the price of conditioning on
+the selection. Randomized selection gives shorter intervals: `UniLassoInference$new()` with a
+`scalar_noise` well above the 0.001 used without randomization, e.g. 1 (selection on about
+half the information).
+
+## References
+
+Chatterjee, S., Hastie, T. and Tibshirani, R. (2025). Univariate-guided sparse regression.
+*arXiv preprint*. doi:10.48550/arXiv.2501.18360

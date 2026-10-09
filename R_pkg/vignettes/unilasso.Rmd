@@ -8,8 +8,9 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6.5, fig.height = 4.2,
                       eval = requireNamespace("uniLasso", quietly = TRUE))
+has_pkg <- requireNamespace("uniLasso", quietly = TRUE)
 ```
 
 The uniLasso (Chatterjee, Hastie and Tibshirani, 2025) fits a univariate regression of $y$
@@ -22,7 +23,7 @@ $$
 $$
 
 where $\hat{\beta}^{\text{uni}}_j$ is the slope of the univariate regression of $y$ on $x_j$.
-`uniLasso::uniReg()` is the $\lambda = 0$ case: least squares with the sign constraints.
+`uniLasso::uniReg()` is the $\lambda = 0$ case; see `vignette("unireg")`.
 
 Both the penalty factors and the sign constraints depend on the data, so the selection
 event is not a polyhedron and the polyhedral lemma of Lee et al. (2016) does not apply
@@ -40,59 +41,125 @@ here, and `unilasso_inference()` refuses such fits.
 
 ```{r}
 library(lassoinf)
-set.seed(0)
 n <- 200; p <- 8
-x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
 beta <- c(0.3, -0.2, 0.15, rep(0, p - 3))
-y <- drop(x %*% beta) + rnorm(n)
+make_data <- function() {
+  x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+  list(x = x, y = drop(x %*% beta) + rnorm(n))
+}
+set.seed(0)
+d <- make_data()
 ```
 
-## uniLasso
+## Inference
 
-A tight convergence threshold makes the fit satisfy the KKT conditions that the inference
-assumes; `unilasso_inference()` warns if it does not. The noise variance is estimated from
-the full least squares fit.
+We fit a path ending at the $\lambda$ we want, with a tight convergence threshold, so that
+the fit satisfies the KKT conditions the inference assumes. `unilasso_inference()` warns if
+it does not. The noise variance is estimated from the full least squares fit.
 
 ```{r}
-fit <- uniLasso::uniLasso(x, y, loo = FALSE, control = list(thresh = 1e-14))
-lam <- fit$lambda[20]
-unilasso_inference(fit, x, y, s = lam, level = 0.9)$summary()
+lam <- 0.02
+path <- lam * exp(seq(log(20), 0, length.out = 20))
+fit <- uniLasso::uniLasso(d$x, d$y, loo = FALSE, lambda = path, control = list(thresh = 1e-14))
+ui <- unilasso_inference(fit, d$x, d$y, s = lam, level = 0.9)
+ui$summary()
 ```
 
 `index` is 0-based, as elsewhere in the package, and `beta_hat` is the full-model least
-squares coefficient. For comparison, the naive intervals ignore the selection:
+squares coefficient. The naive intervals ignore the selection:
 
 ```{r}
-ols <- summary(lm(y ~ x))$coefficients[-1, ]
-sel <- which(as.numeric(fit$beta[, 20]) != 0)
+ols <- summary(lm(d$y ~ d$x))$coefficients[-1, ]
+sel <- ui$summary()$index + 1
 cbind(beta_hat = ols[sel, 1],
       lower = ols[sel, 1] - qnorm(0.95) * ols[sel, 2],
       upper = ols[sel, 1] + qnorm(0.95) * ols[sel, 2])
 ```
 
-## uniReg
+## Calibration
+
+Over repeated experiments, the pivot of each selected variable at its true coefficient,
+`ui$pivot(k, beta[k + 1])`, should be uniform, and the 90% intervals should cover about 90%
+of the time. We compare with the naive pivot and intervals.
 
 ```{r}
-reg <- uniLasso::uniReg(x, y, loo = FALSE, control = list(thresh = 1e-14))
-unilasso_inference(reg, x, y, level = 0.9)$summary()
+one_replication <- function() {
+  d <- make_data()
+  fit <- uniLasso::uniLasso(d$x, d$y, loo = FALSE, lambda = path, control = list(thresh = 1e-14))
+  ui <- unilasso_inference(fit, d$x, d$y, s = lam, level = 0.9)
+  s <- ui$summary()
+  if (nrow(s) == 0) return(NULL)
+  ols <- summary(lm(d$y ~ d$x))$coefficients[-1, , drop = FALSE]
+  k <- s$index + 1
+  truth <- beta[k]
+  data.frame(signal = truth != 0,
+             pivot = sapply(s$index, function(j) ui$pivot(j, beta[j + 1])),
+             cover = s$lower_conf <= truth & truth <= s$upper_conf,
+             length = s$upper_conf - s$lower_conf,
+             naive_pivot = pnorm((ols[k, 1] - truth) / ols[k, 2]),
+             naive_cover = abs(ols[k, 1] - truth) <= qnorm(0.95) * ols[k, 2],
+             naive_length = 2 * qnorm(0.95) * ols[k, 2])
+}
+
+simulate <- function(nsim, seed = 1) {
+  set.seed(seed)
+  do.call(rbind, replicate(nsim, one_replication(), simplify = FALSE))
+}
 ```
 
-## Randomization
-
-`UniLassoInference$new()` also takes a uniLasso solution for randomized selection data
-$X^T y + \omega$, for example from `unilasso_fit()`, with the randomization's covariance
-`scalar_noise * Sigma`:
-
-```{r}
-xc <- sweep(x, 2, colMeans(x))
-Q <- crossprod(xc)
-Z <- drop(crossprod(xc, y - mean(y)))
-sigma2 <- sum(resid(lm(y ~ x))^2) / (n - p - 1)
-Z_noisy <- Z + drop(t(chol(sigma2 * Q)) %*% rnorm(p))
-b <- unilasso_fit(Q, Z_noisy, lam = n * lam)
-UniLassoInference$new(b, Z_noisy, Q, lam = n * lam, Z_full = Z, Sigma = sigma2 * Q,
-                      scalar_noise = 1, level = 0.9)$summary()
+```{r, include = FALSE}
+# The simulation results are saved in unilasso_sims.rds (simulate() sets its own seed, so
+# they are the same). Set LASSOINF_RERUN_SIMS=true and rebuild the vignette to recompute.
+sims_file <- "unilasso_sims.rds"
+if (!file.exists(sims_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")) {
+  saveRDS(simulate(nsim = 400), sims_file)
+}
+results <- readRDS(sims_file)
 ```
+
+```{r, eval = if (has_pkg) -1 else FALSE}
+results <- simulate(nsim = 400)
+nrow(results)
+summarize <- function(r) {
+  data.frame(variables = c(sum(r$signal), sum(!r$signal)),
+             coverage = c(mean(r$cover[r$signal]), mean(r$cover[!r$signal])),
+             naive_coverage = c(mean(r$naive_cover[r$signal]), mean(r$naive_cover[!r$signal])),
+             median_length = c(median(r$length[r$signal]), median(r$length[!r$signal])),
+             naive_median_length = c(median(r$naive_length[r$signal]), median(r$naive_length[!r$signal])),
+             row.names = c("signal", "null"))
+}
+summarize(results)
+```
+
+```{r, include = FALSE}
+ink <- "#0b0b0b"; ink2 <- "#52514e"; grid_col <- "#e5e4e0"
+pal <- c("#2a78d6", "#eb6834")
+pivot_plot <- function(pivots, labels, main) {
+  op <- par(mar = c(4.2, 4.2, 2.2, 1), las = 1, col.axis = ink2, col.lab = ink2, fg = ink2)
+  on.exit(par(op))
+  plot(NA, xlim = c(0, 1), ylim = c(0, 1), xaxs = "i", yaxs = "i", bty = "n",
+       xlab = "Uniform quantile", ylab = "Proportion of pivots below", main = main,
+       col.main = ink, font.main = 1, cex.main = 1)
+  abline(h = seq(0, 1, 0.25), v = seq(0, 1, 0.25), col = grid_col)
+  abline(0, 1, lty = 2, col = ink2)
+  xs <- seq(0, 1, length.out = 401)
+  for (k in seq_along(pivots)) lines(xs, ecdf(pivots[[k]])(xs), col = pal[k], lwd = 2)
+  legend("topleft", legend = labels, col = pal[seq_along(pivots)], lwd = 2, bty = "n",
+         text.col = ink, inset = 0.02)
+}
+```
+
+```{r, echo = FALSE, fig.alt = "Empirical CDFs of the selective and naive pivots against the uniform; the selective pivot follows the diagonal, the naive one does not."}
+pivot_plot(list(results$pivot, results$naive_pivot),
+           c("selective (unilasso_inference)", "naive (ignores selection)"),
+           "Pivots at the true coefficients, selected variables")
+```
+
+The selective pivots follow the diagonal, so they are uniform, and the intervals cover close
+to the nominal 90% for both signal and null variables. The naive intervals undercover,
+most of all for the null variables: those were selected because their estimates were large.
+The selective intervals are longer, by most for variables selected near the selection
+boundary.
 
 ## References
 

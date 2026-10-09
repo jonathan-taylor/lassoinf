@@ -1,0 +1,169 @@
+---
+title: "The gaussian LASSO without randomization"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The gaussian LASSO without randomization}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6.5, fig.height = 4.2,
+                      eval = requireNamespace("glmnet", quietly = TRUE))
+has_pkg <- requireNamespace("glmnet", quietly = TRUE)
+```
+
+The polyhedral lemma of Lee et al. (2016) gives exact selective inference after the LASSO
+fitted on all the data, with no randomization: conditionally on the selected variables and
+their signs, each estimate is a truncated Gaussian. This vignette fits a gaussian LASSO with
+`glmnet`, computes the selective intervals with `glmnet_inference()`, and checks their
+calibration by simulation. `vignette("no_randomization")` does the same for a logistic
+LASSO, and `vignette("gaussian_lasso")` adds randomization.
+
+The targets are the coefficients of the selected model $E$: the population least squares
+coefficients of $y$ on $X_E$ (and the intercept). The estimate is the least squares
+coefficient on $X_E$; $\sigma^2$ is estimated from the full least squares fit.
+
+```{r}
+library(lassoinf)
+n <- 200; p <- 20
+beta <- c(0.5, 0.25, -0.25, rep(0, p - 3))
+make_data <- function() {
+  x <- matrix(rnorm(n * p), n, p)
+  list(x = x, y = drop(x %*% beta) + rnorm(n))
+}
+set.seed(0)
+d <- make_data()
+
+lam <- 0.1
+path <- lam * exp(seq(log(10), 0, length.out = 30))
+fit <- glmnet::glmnet(d$x, d$y, lambda = path, control = list(thresh = 1e-14))
+```
+
+We fit a path ending at $\lambda$ with a small `thresh`, so that the solution satisfies the
+KKT conditions closely.
+
+## Inference
+
+```{r}
+li <- glmnet_inference(fit, d$x, d$y, s = lam, level = 0.9)
+li$summary()
+```
+
+Index 0 is the intercept. `beta_hat` is the LASSO coefficient; the estimate of each target
+is the least squares coefficient on the selected variables, shown in the naive (Wald)
+intervals, which ignore the selection:
+
+```{r}
+li$`_naive`
+```
+
+The target for the selected model is $W (\hat{Q}\beta^*)_E$ with $W = \hat{Q}_{E,E}^{-1}$
+and $\beta^* = (0, \beta)$:
+
+```{r}
+target <- function(li) drop(li$W %*% (li$Q_hat %*% c(0, beta))[li$E + 1])
+```
+
+## Calibration
+
+The pivot of each target, the conditional CDF of its estimate at the true value, should be
+uniform. We compute it from the same pieces `LassoInference` uses: the contrast, its
+truncation interval and the truncated bivariate normal. Without randomization, the
+randomization variance is a small 0.001 times $\text{Var}(Z)$.
+
+```{r}
+pivot <- function(li, j, truth) {
+  contrast <- li$si$compute_contrast(li$contrasts[[as.character(j)]])
+  interval <- contrast$get_interval(0, li$A, li$b)
+  variance <- contrast$naive_variance
+  tbn <- TruncBivariateNormal$new(a_coeff = contrast$bar_s^2 / variance, b_coeff = 1,
+                                  L = interval[1], U = interval[2],
+                                  sig_omega = contrast$bar_s, sig_x = sqrt(variance))
+  tbn$cdf(theta = truth / variance, x = contrast$theta_hat)
+}
+
+one_replication <- function() {
+  d <- make_data()
+  fit <- glmnet::glmnet(d$x, d$y, lambda = path, control = list(thresh = 1e-14))
+  li <- glmnet_inference(fit, d$x, d$y, s = lam, level = 0.9)
+  s <- li$summary()
+  keep <- s$index != 0                                # the selected variables, not the intercept
+  if (!any(keep)) return(NULL)
+  truth <- target(li)[keep]
+  naive <- li$`_naive`[keep, ]
+  naive_sd <- (naive$upper_conf - naive$lower_conf) / (2 * qnorm(0.95))
+  data.frame(signal = beta[s$index[keep]] != 0,
+             pivot = mapply(function(j, t) pivot(li, j, t), s$index[keep], truth),
+             cover = s$lower_conf[keep] <= truth & truth <= s$upper_conf[keep],
+             length = s$upper_conf[keep] - s$lower_conf[keep],
+             naive_pivot = pnorm((naive$beta_hat - truth) / naive_sd),
+             naive_cover = naive$lower_conf <= truth & truth <= naive$upper_conf,
+             naive_length = naive$upper_conf - naive$lower_conf)
+}
+
+simulate <- function(nsim, seed = 1) {
+  set.seed(seed)
+  do.call(rbind, replicate(nsim, one_replication(), simplify = FALSE))
+}
+```
+
+```{r, include = FALSE}
+# The simulation results are saved in gaussian_lasso_polyhedral_sims.rds (simulate() sets
+# its own seed, so they are the same). Set LASSOINF_RERUN_SIMS=true and rebuild the
+# vignette to recompute them.
+sims_file <- "gaussian_lasso_polyhedral_sims.rds"
+if (!file.exists(sims_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")) {
+  saveRDS(simulate(nsim = 300), sims_file)
+}
+results <- readRDS(sims_file)
+```
+
+```{r, eval = if (has_pkg) -1 else FALSE}
+results <- simulate(nsim = 300)
+summarize <- function(r) {
+  data.frame(variables = c(sum(r$signal), sum(!r$signal)),
+             coverage = c(mean(r$cover[r$signal]), mean(r$cover[!r$signal])),
+             naive_coverage = c(mean(r$naive_cover[r$signal]), mean(r$naive_cover[!r$signal])),
+             median_length = c(median(r$length[r$signal]), median(r$length[!r$signal])),
+             naive_median_length = c(median(r$naive_length[r$signal]), median(r$naive_length[!r$signal])),
+             row.names = c("signal", "null"))
+}
+summarize(results)
+```
+
+```{r, include = FALSE}
+ink <- "#0b0b0b"; ink2 <- "#52514e"; grid_col <- "#e5e4e0"
+pal <- c("#2a78d6", "#eb6834")
+pivot_plot <- function(pivots, labels, main) {
+  op <- par(mar = c(4.2, 4.2, 2.2, 1), las = 1, col.axis = ink2, col.lab = ink2, fg = ink2)
+  on.exit(par(op))
+  plot(NA, xlim = c(0, 1), ylim = c(0, 1), xaxs = "i", yaxs = "i", bty = "n",
+       xlab = "Uniform quantile", ylab = "Proportion of pivots below", main = main,
+       col.main = ink, font.main = 1, cex.main = 1)
+  abline(h = seq(0, 1, 0.25), v = seq(0, 1, 0.25), col = grid_col)
+  abline(0, 1, lty = 2, col = ink2)
+  xs <- seq(0, 1, length.out = 401)
+  for (k in seq_along(pivots)) lines(xs, ecdf(pivots[[k]])(xs), col = pal[k], lwd = 2)
+  legend("topleft", legend = labels, col = pal[seq_along(pivots)], lwd = 2, bty = "n",
+         text.col = ink, inset = 0.02)
+}
+```
+
+```{r, echo = FALSE, fig.alt = "Empirical CDFs of the polyhedral and naive pivots against the uniform; the polyhedral pivot follows the diagonal, the naive one does not."}
+pivot_plot(list(results$pivot, results$naive_pivot),
+           c("polyhedral (glmnet_inference)", "naive (ignores selection)"),
+           "Pivots at the selected-model targets")
+```
+
+The polyhedral pivots follow the diagonal, and the intervals cover close to the nominal 90%
+for signal and null variables alike. The naive intervals cover the selected null variables
+far less often than 90%: those were selected because their estimates are large. The polyhedral intervals
+are about as long as the naive ones for strong signals, and much longer for variables
+selected near the selection boundary. Randomization gives shorter intervals there; see
+`vignette("gaussian_lasso")`.
+
+## Reference
+
+Lee, J. D., Sun, D. L., Sun, Y. and Taylor, J. E. (2016). Exact post-selection inference,
+with application to the lasso. *The Annals of Statistics*, 44(3), 907--927.
