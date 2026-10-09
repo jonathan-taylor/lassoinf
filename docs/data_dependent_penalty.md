@@ -260,7 +260,28 @@ with score $Z = X'y$, $\hat{\beta}^{\text{uni}}_j = Z_j / \|X_j\|_2^2$ is linear
 is computed from the selection data it is linear in $Z + \omega$, so the randomized reduction
 applies exactly, with $\text{Cov}(C, Z) = \text{diag}(\|X_j\|_2^{-2})\, \Sigma$.
 
-**Individual coefficients in the well-specified model have at most two ratios per row.**
+**Full-model coefficients ($n > p$) have one ratio per row.** This is the case implemented in
+`UniLassoInference` (see [](unilasso.md)). For $\hat{\theta}_k = e_k' Q^{-1} Z$ and
+$\Sigma = \sigma^2 Q$,
+
+$$
+\text{Cov}(Z, \hat{\theta}_k) = \sigma^2 Q Q^{-1} e_k = \sigma^2 e_k,
+$$
+
+so along $w$ only $Y_k$ moves, and hence only $C_k$ and $D_k$. Since $b$ is affine in $D$,
+every row reads
+
+$$
+(AY)_i \leq b_{0,i} + M_{ik} \frac{\lambda s_{C,k}}{C_k}
+= \frac{b_{0,i} C_k + M_{ik} \lambda s_{C,k}}{C_k},
+$$
+
+which is a single ratio $B_i / C_i$ with $C_i = C_k$ and $B_i = b_{0,i} C_k + M_{ik}\lambda s_{C,k}$.
+This $B_i$ is affine in $w$, with $\text{Cov}(B_i, Z) = b_{0,i}\, \text{Cov}(C_k, Z)$. Each row is a
+quadratic. For unireg ($\lambda = 0$) the ratio drops out, leaving the polyhedron and the sign
+condition on $C_k$, which is linear in $w$.
+
+**Selected-model coefficients in the well-specified model have at most two ratios per row.**
 When $\Sigma = \sigma^2 Q$, the target $\hat{\theta} = e_k' Q_{EE}^{-1} Z_E$ has
 
 $$

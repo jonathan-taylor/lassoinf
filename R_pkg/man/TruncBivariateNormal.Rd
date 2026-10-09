@@ -23,9 +23,11 @@ selection. \emph{arXiv preprint}. \doi{10.48550/arXiv.2308.10346}
 
     \item{\code{b_coeff}}{Internal coefficient.}
 
-    \item{\code{L}}{Lower bound of the truncation interval.}
+    \item{\code{L}}{Lower bound of the truncation interval, or the lower ends of disjoint
+intervals whose union is the truncation set.}
 
-    \item{\code{U}}{Upper bound of the truncation interval.}
+    \item{\code{U}}{Upper bound of the truncation interval, or the upper ends of disjoint
+intervals.}
 
     \item{\code{sig_omega}}{Standard deviation of the noise component.}
 

@@ -1,3 +1,13 @@
+# lassoinf (development version)
+
+* `unilasso_inference()`: selective inference after a `uniLasso::uniLasso()` or
+  `uniLasso::uniReg()` fit with `loo = FALSE`, for the full-model coefficients of the
+  selected variables (n > p). The penalty factors and sign constraints depend on the data;
+  the truncation set is a finite union of intervals. `UniLassoInference` does the same for
+  a given solution, with or without randomization, and `unilasso_fit()` fits the uniLasso.
+  See `vignette("unilasso")`.
+* `TruncBivariateNormal` accepts a union of intervals.
+
 # lassoinf 0.1.0
 
 * First CRAN release.

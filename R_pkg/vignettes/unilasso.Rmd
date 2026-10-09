@@ -1,0 +1,103 @@
+---
+title: "Inference after the uniLasso"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Inference after the uniLasso}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>",
+                      eval = requireNamespace("uniLasso", quietly = TRUE))
+```
+
+The uniLasso (Chatterjee, Hastie and Tibshirani, 2025) fits a univariate regression of $y$
+on each feature, then a lasso whose penalty factors and signs come from those fits. With
+`loo = FALSE`, `uniLasso::uniLasso()` solves
+
+$$
+\min_{\beta_0, \beta} \ \frac{1}{2n}\|y - \beta_0 - X\beta\|_2^2 + \lambda \sum_j \frac{|\beta_j|}{|\hat{\beta}^{\text{uni}}_j|}
+\quad \text{subject to} \quad \text{sign}(\beta_j) \in \{0, \text{sign}(\hat{\beta}^{\text{uni}}_j)\},
+$$
+
+where $\hat{\beta}^{\text{uni}}_j$ is the slope of the univariate regression of $y$ on $x_j$.
+`uniLasso::uniReg()` is the $\lambda = 0$ case: least squares with the sign constraints.
+
+Both the penalty factors and the sign constraints depend on the data, so the selection
+event is not a polyhedron and the polyhedral lemma of Lee et al. (2016) does not apply
+directly. `unilasso_inference()` gives selective intervals and p-values for the
+**full-model** coefficient $\beta_k$ of each selected variable, in a Gaussian linear model
+with $n > p$. The estimate is the $k$-th coefficient of the least squares fit on all $p$
+features. For these targets, only the target's own univariate coefficient varies along the
+line the lemma conditions on, and the truncation set is found exactly, as a finite union of
+intervals. We condition on the selected variables and on the signs of all the univariate
+coefficients. There is no randomization.
+
+The fit must use `loo = FALSE`. With the default `loo = TRUE`, the uniLasso regresses $y$
+on leave-one-out univariate fits instead. That is a different selection event, not covered
+here, and `unilasso_inference()` refuses such fits.
+
+```{r}
+library(lassoinf)
+set.seed(0)
+n <- 200; p <- 8
+x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+beta <- c(0.3, -0.2, 0.15, rep(0, p - 3))
+y <- drop(x %*% beta) + rnorm(n)
+```
+
+## uniLasso
+
+A tight convergence threshold makes the fit satisfy the KKT conditions that the inference
+assumes; `unilasso_inference()` warns if it does not. The noise variance is estimated from
+the full least squares fit.
+
+```{r}
+fit <- uniLasso::uniLasso(x, y, loo = FALSE, control = list(thresh = 1e-14))
+lam <- fit$lambda[20]
+unilasso_inference(fit, x, y, s = lam, level = 0.9)$summary()
+```
+
+`index` is 0-based, as elsewhere in the package, and `beta_hat` is the full-model least
+squares coefficient. For comparison, the naive intervals ignore the selection:
+
+```{r}
+ols <- summary(lm(y ~ x))$coefficients[-1, ]
+sel <- which(as.numeric(fit$beta[, 20]) != 0)
+cbind(beta_hat = ols[sel, 1],
+      lower = ols[sel, 1] - qnorm(0.95) * ols[sel, 2],
+      upper = ols[sel, 1] + qnorm(0.95) * ols[sel, 2])
+```
+
+## uniReg
+
+```{r}
+reg <- uniLasso::uniReg(x, y, loo = FALSE, control = list(thresh = 1e-14))
+unilasso_inference(reg, x, y, level = 0.9)$summary()
+```
+
+## Randomization
+
+`UniLassoInference$new()` also takes a uniLasso solution for randomized selection data
+$X^T y + \omega$, for example from `unilasso_fit()`, with the randomization's covariance
+`scalar_noise * Sigma`:
+
+```{r}
+xc <- sweep(x, 2, colMeans(x))
+Q <- crossprod(xc)
+Z <- drop(crossprod(xc, y - mean(y)))
+sigma2 <- sum(resid(lm(y ~ x))^2) / (n - p - 1)
+Z_noisy <- Z + drop(t(chol(sigma2 * Q)) %*% rnorm(p))
+b <- unilasso_fit(Q, Z_noisy, lam = n * lam)
+UniLassoInference$new(b, Z_noisy, Q, lam = n * lam, Z_full = Z, Sigma = sigma2 * Q,
+                      scalar_noise = 1, level = 0.9)$summary()
+```
+
+## References
+
+Chatterjee, S., Hastie, T. and Tibshirani, R. (2025). Univariate-guided sparse regression.
+*arXiv preprint*. doi:10.48550/arXiv.2501.18360
+
+Lee, J. D., Sun, D. L., Sun, Y. and Taylor, J. E. (2016). Exact post-selection inference,
+with application to the lasso. *The Annals of Statistics*, 44(3), 907--927.

@@ -15,6 +15,7 @@ project:
     - file: install.md
     - file: main.md
     - file: data_dependent_penalty.md
+    - file: unilasso.md
     - file: quadratic_approx_lasso.md
     - file: discrete_family.md
     - file: file_drawer.md

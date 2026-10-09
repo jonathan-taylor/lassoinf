@@ -19,8 +19,13 @@ handled by RatioConstraints. See docs/data_dependent_penalty.md.
 
 Unireg is lam = 0: least squares with the uniLasso's sign constraints. There is no
 penalty, but the sign constraints still depend on the data, through the sign of C_k.
+
+unilasso_inference takes a uniLasso fit, e.g. from the R package uniLasso with
+loo = FALSE, which solves exactly this problem. Its default loo = TRUE regresses y on
+leave-one-out univariate fits, a different selection event that this does not cover.
 """
 from dataclasses import dataclass
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -63,6 +68,20 @@ def unilasso_fit(Q, Z_noisy, lam, tol=1e-12, max_iter=100000):
         if delta < tol:
             break
     return beta
+
+
+def unilasso_kkt_violation(beta_hat, Q, Z_noisy, lam):
+    """
+    The largest violation of the uniLasso's KKT conditions by beta_hat, for the
+    selection data Z_noisy and lam in the units of Z_noisy.
+    """
+    C, s, D, _, _ = unilasso_penalty(Z_noisy, Q, lam)
+    beta_hat = np.asarray(beta_hat, dtype=float)
+    g = np.asarray(Z_noisy, dtype=float) - np.asarray(Q) @ beta_hat   # minus the gradient
+    active = beta_hat != 0
+    v = np.r_[np.abs(g[active] - D[active] * s[active]),
+              np.maximum(s[~active] * g[~active] - D[~active], 0.)]
+    return float(v.max()) if v.size else 0.
 
 
 @dataclass
@@ -115,6 +134,13 @@ class UniLassoInference(LassoInference):
                    lam=lam,
                    C=C)
 
+    def setup_constraints(self):
+        # without randomization the selection score is the data (the polyhedral case, as in
+        # glmnet_inference): after the proximal step, take Z_full to be it
+        if self.Sigma_noise is None and self.scalar_noise == 0:
+            self.Z_full = -self.G_hat + self.Q_hat @ self.beta_hat
+        super().setup_constraints()
+
     def ratio_constraints(self, k):
         """
         The selection event as RatioConstraints along the line for the target of
@@ -165,44 +191,73 @@ class UniLassoInference(LassoInference):
 
 def unilasso_inference(X,
                        y,
+                       beta_hat,
                        lam,
-                       scalar_noise=1.,
+                       intercept=True,
                        sigma2=None,
-                       rng=None,
-                       level=0.95):
+                       level=0.95,
+                       kkt_tol=1e-3):
     """
-    Randomized uniLasso and inference for the full-model coefficients of the selected
-    variables, for a Gaussian linear model with n > p.
+    Selective inference after a uniLasso (or unireg, lam = 0) fit on (X, y), for the
+    full-model coefficients of the selected variables, in a Gaussian linear model with n > p.
 
-    The univariate regressions have no intercept: center X and y first. The selection
-    data are Z + omega with omega ~ N(0, scalar_noise * sigma2 * X'X). sigma2 defaults to
-    the residual variance of the full least squares fit.
+    The fit is assumed to solve
 
-    Returns a UniLassoInference; its summary_ has the inference.
+        minimize (1/2n) ||y - b0 - X beta||^2 + lam sum_j |beta_j| / |b_uni_j|
+        subject to sign(beta_j) in {0, sign(b_uni_j)},
+
+    with b_uni_j the univariate regression slopes of y on X_j (with intercepts if intercept).
+    This is the uniLasso of the R package uniLasso with loo = FALSE, and lam is its lambda.
+    The default loo = TRUE selects differently and is not covered.
+
+    X, y : the data the fit used
+    beta_hat : the fit's coefficients (without the intercept)
+    lam : the fit's lambda, in glmnet's scaling (loss divided by n)
+    intercept : whether the fit (and the univariate regressions) have intercepts
+    sigma2 : noise variance; default the residual variance of the full least squares fit
+    kkt_tol : warn if beta_hat violates the KKT conditions by more than kkt_tol * n * lam
+
+    There is no randomization: this is the polyhedral approach. Returns a
+    UniLassoInference; its summary_ has the full-model least squares coefficients of the
+    selected variables, with selective intervals and p-values.
     """
     X = np.asarray(X, dtype=float)
     y = np.asarray(y, dtype=float)
+    beta_hat = np.asarray(beta_hat, dtype=float)
     n, p = X.shape
-    if n <= p:
+    df = n - p - int(intercept)
+    if df <= 0:
         raise ValueError('unilasso_inference requires n > p')
-    rng = np.random.default_rng() if rng is None else rng
+    if intercept:
+        X = X - X.mean(0)
+        y = y - y.mean()
     Q = X.T @ X
     Z = X.T @ y
+    lam_Z = n * lam
+    C, s, _, _, _ = unilasso_penalty(Z, Q, lam_Z)
+    if np.any(beta_hat * s < 0):
+        raise ValueError('beta_hat has a sign opposite to its univariate coefficient: '
+                         'it is not a uniLasso fit for these data')
+    scale = lam_Z if lam > 0 else np.abs(Z).max()
+    violation = unilasso_kkt_violation(beta_hat, Q, Z, lam_Z)
+    if violation > kkt_tol * scale:
+        unit = 'n lam' if lam > 0 else "max |X'y|"
+        warnings.warn(f'beta_hat violates the uniLasso KKT conditions by {violation / scale:.1e} * '
+                      f'{unit}; it may not solve the problem with '
+                      'penalty factors 1 / |b_uni| (e.g. a loo = TRUE fit), or may not have '
+                      'converged (tighten the threshold)')
     if sigma2 is None:
         resid = y - X @ np.linalg.solve(Q, Z)
-        sigma2 = resid @ resid / (n - p)
-    Sigma = sigma2 * Q
-    omega = rng.multivariate_normal(np.zeros(p), scalar_noise * Sigma)
-    Z_noisy = Z + omega
-    beta_hat = unilasso_fit(Q, Z_noisy, lam)
+        sigma2 = resid @ resid / df
     return UniLassoInference.from_selection(beta_hat=beta_hat,
-                                            Z_noisy=Z_noisy,
+                                            Z_noisy=Z,
                                             Q_hat=Q,
-                                            lam=lam,
+                                            lam=lam_Z,
                                             Z_full=Z,
-                                            Sigma=Sigma,
-                                            scalar_noise=scalar_noise,
+                                            Sigma=sigma2 * Q,
+                                            scalar_noise=0.,
                                             level=level)
 
 
-__all__ = ['UniLassoInference', 'unilasso_inference', 'unilasso_fit', 'unilasso_penalty']
+__all__ = ['UniLassoInference', 'unilasso_inference', 'unilasso_fit', 'unilasso_penalty',
+           'unilasso_kkt_violation']

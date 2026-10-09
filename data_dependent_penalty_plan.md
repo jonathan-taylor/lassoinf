@@ -1,11 +1,26 @@
-# Plan: selective inference with a data-dependent right-hand side
+# Plan: selective inference after the uniLasso
 
-Branch: `data_dependent_penalty`. The math is in `docs/data_dependent_penalty.md`.
+Branch: `data_dependent_penalty`. The math is in `docs/data_dependent_penalty.md`, the
+uniLasso page in `docs/unilasso.md`.
 
-Goal: generalize the polyhedral lemma from `AX <= b` with `b` fixed to `AX <= B/C`, where `B`
-and `C` are (asymptotically) jointly Gaussian with `X` and their signs are conditioned on. The
-lasso (`B = D`, `C = 1`, no covariance) must remain the default, giving identical results.
-The target application is the uniLasso.
+Goal: selective inference after the uniLasso and unireg (`λ = 0`). Its penalty factors
+`1/|β̂_j^uni|` and sign constraints depend on the data. The approach generalizes the
+polyhedral lemma from `AX <= b` with `b` fixed to `AX <= B/C`, with `B`, `C` jointly Gaussian
+with `X` and the signs of `C` conditioned on. The focus is the uniLasso; the general
+data-dependent case (finding 3) is deferred.
+
+## Status
+
+- Done, in Python and R: the uniLasso and unireg for **full-model** coefficients, n > p
+  (finding 6). `unilasso_inference` takes a fit: in R a `uniLasso` / `uniReg` object
+  (`unilasso_inference(fit, x, y, s)`), in Python `(X, y, beta_hat, lam)`. lam uses glmnet's
+  scaling, and there is no randomization (polyhedral). `UniLassoInference` takes a solution
+  for given (possibly randomized) selection data, and `unilasso_fit` fits the uniLasso. R
+  is pure R on top of the existing C++ contrasts. Python and R agree to ~1e-8.
+- The fit must use `loo = FALSE` (finding 7); R refuses `loo = TRUE` fits.
+- Next: selected-model coefficients `e_k' Q_EE⁻¹ Z_E` (cubic rows, finding 5).
+- Deferred: misspecified `Σ` and other targets (many ratios per row), and the general
+  `LassoInference` API for data-dependent penalties (Phase 2).
 
 ## Findings that shape the plan
 
@@ -36,6 +51,17 @@ The target application is the uniLasso.
    (quadratics). Inactive rows also involve their own `D_j`, whose `C_j` moves, so they are
    cubics. Both checked numerically. This resolves finding 3 for the uniLasso, with closed
    forms and no bracketing. Misspecified `Σ` brings back the general case.
+6. **Full-model targets (n > p) have one moving ratio per row.** For `θ̂_k = e_k' Q⁻¹ Z`,
+   `Ση = σ² e_k`, so `Cov(C, θ̂)` is one-hot over all coordinates and only `C_k` moves. `b` is
+   affine in `D`, so every row is `(AY)_i <= b0_i + M_ik λ s_k / C_k = B_i / C_i` with
+   `C_i = C_k` and `B_i = b0_i C_k + M_ik λ s_k`. The quadratic solver applies. For unireg
+   (`λ = 0`), the rows reduce to the polyhedron plus the sign condition on `C_k`.
+7. **The `uniLasso` package's default `loo = TRUE` is a different selection event.** It
+   regresses `y` on leave-one-out univariate fits `F`, which are linear in `y`, so its KKT
+   conditions are quadratic in the data. Its fits violate the idealized KKT conditions by
+   about 17 `nλ`, and the idealized uniLasso at the same `λ` selected the same variables and
+   signs in only 159 of 300 fits. With `loo = FALSE` the fit is exactly the idealized
+   problem (violation 4e-15 at `thresh = 1e-14`).
 
 ## Phase 1: single-ratio constraints (Python prototype) — done
 
@@ -76,14 +102,30 @@ Tests (`tests/test_ratio_constraints.py`):
   the true parameter should be uniform (KS test), and pivots that treat `B/C` as fixed should
   be visibly miscalibrated.
 
-## Phase 2: user-facing API
+## Phase 2: general user-facing API (deferred)
 
 - `LassoInference` takes the extra inputs: per coordinate `B`, `C`, signs, and the
   covariances. The defaults reproduce the current behaviour exactly, which the existing tests
   will check.
 - Return the truncation set (as intervals) in each contrast, for diagnostics.
 
-## Phase 3: the lasso with data-dependent penalty factors
+## Phase 3: the uniLasso
+
+Full-model coefficients (n > p): done.
+
+- `python/lassoinf/unilasso.py`: `UniLassoInference` (a `LassoInference` whose targets are
+  full-model coefficients and whose constraints are `RatioConstraints`), `unilasso_fit`
+  (coordinate descent), and `unilasso_inference(X, y, lam)`.
+- Tests (`tests/test_unilasso.py`): KKT of the fit; the truncation set against a brute-force
+  evaluation of the selection event along `w` (recomputing every `C`, `D`, `b`); calibration
+  by simulation for unireg and the uniLasso; the summary's estimates are the full-model least
+  squares coefficients.
+- Simulations (n = 60, p = 5, ρ = 0.5, κ = 1): pivots uniform for λ = 0, 0.25, 0.5 and 1 times
+  √n (KS p 0.11 to 0.4), coverage 0.92 at the 90% level. Treating `b` as fixed is
+  miscalibrated for unireg (KS p ≈ 0.0015) but not detectably so for the uniLasso in these
+  designs.
+
+Selected-model coefficients, next. The general approach:
 
 - Express each lasso constraint row as an affine function of `w` plus `Σ_k M_ik D_k(w)`, with
   `D_k(w) = B_k(w) / C_k(w)`. `M` comes from `lasso_post_selection_constraints`. Only ratios
@@ -94,14 +136,13 @@ Tests (`tests/test_ratio_constraints.py`):
   uniLasso). Use a closed form for degree 2 and polynomial roots for higher degree.
 - Many moving ratios per row (misspecified `Σ`) could make that ill-conditioned. If so, fall
   back to bracketing the sign changes on `w_obs ± K` sd. This is deferred until needed.
-- uniLasso example and test: `C_j = β̂_j^uni` from the selection data, `B_j = λ s_C,j`, sign
-  bounds from `s_C`. Check calibration by simulation.
-- Docs: a uniLasso vignette.
 
-## Phase 4: C++ and R
+## Phase 4: R
 
-Port the row solver and the union-of-intervals truncated normal to `cpp/` (shared with R), and
-expose them in `R_pkg`. This only happens once the Python API is settled.
+Done for the full-model uniLasso, in pure R (`R_pkg/R/unilasso.R`), using the C++ contrasts
+already exposed: `UniLassoInference`, `unilasso_inference`, `unilasso_fit`, and a union of
+intervals in `TruncBivariateNormal`. Tests in `tests/testthat/test_unilasso.R`, vignette
+`vignettes/unilasso.Rmd`. Porting the row solver to `cpp/` can wait until it is a bottleneck.
 
 ## Open questions
 
