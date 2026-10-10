@@ -1,14 +1,23 @@
-# lassoinf (development version)
+# lassoinf 0.2.0
+
+## uniLasso and uniReg
 
 * `unilasso_inference()`: selective inference after a `uniLasso::uniLasso()` or
   `uniLasso::uniReg()` fit, for the full-model coefficients of the selected variables
-  (n > p). Exact for `loo = FALSE`. For the default `loo = TRUE`, approximate, with a
-  warning: the fit solves the `loo = FALSE` problem exactly at the penalties
-  `(n * lambda + kappa_j) / |b_uni_j|`, with `kappa_j` computed from the data. The penalty factors and sign constraints depend on the data;
-  the truncation set is a finite union of intervals. `UniLassoInference` does the same for
-  a given solution, with or without randomization, and `unilasso_fit()` fits the uniLasso.
+  (n > p). The uniLasso's penalty factors and sign constraints depend on the data; the
+  truncation set is still found exactly, as a finite union of intervals.
+  * With `loo = FALSE` the inference is exact.
+  * With the default `loo = TRUE` it is approximate, with a warning: the fit solves the
+    `loo = FALSE` problem exactly at the penalties `(n * lambda + kappa_j) / |b_uni_j|`,
+    with `kappa_j` computed from the data. This includes `uniReg(loo = TRUE)`
+    (`lambda = 0`), whose penalties are then `kappa_j / |b_uni_j|`, with
+    `kappa_j` close to `2 sigma^2`.
+* `UniLassoInference` does the same for a given solution, with or without randomization,
+  and accepts a per-feature `lam`. `unilasso_fit()` fits the uniLasso.
   See `vignette("unilasso")`.
-* `TruncBivariateNormal` accepts a union of intervals.
+
+## Vignettes
+
 * New vignettes with calibration simulations (results cached in `vignettes/*_sims.rds`;
   set `LASSOINF_RERUN_SIMS=true` to recompute): `vignette("unilasso")`,
   `vignette("unireg")` (comparing with `uniLasso::ci.uniReg()`) and
@@ -19,6 +28,11 @@
 * `vignette("unireg_loo")`: why `uniLasso::ci.uniReg()` covers so differently with and
   without leave-one-out: with `loo = TRUE`, uniReg shrinks each coefficient by the factor
   `(1 - 2 / t_j^2)_+` (orthogonal case), zeroing weak coefficients whatever their sign.
+
+## Other changes
+
+* `TruncBivariateNormal` accepts a union of intervals.
+* Alden Green and Sifan Liu are listed as authors.
 
 # lassoinf 0.1.0
 
