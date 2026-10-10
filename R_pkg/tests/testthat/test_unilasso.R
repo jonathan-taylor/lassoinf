@@ -171,3 +171,24 @@ test_that("a loo = TRUE fit solves the uniLasso with penalties n lambda + kappa_
   sigma2 <- sum(resid(lm(y ~ x))^2) / (n - p - 1)
   expect_true(all(abs(kappa / (2 * sigma2) - 1) < 0.5))
 })
+
+test_that("uniReg with loo = TRUE is the uniLasso with penalties kappa_j", {
+  skip_if_not_installed("uniLasso")
+  set.seed(8)
+  n <- 200; p <- 6
+  x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+  y <- drop(x %*% c(0.35, -0.25, 0.15, 0, 0, 0)) + rnorm(n)
+  reg <- uniLasso::uniReg(x, y, control = list(thresh = 1e-14))     # loo = TRUE, lambda = 0
+  expect_equal(reg$lambda, 0)
+  b <- as.numeric(reg$beta)
+  xc <- sweep(x, 2, colMeans(x)); yc <- y - mean(y)
+  kappa <- lassoinf:::unilasso_loo_kappa(xc, yc, b)
+  score <- drop(crossprod(xc, yc)) / colSums(xc^2) * drop(crossprod(xc, yc - xc %*% b))
+  act <- b != 0
+  expect_true(any(act) && !all(act))
+  expect_equal(score[act], kappa[act], tolerance = 1e-6)
+  expect_true(all(score[!act] <= kappa[!act] + 1e-8))
+  expect_warning(ui <- unilasso_inference(reg, x, y), "approximate")
+  s <- ui$summary()
+  expect_equal(s$beta_hat, unname(coef(lm(y ~ x))[-1][s$index + 1]), tolerance = 1e-6)
+})

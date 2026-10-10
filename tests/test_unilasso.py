@@ -250,3 +250,16 @@ def test_intersect():
     np.testing.assert_allclose(_intersect(sets), [[0., 0.5], [0.8, 1.], [3., 4.]])
     empty = np.array([[[0., 1.], [np.inf, -np.inf]], [[2., 3.], [np.inf, -np.inf]]])
     assert _intersect(empty).shape == (0, 2)
+
+
+def test_loo_unireg():
+    # uniReg with loo=True (lam = 0) is the uniLasso with penalties kappa_j / |b_j|
+    rng = np.random.default_rng(9)
+    X, y, _ = _data(rng, n=200, p=6, beta=(0.35, -0.25, 0.15, 0, 0, 0))
+    beta = _loo_fit(X, y, 0.)
+    assert np.any(beta == 0) and np.any(beta != 0)
+    with pytest.warns(UserWarning, match='approximate'):
+        UI = unilasso_inference(X, y, beta, 0., loo=True)
+    X1 = np.column_stack([np.ones(len(y)), X])
+    np.testing.assert_allclose(UI.summary_['beta_hat'].values,
+                               np.linalg.lstsq(X1, y, rcond=None)[0][1:][UI.E], atol=1e-6)
