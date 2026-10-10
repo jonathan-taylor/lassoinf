@@ -1,0 +1,174 @@
+---
+title: "Inference after the uniLasso"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Inference after the uniLasso}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6.5, fig.height = 4.2,
+                      eval = requireNamespace("uniLasso", quietly = TRUE))
+has_pkg <- requireNamespace("uniLasso", quietly = TRUE)
+```
+
+The uniLasso (Chatterjee, Hastie and Tibshirani, 2025) fits a univariate regression of $y$
+on each feature, then a lasso whose penalty factors and signs come from those fits. With
+`loo = FALSE`, `uniLasso::uniLasso()` solves
+
+$$
+\min_{\beta_0, \beta} \ \frac{1}{2n}\|y - \beta_0 - X\beta\|_2^2 + \lambda \sum_j \frac{|\beta_j|}{|\hat{\beta}^{\text{uni}}_j|}
+\quad \text{subject to} \quad \text{sign}(\beta_j) \in \{0, \text{sign}(\hat{\beta}^{\text{uni}}_j)\},
+$$
+
+where $\hat{\beta}^{\text{uni}}_j$ is the slope of the univariate regression of $y$ on $x_j$.
+`uniLasso::uniReg()` is the $\lambda = 0$ case; see `vignette("unireg")`.
+
+Both the penalty factors and the sign constraints depend on the data, so the selection
+event is not a polyhedron and the polyhedral lemma of Lee et al. (2016) does not apply
+directly. `unilasso_inference()` gives selective intervals and p-values for the
+**full-model** coefficient $\beta_k$ of each selected variable, in a Gaussian linear model
+with $n > p$. The estimate is the $k$-th coefficient of the least squares fit on all $p$
+features. For these targets, only the target's own univariate coefficient varies along the
+line the lemma conditions on, and the truncation set is found exactly, as a finite union of
+intervals. We condition on the selected variables and on the signs of all the univariate
+coefficients. There is no randomization.
+
+This is exact for `loo = FALSE`. With the default `loo = TRUE`, the uniLasso regresses $y$
+on leave-one-out univariate fits instead. Its solution solves the problem above exactly
+with the penalty $n\lambda$ on feature $j$ replaced by $n\lambda + \kappa_j$, with
+$\kappa_j \approx 2\sigma^2$ computed from the data and the fit.
+`unilasso_inference()` uses those penalties for `loo = TRUE` fits. Because $\kappa_j$
+depends on the data, the result is approximate, and it warns; see
+`vignette("unilasso_loo")`.
+
+```{r}
+library(lassoinf)
+n <- 200; p <- 8
+beta <- c(0.3, -0.2, 0.15, rep(0, p - 3))
+make_data <- function() {
+  x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+  list(x = x, y = drop(x %*% beta) + rnorm(n))
+}
+set.seed(0)
+d <- make_data()
+```
+
+## Inference
+
+We fit a path ending at the $\lambda$ we want, with a tight convergence threshold, so that
+the fit satisfies the KKT conditions the inference assumes. `unilasso_inference()` warns if
+it does not. The noise variance is estimated from the full least squares fit.
+
+```{r}
+lam <- 0.02
+path <- lam * exp(seq(log(20), 0, length.out = 20))
+fit <- uniLasso::uniLasso(d$x, d$y, loo = FALSE, lambda = path, control = list(thresh = 1e-14))
+ui <- unilasso_inference(fit, d$x, d$y, s = lam, level = 0.9)
+ui$summary()
+```
+
+`index` is 0-based, as elsewhere in the package, and `beta_hat` is the full-model least
+squares coefficient. The naive intervals ignore the selection:
+
+```{r}
+ols <- summary(lm(d$y ~ d$x))$coefficients[-1, ]
+sel <- ui$summary()$index + 1
+cbind(beta_hat = ols[sel, 1],
+      lower = ols[sel, 1] - qnorm(0.95) * ols[sel, 2],
+      upper = ols[sel, 1] + qnorm(0.95) * ols[sel, 2])
+```
+
+## Calibration
+
+Over repeated experiments, the pivot of each selected variable at its true coefficient,
+`ui$pivot(k, beta[k + 1])`, should be uniform, and the 90% intervals should cover about 90%
+of the time. We compare with the naive pivot and intervals.
+
+```{r}
+one_replication <- function() {
+  d <- make_data()
+  fit <- uniLasso::uniLasso(d$x, d$y, loo = FALSE, lambda = path, control = list(thresh = 1e-14))
+  ui <- unilasso_inference(fit, d$x, d$y, s = lam, level = 0.9)
+  s <- ui$summary()
+  if (nrow(s) == 0) return(NULL)
+  ols <- summary(lm(d$y ~ d$x))$coefficients[-1, , drop = FALSE]
+  k <- s$index + 1
+  truth <- beta[k]
+  data.frame(signal = truth != 0,
+             pivot = sapply(s$index, function(j) ui$pivot(j, beta[j + 1])),
+             cover = s$lower_conf <= truth & truth <= s$upper_conf,
+             length = s$upper_conf - s$lower_conf,
+             naive_pivot = pnorm((ols[k, 1] - truth) / ols[k, 2]),
+             naive_cover = abs(ols[k, 1] - truth) <= qnorm(0.95) * ols[k, 2],
+             naive_length = 2 * qnorm(0.95) * ols[k, 2])
+}
+
+simulate <- function(nsim, seed = 1) {
+  set.seed(seed)
+  do.call(rbind, replicate(nsim, one_replication(), simplify = FALSE))
+}
+```
+
+```{r, include = FALSE}
+# The simulation results are saved in unilasso_sims.rds (simulate() sets its own seed, so
+# they are the same). Set LASSOINF_RERUN_SIMS=true and rebuild the vignette to recompute.
+sims_file <- "unilasso_sims.rds"
+if (!file.exists(sims_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")) {
+  saveRDS(simulate(nsim = 400), sims_file)
+}
+results <- readRDS(sims_file)
+```
+
+```{r, eval = if (has_pkg) -1 else FALSE}
+results <- simulate(nsim = 400)
+nrow(results)
+summarize <- function(r) {
+  data.frame(variables = c(sum(r$signal), sum(!r$signal)),
+             coverage = c(mean(r$cover[r$signal]), mean(r$cover[!r$signal])),
+             naive_coverage = c(mean(r$naive_cover[r$signal]), mean(r$naive_cover[!r$signal])),
+             median_length = c(median(r$length[r$signal]), median(r$length[!r$signal])),
+             naive_median_length = c(median(r$naive_length[r$signal]), median(r$naive_length[!r$signal])),
+             row.names = c("signal", "null"))
+}
+summarize(results)
+```
+
+```{r, include = FALSE}
+ink <- "#0b0b0b"; ink2 <- "#52514e"; grid_col <- "#e5e4e0"
+pal <- c("#2a78d6", "#eb6834")
+pivot_plot <- function(pivots, labels, main) {
+  op <- par(mar = c(4.2, 4.2, 2.2, 1), las = 1, col.axis = ink2, col.lab = ink2, fg = ink2)
+  on.exit(par(op))
+  plot(NA, xlim = c(0, 1), ylim = c(0, 1), xaxs = "i", yaxs = "i", bty = "n",
+       xlab = "Uniform quantile", ylab = "Proportion of pivots below", main = main,
+       col.main = ink, font.main = 1, cex.main = 1)
+  abline(h = seq(0, 1, 0.25), v = seq(0, 1, 0.25), col = grid_col)
+  abline(0, 1, lty = 2, col = ink2)
+  xs <- seq(0, 1, length.out = 401)
+  for (k in seq_along(pivots)) lines(xs, ecdf(pivots[[k]])(xs), col = pal[k], lwd = 2)
+  legend("topleft", legend = labels, col = pal[seq_along(pivots)], lwd = 2, bty = "n",
+         text.col = ink, inset = 0.02)
+}
+```
+
+```{r, echo = FALSE, fig.alt = "Empirical CDFs of the selective and naive pivots against the uniform; the selective pivot follows the diagonal, the naive one does not."}
+pivot_plot(list(results$pivot, results$naive_pivot),
+           c("selective (unilasso_inference)", "naive (ignores selection)"),
+           "Pivots at the true coefficients, selected variables")
+```
+
+The selective pivots follow the diagonal, so they are uniform, and the intervals cover close
+to the nominal 90% for both signal and null variables. The naive intervals undercover,
+most of all for the null variables: those were selected because their estimates were large.
+The selective intervals are longer, by most for variables selected near the selection
+boundary.
+
+## References
+
+Chatterjee, S., Hastie, T. and Tibshirani, R. (2025). Univariate-guided sparse regression.
+*arXiv preprint*. doi:10.48550/arXiv.2501.18360
+
+Lee, J. D., Sun, D. L., Sun, Y. and Taylor, J. E. (2016). Exact post-selection inference,
+with application to the lasso. *The Annals of Statistics*, 44(3), 907--927.

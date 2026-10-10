@@ -16,6 +16,9 @@ bivariate_normal_cdf <- function(h, k, rho) {
   as.numeric(mvtnorm::pmvnorm(upper = c(h, k), mean = c(0, 0), sigma = sigma))
 }
 
+# a, b may be vectors of the endpoints of disjoint intervals: the constraint is then
+# that cx * X + comega * Omega lies in their union, and probabilities and moments are
+# sums over the intervals
 compute_gaussian_conditional_stats <- function(mu_x, sig_x, sig_omega, cx, comega, a, b, t=NULL) {
   var_x <- sig_x^2
   var_omega <- sig_omega^2
@@ -27,11 +30,12 @@ compute_gaussian_conditional_stats <- function(mu_x, sig_x, sig_omega, cx, comeg
   cov_xs <- cx * var_x
   rho <- cov_xs / (sig_x * sig_s)
   
-  alpha <- if (a != -Inf) (a - mu_s) / sig_s else -Inf
-  beta <- if (b != Inf) (b - mu_s) / sig_s else Inf
+  alpha <- (a - mu_s) / sig_s
+  beta <- (b - mu_s) / sig_s
+  lo_inf <- alpha == -Inf
+  hi_inf <- beta == Inf
   
-  p_constraint <- (if (beta != Inf) pnorm(beta) else 1.0) - 
-                  (if (alpha != -Inf) pnorm(alpha) else 0.0)
+  p_constraint <- sum(pnorm(beta) - pnorm(alpha))
                   
   if (p_constraint < 1e-15) {
     return(list(error = "The constraint interval has negligible probability."))
@@ -40,22 +44,26 @@ compute_gaussian_conditional_stats <- function(mu_x, sig_x, sig_omega, cx, comeg
   prob_gt_t <- NULL
   if (!is.null(t)) {
     h_val <- -(t - mu_x) / sig_x
-    p_num_high <- if (beta != Inf) bivariate_normal_cdf(h_val, beta, -rho) else pnorm(h_val)
-    p_num_low <- if (alpha != -Inf) bivariate_normal_cdf(h_val, alpha, -rho) else 0.0
-    prob_gt_t <- (p_num_high - p_num_low) / p_constraint
+    p_num <- 0
+    for (k in seq_along(alpha)) {
+      p_num_high <- if (!hi_inf[k]) bivariate_normal_cdf(h_val, beta[k], -rho) else pnorm(h_val)
+      p_num_low <- if (!lo_inf[k]) bivariate_normal_cdf(h_val, alpha[k], -rho) else 0.0
+      p_num <- p_num + p_num_high - p_num_low
+    }
+    prob_gt_t <- p_num / p_constraint
   }
   
-  phi_alpha <- if (alpha != -Inf) dnorm(alpha) else 0
-  phi_beta <- if (beta != Inf) dnorm(beta) else 0
+  phi_alpha <- ifelse(lo_inf, 0, dnorm(alpha))
+  phi_beta <- ifelse(hi_inf, 0, dnorm(beta))
   
-  ratio_mean <- (phi_alpha - phi_beta) / p_constraint
+  ratio_mean <- sum(phi_alpha - phi_beta) / p_constraint
   mean_x_cond <- mu_x + (cov_xs / sig_s) * ratio_mean
   
   residual_var <- var_x * (1 - rho^2)
   
-  term_alpha <- if (alpha != -Inf) alpha * phi_alpha else 0
-  term_beta <- if (beta != Inf) beta * phi_beta else 0
-  ratio_var <- (term_alpha - term_beta) / p_constraint
+  term_alpha <- ifelse(lo_inf, 0, alpha * phi_alpha)
+  term_beta <- ifelse(hi_inf, 0, beta * phi_beta)
+  ratio_var <- sum(term_alpha - term_beta) / p_constraint
   
   var_s_cond <- var_s * (1 + ratio_var - ratio_mean^2)
   explained_var_cond <- (cov_xs / var_s)^2 * var_s_cond
@@ -94,9 +102,11 @@ TruncBivariateNormal <- R6::R6Class("TruncBivariateNormal",
     a_coeff = NULL,
     #' @field b_coeff Internal coefficient.
     b_coeff = NULL,
-    #' @field L Lower bound of the truncation interval.
+    #' @field L Lower bound of the truncation interval, or the lower ends of disjoint
+    #'   intervals whose union is the truncation set.
     L = NULL,
-    #' @field U Upper bound of the truncation interval.
+    #' @field U Upper bound of the truncation interval, or the upper ends of disjoint
+    #'   intervals.
     U = NULL,
     #' @field sig_omega Standard deviation of the noise component.
     sig_omega = NULL,

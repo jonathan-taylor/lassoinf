@@ -27,6 +27,6 @@ Encoding: UTF-8
 Depends: R (>= 3.5.0)
 LinkingTo: Rcpp, RcppEigen
 Imports: methods, mvtnorm, R6, Rcpp, stats
-Suggests: glmnet (>= 5.1), knitr, rmarkdown, testthat
+Suggests: glmnet (>= 5.1), knitr, rmarkdown, testthat, uniLasso
 VignetteBuilder: knitr
 Config/roxygen2/version: 8.1.0
