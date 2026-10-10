@@ -9,7 +9,9 @@
   * With `loo = FALSE` the inference is exact.
   * With the default `loo = TRUE` it is approximate, with a warning: the fit solves the
     `loo = FALSE` problem exactly at the penalties `(n * lambda + kappa_j) / |b_uni_j|`,
-    with `kappa_j` computed from the data.
+    with `kappa_j` computed from the data. This includes `uniReg(loo = TRUE)`
+    (`lambda = 0`), whose penalties are then `kappa_j / |b_uni_j|`, with
+    `kappa_j` close to `2 sigma^2`.
 * `UniLassoInference` does the same for a given solution, with or without randomization,
   and accepts a per-feature `lam`. `unilasso_fit()` fits the uniLasso.
   See `vignette("unilasso")`.

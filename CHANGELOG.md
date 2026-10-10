@@ -15,7 +15,9 @@ Changes to the Python package `lassoinf`. The R package's changes are in
   - With `loo=False` the inference is exact.
   - With `loo=True` (the default of the uniLasso packages) it is approximate, with a
     warning. The fit solves the `loo=False` problem exactly at the penalties
-    `(n lam + kappa_j) / |b_uni_j|`, and `unilasso_loo_kappa` computes `kappa_j`.
+    `(n lam + kappa_j) / |b_uni_j|`, and `unilasso_loo_kappa` computes `kappa_j`. This
+    includes uniReg with `loo=True` (`lam = 0`), whose penalties are then
+    `kappa_j / |b_uni_j|`.
   - `loo` must be given.
 - `UniLassoInference` does the same for a given solution, with or without randomization,
   and accepts a per-feature `lam`. `unilasso_fit` fits the uniLasso by coordinate descent.
