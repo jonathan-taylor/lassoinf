@@ -450,6 +450,132 @@ $n = 100$ in this design, $n\lambda + \kappa_j$ was occasionally negative for su
 feature. The lemma holds regardless, so `unilasso_inference()` uses the exact $\kappa_j$
 whatever their size; only the $2\hat{\sigma}^2$ approximation breaks down there.
 
+## Generalized linear models
+
+The same argument applies to GLM families, such as `uniLasso(family = "binomial")`, with
+two changes. The identity is only approximate, and the shift is $2\phi$, where $\phi$ is the
+dispersion: $\sigma^2$ for the gaussian family, 1 for the binomial.
+
+**Setup.** Take a canonical link $\mu(\cdot)$, so that $\text{Var}(y_i) = \phi\, w_i$ with
+$w_i = \mu'(\eta_i)$. The univariate fits are now GLM fits, with linear predictors
+$\eta_j = b_{0j} + b_j x_j$, means $\mu_{ij} = \mu(\eta_{ij})$ and weights
+$w_{ij} = \mu'(\eta_{ij})$. Their leverages $h_{ij}$ are those of the weighted fit, the
+diagonal of $W_j^{1/2} X_j (X_j' W_j X_j)^{-1} X_j' W_j^{1/2}$ with $X_j = [\mathbf{1}, x_j]$, so
+again $\sum_i h_{ij} = 2$. To first order, the leave-one-out linear predictors are
+
+$$
+F_j = \eta_j + \delta_j, \qquad \delta_{ij} = -\frac{h_{ij}}{1 - h_{ij}}\, \frac{y_i - \mu_{ij}}{w_{ij}},
+$$
+
+the one-step approximation to refitting without observation $i$. (`uniLasso` itself takes
+`loob.nit` Newton steps.) The second stage maximizes the log-likelihood of $y$ in the
+features $G$, divided by $n$, minus $\lambda \sum_j \theta_j$, with $\theta \geq 0$. With
+$\hat{\beta} = B\hat{\theta}$ and $\hat{\mu} = \mu(\hat{\beta}_0 + X\hat{\beta})$, the
+`loo = FALSE` KKT conditions are $b_j c_j'(y - \hat{\mu}) \leq n\lambda$, with equality when
+$\hat{\beta}_j \neq 0$. These are the conditions of the GLM lasso with penalty factors
+$1/|b_j|$ and the sign constraints.
+
+**The shift.** For `loo = TRUE`, the linear predictor of the second stage is
+$\hat{\beta}_0 + X\hat{\beta} + \Delta\hat{\theta}$. Now $\Delta\hat{\theta}$ enters inside the
+link:
+
+$$
+\mu\big(\hat{\beta}_0 + X\hat{\beta} + \Delta\hat{\theta}\big) = \hat{\mu} + \hat{W}\Delta\hat{\theta} + O\big(\|\Delta\hat{\theta}\|^2\big),
+\qquad \hat{W} = \text{diag}\big(\mu'(\hat{\beta}_0 + X\hat{\beta})\big).
+$$
+
+The steps of the lemma then give $b_j c_j'(y - \hat{\mu}) \leq n\lambda + \kappa_j$, with
+equality on the active set, and
+
+$$
+\kappa_j = \underbrace{\sum_i \frac{h_{ij}}{1 - h_{ij}}\, \frac{(y_i - \mu_{ij})(y_i - \hat{\mu}_i)}{w_{ij}}}_{A_j}
++ b_j\, c_j'\hat{W}\tilde{\Delta}\hat{\theta} + \tilde{\delta}_j'\hat{W}\tilde{\Delta}\hat{\theta} + R_j,
+$$
+
+where $R_j$ collects the remainder of the linearization. As in the proposition, under
+local alternatives the cross terms and $R_j$ are $O_p(n^{-1})$. The leading term is
+
+$$
+A_j = \sum_i h_{ij}\, \frac{(y_i - \mu_i)^2}{w_i} + O_p(n^{-1/2}),
+\qquad E\left[\frac{(y_i - \mu_i)^2}{w_i}\right] = \phi,
+$$
+
+so $\kappa_j = 2\phi + O_p(n^{-1/2})$. For the binomial, the leave-one-out uniLasso at
+$\lambda$ is to first order the plain uniLasso at $\lambda + 2/n$.
+
+Two things differ from the gaussian case:
+
+* **The identity is not exact.** The linearization adds the remainder $R_j$, and
+  `uniLasso` computes the leave-one-out fits by a few Newton steps rather than exactly. So
+  there is no exact $\kappa_j$ to compute, though a linearized one, with $\hat{W}$ in the
+  cross terms, should improve on $2\phi$ in the same way.
+* **For the binomial, the leading term barely fluctuates near $\mu = 1/2$.** The variance
+  of $(y_i - \mu_i)^2/w_i$ is $(1 - 2\mu_i)^2 / (\mu_i(1 - \mu_i))$, which is zero at
+  $\mu_i = 1/2$. With balanced classes, $\kappa_j$ is closer to 2 than in the gaussian case.
+
+### The check
+
+For `uniLasso(family = "binomial")` fits with `loo = TRUE`, the KKT conditions on the active
+set give the realized shift directly: $\kappa_j = b_j c_j'(y - \hat{\mu}) - n\lambda$. We
+report its mean and spread. We also check how often a `loo = TRUE` fit selects the same
+variables, with the same signs, as the `loo = FALSE` fit at $\lambda$ and at $\lambda + 2/n$.
+
+```{r}
+glm_check <- function(n, nsim = 40) {
+  p <- 8
+  beta <- c(0.6, -0.5, 0.4, rep(0, p - 3)) * sqrt(300 / n) * 1.5
+  kappa <- c(); same <- c(at_lambda = 0, shifted = 0); fits <- 0
+  for (rep in seq_len(nsim)) {
+    x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+    y <- rbinom(n, 1, plogis(drop(x %*% beta)))
+    fit <- uniLasso::uniLasso(x, y, family = "binomial", control = list(thresh = 1e-12))
+    b <- fit$info$beta
+    C <- sweep(x, 2, colMeans(x))
+    for (k in round(length(fit$lambda) * c(0.3, 0.5))) {
+      lam <- fit$lambda[k]
+      beta_hat <- as.numeric(fit$beta[, k])
+      active <- beta_hat != 0
+      mu_hat <- plogis(fit$a0[k] + drop(x %*% beta_hat))
+      kappa <- c(kappa, (b * drop(crossprod(C, y - mu_hat)) - n * lam)[active])
+      fits <- fits + 1
+      for (m in names(same)) {
+        shift <- if (m == "shifted") 2 / n else 0
+        g <- uniLasso::uniLasso(x, y, family = "binomial", loo = FALSE,
+                                lambda = c(10, 1, 0.1) * lam + shift, control = list(thresh = 1e-12))
+        same[m] <- same[m] + identical(sign(beta_hat), sign(as.numeric(g$beta[, 2])))
+      }
+    }
+  }
+  data.frame(n = n, fits = fits, same_at_lambda = same[["at_lambda"]],
+             same_shifted = same[["shifted"]], mean_kappa_over_2 = mean(kappa) / 2,
+             sqrt_n_sd_kappa_over_2 = sqrt(n) * sd(kappa / 2))
+}
+```
+
+```{r, include = FALSE}
+# Saved in unilasso_loo_glm_sims.rds; LASSOINF_RERUN_SIMS=true recomputes.
+glm_file <- "unilasso_loo_glm_sims.rds"
+if (!file.exists(glm_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")) {
+  set.seed(5)
+  saveRDS(do.call(rbind, lapply(c(300, 1000, 4000), glm_check)), glm_file)
+}
+glm_table <- readRDS(glm_file)
+```
+
+```{r, eval = if (has_pkg) -(1:2) else FALSE}
+set.seed(5)
+glm_table <- do.call(rbind, lapply(c(300, 1000, 4000), glm_check))
+glm_table
+```
+
+The realized shift tends to 2 (`mean_kappa_over_2` tends to 1). The `loo = TRUE` fits
+select like the `loo = FALSE` fits at $\lambda + 2/n$, and much less often like those at
+$\lambda$. `sqrt_n_sd_kappa_over_2` *decreases* with $n$: here most fitted probabilities
+are near $1/2$, where the leading term barely fluctuates.
+
+Selective inference after the binomial uniLasso is not yet implemented.
+`unilasso_inference()` is for the gaussian family.
+
 ## Reference
 
 Chatterjee, S., Hastie, T. and Tibshirani, R. (2025). Univariate-guided sparse regression.
