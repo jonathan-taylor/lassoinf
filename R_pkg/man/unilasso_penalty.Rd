@@ -4,7 +4,7 @@
 \alias{unilasso_penalty}
 \title{uniLasso penalty}
 \usage{
-unilasso_penalty(Z_noisy, Q, lam)
+unilasso_penalty(Z_noisy, Q, lam, C = NULL)
 }
 \arguments{
 \item{Z_noisy}{Selection data, \code{crossprod(x, y)} plus any randomization.}
@@ -12,6 +12,9 @@ unilasso_penalty(Z_noisy, Q, lam)
 \item{Q}{\code{crossprod(x)}.}
 
 \item{lam}{The uniLasso's lambda, in the units of \code{Z_noisy}. \code{lam = 0} is unireg.}
+
+\item{C}{The univariate coefficients, if not \code{Z_noisy / diag(Q)} (e.g. the slopes
+of univariate GLM fits).}
 }
 \value{
 A list with components \code{C}, \code{s}, \code{D}, \code{L} and \code{U}.

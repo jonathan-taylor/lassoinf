@@ -42,6 +42,8 @@ ui$summary()
 
     \item{\code{C}}{The univariate coefficients from the selection data.}
 
+    \item{\code{C_scale}}{The scale with \code{C_j} approximately \code{Z_j / C_scale[j]}.}
+
     \item{\code{D}}{The penalty weights \code{lam / |C|}.}
 
     \item{\code{L}}{Lower bounds from the sign constraints.}
@@ -99,7 +101,9 @@ truncation set (a matrix of intervals).}
   Sigma_noise = NULL,
   scalar_noise = NaN,
   tol = 1e-06,
-  level = 0.95
+  level = 0.95,
+  C = NULL,
+  C_scale = NULL
 )}
     \if{html}{\out{</div>}}
   }
@@ -119,6 +123,11 @@ well-specified model.}
 is \code{scalar_noise * Sigma}, as for \code{LassoInference}. Default is \code{NaN}.}
       \item{\code{tol}}{Tolerance for the active set. Default is \code{1e-6}.}
       \item{\code{level}}{Confidence level. Default is 0.95.}
+      \item{\code{C}}{The univariate coefficients. Default \code{Z_noisy / diag(Q_hat)}, the
+gaussian univariate slopes; for a GLM, the slopes of the univariate fits.}
+      \item{\code{C_scale}}{The scale with \code{C_j} approximately \code{Z_j / C_scale[j]}, which
+gives \code{Cov(C_j, Z) = Sigma[j, ] / C_scale[j]}. Default \code{diag(Q_hat)}; for a
+GLM, the information for the slope in each univariate fit.}
     }
     \if{html}{\out{</div>}}
   }

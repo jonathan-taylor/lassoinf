@@ -133,10 +133,12 @@
 #' @param Z_noisy Selection data, \code{crossprod(x, y)} plus any randomization.
 #' @param Q \code{crossprod(x)}.
 #' @param lam The uniLasso's lambda, in the units of \code{Z_noisy}. \code{lam = 0} is unireg.
+#' @param C The univariate coefficients, if not \code{Z_noisy / diag(Q)} (e.g. the slopes
+#'   of univariate GLM fits).
 #' @return A list with components \code{C}, \code{s}, \code{D}, \code{L} and \code{U}.
 #' @keywords internal
-unilasso_penalty <- function(Z_noisy, Q, lam) {
-  C <- as.vector(Z_noisy) / diag(Q)
+unilasso_penalty <- function(Z_noisy, Q, lam, C = NULL) {
+  if (is.null(C)) C <- as.vector(Z_noisy) / diag(Q)
   s <- sign(C)
   if (any(s == 0)) stop("a univariate coefficient is exactly zero")
   list(C = C, s = s, D = lam / abs(C),
@@ -221,6 +223,8 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
     lam = NULL,
     #' @field C The univariate coefficients from the selection data.
     C = NULL,
+    #' @field C_scale The scale with \code{C_j} approximately \code{Z_j / C_scale[j]}.
+    C_scale = NULL,
     #' @field D The penalty weights \code{lam / |C|}.
     D = NULL,
     #' @field L Lower bounds from the sign constraints.
@@ -266,11 +270,18 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
     #'   is \code{scalar_noise * Sigma}, as for \code{LassoInference}. Default is \code{NaN}.
     #' @param tol Tolerance for the active set. Default is \code{1e-6}.
     #' @param level Confidence level. Default is 0.95.
+    #' @param C The univariate coefficients. Default \code{Z_noisy / diag(Q_hat)}, the
+    #'   gaussian univariate slopes; for a GLM, the slopes of the univariate fits.
+    #' @param C_scale The scale with \code{C_j} approximately \code{Z_j / C_scale[j]}, which
+    #'   gives \code{Cov(C_j, Z) = Sigma[j, ] / C_scale[j]}. Default \code{diag(Q_hat)}; for a
+    #'   GLM, the information for the slope in each univariate fit.
     initialize = function(beta_hat, Z_noisy, Q_hat, lam, Z_full, Sigma, Sigma_noise = NULL,
-                          scalar_noise = NaN, tol = 1e-6, level = 0.95) {
+                          scalar_noise = NaN, tol = 1e-6, level = 0.95, C = NULL,
+                          C_scale = NULL) {
       Q_hat <- as.matrix(Q_hat)
       Z_noisy <- as.vector(Z_noisy)
-      pen <- unilasso_penalty(Z_noisy, Q_hat, lam)
+      pen <- unilasso_penalty(Z_noisy, Q_hat, lam, C = C)
+      self$C_scale <- if (is.null(C_scale)) diag(Q_hat) else as.vector(C_scale)
       self$Q_hat <- Q_hat
       self$lam <- lam
       self$C <- pen$C
@@ -324,8 +335,8 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
         b0 <- self$b - M_k * self$D[k]
         s_k <- sign(self$C[k])
         lam_k <- if (length(lam) == 1) lam else lam[k]
-        # C_k = Z_k / Q_kk, so Cov(C_k, Z) = Sigma[k, ] / Q_kk
-        Sigma_k <- matvec(self$Sigma, e_k) / Q_hat[k, k]
+        # C_k is approximately Z_k / C_scale[k], so Cov(C_k, Z) = Sigma[k, ] / C_scale[k]
+        Sigma_k <- matvec(self$Sigma, e_k) / self$C_scale[k]
 
         # full-model target theta_k = e_k' Q^{-1} E[Z]
         eta <- solve(Q_hat, e_k)
