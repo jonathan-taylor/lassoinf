@@ -24,7 +24,9 @@
   `vignette("gaussian_lasso_polyhedral")`.
 * `vignette("unilasso_loo")`: a proof that the leave-one-out uniLasso (`loo = TRUE`) solves
   the plain uniLasso at the penalty `n * lambda + kappa_j`, with
-  `kappa_j = 2 sigma^2 + O_p(n^(-1/2))`, with numerical checks.
+  `kappa_j = 2 sigma^2 + O_p(n^(-1/2))`, with numerical checks. For GLM families it is, to
+  first order, the shift `2 * phi` (`phi` the dispersion, 1 for the binomial), checked
+  with `uniLasso(family = "binomial")`.
 * `vignette("unireg_loo")`: why `uniLasso::ci.uniReg()` covers so differently with and
   without leave-one-out: with `loo = TRUE`, uniReg shrinks each coefficient by the factor
   `(1 - 2 / t_j^2)_+` (orthogonal case), zeroing weak coefficients whatever their sign.
