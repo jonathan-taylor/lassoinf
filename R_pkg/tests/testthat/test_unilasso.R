@@ -4,30 +4,28 @@ unilasso_data <- function(n = 60, p = 5, rho = 0.5, beta = c(0.35, -0.25, 0.15, 
 }
 
 test_that("a row can be a union of two intervals", {
-  # 3 - t <= 1 / t on t > 0: B = 1, C = t, (A X) = 3 - t
-  S <- lassoinf:::intersect_row_sets(
-    lassoinf:::ratio_row_sets(u = 3, a = -1, b = 1, beta = 0, c = 0, gamma = 1, s_B = 0, s_C = 1))
+  # 3 - w <= 1 / w on w > 0: u = 3, a = -1, b0 = 0, m = 1, C(w) = w
+  S <- lassoinf:::.intersect_row_sets(
+    lassoinf:::.unilasso_row_sets(u = 3, a = -1, b0 = 0, m = 1, c = 0, gamma = 1, s = 1))
   r <- sort(Re(polyroot(c(1, -3, 1))))
   expect_equal(S, rbind(c(0, r[1]), c(r[2], Inf)))
 })
 
 test_that("row sets match a grid evaluation", {
   set.seed(0)
-  m <- 300
-  u <- rnorm(m); a <- rnorm(m); b <- rnorm(m); beta <- rnorm(m); cc <- rnorm(m); gamma <- rnorm(m)
-  beta[1:40] <- 0
-  gamma[41:80] <- 0
-  s_B <- sample(c(-1, 0, 1), m, replace = TRUE)
-  s_C <- sample(c(-1, 1), m, replace = TRUE)
-  sets <- lassoinf:::ratio_row_sets(u, a, b, beta, cc, gamma, s_B, s_C)
-  ts <- seq(-10, 10, length.out = 4001)
-  ends <- c(sets[is.finite(sets)], (-b / beta)[is.finite(-b / beta)], (-cc / gamma)[is.finite(-cc / gamma)])
-  for (t in ts) {
-    if (min(abs(t - ends)) < 1e-3) next
-    B <- b + beta * t; C <- cc + gamma * t
-    direct <- (s_B == 0 | sign(B) == s_B) & sign(C) == s_C & (u + a * t <= B / C)
-    found <- (t >= sets[, "lo1"] & t <= sets[, "hi1"]) | (t >= sets[, "lo2"] & t <= sets[, "hi2"])
-    expect_identical(found, direct)
+  rows <- 300
+  u <- rnorm(rows); a <- rnorm(rows); b0 <- rnorm(rows); m <- rnorm(rows)
+  for (s in c(1, -1)) {
+    cc <- 0.3 * s; gamma <- 0.8
+    sets <- lassoinf:::.unilasso_row_sets(u, a, b0, m, cc, gamma, s)
+    ends <- c(sets[is.finite(sets)], -cc / gamma)
+    for (w in seq(-15, 15, length.out = 3001)) {
+      if (min(abs(w - ends)) < 1e-3) next
+      C <- cc + gamma * w
+      direct <- sign(C) == s & (u + a * w <= b0 + m / C)
+      found <- (w >= sets[, "lo1"] & w <= sets[, "hi1"]) | (w >= sets[, "lo2"] & w <= sets[, "hi2"])
+      expect_identical(found, direct)
+    }
   }
 })
 
@@ -141,9 +139,35 @@ test_that("unilasso_inference takes uniLasso and uniReg fits", {
   expect_equal(s, ref, tolerance = 1e-6)
   expect_error(unilasso_inference(fit, x, y), "s must be given")
   expect_error(unilasso_inference(fit, x, y, s = 1.2345), "one of fit")
-  expect_error(unilasso_inference(uniLasso::uniLasso(x, y), x, y, s = 0.01), "loo = FALSE")
+  # loo = TRUE: approximate, with a warning; the fit solves the shifted problem exactly,
+  # so the estimates are the least squares coefficients
+  fit_loo <- uniLasso::uniLasso(x, y, control = list(thresh = 1e-14))
+  expect_warning(ui_loo <- unilasso_inference(fit_loo, x, y, s = fit_loo$lambda[k]), "approximate")
+  s_loo <- ui_loo$summary()
+  expect_equal(s_loo$beta_hat, unname(coef(lm(y ~ x))[-1][s_loo$index + 1]), tolerance = 1e-6)
   reg <- uniLasso::uniReg(x, y, loo = FALSE, control = list(thresh = 1e-14))
   expect_equal(unilasso_inference(reg, x, y)$summary(),
                lassoinf:::unilasso_inference_beta(x, y, unilasso_beta(x, y, reg$lambda), reg$lambda)$summary(),
                tolerance = 1e-6)
+})
+
+test_that("a loo = TRUE fit solves the uniLasso with penalties n lambda + kappa_j", {
+  skip_if_not_installed("uniLasso")
+  set.seed(7)
+  n <- 200; p <- 6
+  x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+  y <- drop(x %*% c(0.35, -0.25, 0.15, 0, 0, 0)) + rnorm(n)
+  fit <- uniLasso::uniLasso(x, y, control = list(thresh = 1e-14))
+  k <- 20
+  b <- as.numeric(fit$beta[, k])
+  xc <- sweep(x, 2, colMeans(x)); yc <- y - mean(y)
+  kappa <- lassoinf:::unilasso_loo_kappa(xc, yc, b)
+  b_uni <- drop(crossprod(xc, yc)) / colSums(xc^2)
+  score <- b_uni * drop(crossprod(xc, yc - xc %*% b))
+  act <- b != 0
+  expect_true(any(act))
+  expect_equal(score[act], n * fit$lambda[k] + kappa[act], tolerance = 1e-6)
+  expect_true(all(score[!act] <= n * fit$lambda[k] + kappa[!act] + 1e-8))
+  sigma2 <- sum(resid(lm(y ~ x))^2) / (n - p - 1)
+  expect_true(all(abs(kappa / (2 * sigma2) - 1) < 0.5))
 })

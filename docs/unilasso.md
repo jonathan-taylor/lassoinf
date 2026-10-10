@@ -28,7 +28,7 @@ This is what the R package `uniLasso` fits with `loo = FALSE`. With $\lambda = 0
 
 Both the penalty factors and the sign constraints depend on the data, so the selection event
 is not a polyhedron and the polyhedral lemma does not apply directly.
-`unilasso_inference(X, y, beta_hat, lam)` takes a uniLasso fit and gives selective intervals
+`unilasso_inference(X, y, beta_hat, lam, loo=...)` takes a uniLasso fit and gives selective intervals
 and $p$-values for the **full-model** coefficient $\beta_k$ of each selected variable, in a
 Gaussian linear model with $n > p$. The estimate is the $k$-th coefficient of the least
 squares fit on all $p$ features.
@@ -40,10 +40,14 @@ truncation set is found exactly, as a finite union of intervals; see
 [](data_dependent_penalty.md). We condition on the selected variables and on the signs of
 all the univariate coefficients. There is no randomization.
 
-The fit must solve the problem above. The `uniLasso` package's default `loo = TRUE`
-regresses $y$ on leave-one-out univariate fits instead. That is a different selection
-event, not covered here; `unilasso_inference` warns when `beta_hat` does not satisfy the
-KKT conditions above.
+With `loo=False` the fit solves the problem above and the inference is exact. The default
+of the uniLasso packages, `loo=True`, regresses $y$ on leave-one-out univariate fits
+instead. Its solution solves, exactly, the problem above with the penalty $n\lambda$ on
+feature $j$ replaced by $n\lambda + \kappa_j$, with $\kappa_j \approx 2\sigma^2$ computed
+from the data and the fit (`unilasso_loo_kappa`). With `loo=True`, `unilasso_inference` uses
+those penalties. Because $\kappa_j$ depends on the data, which the inference ignores, the
+result is approximate, and it warns. The R package's `vignette("unilasso_loo")` has the
+proof and a calibration check. `loo` must always be given.
 
 ```{code-cell} ipython3
 import numpy as np
@@ -66,7 +70,7 @@ centered $X$ and $y$, $Q = X'X$, $Z = X'y$ and $C = Z / \text{diag}(Q)$.
 lam = 0.02
 Xc, yc = X - X.mean(0), y - y.mean()
 beta_hat = unilasso_fit(Xc.T @ Xc, Xc.T @ yc, n * lam)
-UI = unilasso_inference(X, y, beta_hat, lam, level=0.9)
+UI = unilasso_inference(X, y, beta_hat, lam, loo=False, level=0.9)
 UI.summary_
 ```
 
@@ -81,7 +85,7 @@ available as an array of intervals:
 ## Unireg
 
 ```{code-cell} ipython3
-UR = unilasso_inference(X, y, unilasso_fit(Xc.T @ Xc, Xc.T @ yc, 0.), 0., level=0.9)
+UR = unilasso_inference(X, y, unilasso_fit(Xc.T @ Xc, Xc.T @ yc, 0.), 0., loo=False, level=0.9)
 UR.summary_
 ```
 

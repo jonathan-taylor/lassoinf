@@ -17,7 +17,15 @@ data-dependent case (finding 3) is deferred.
   scaling, and there is no randomization (polyhedral). `UniLassoInference` takes a solution
   for given (possibly randomized) selection data, and `unilasso_fit` fits the uniLasso. R
   is pure R on top of the existing C++ contrasts. Python and R agree to ~1e-8.
-- The fit must use `loo = FALSE` (finding 7); R refuses `loo = TRUE` fits.
+- `loo = TRUE` fits are accepted, approximately and with a warning: they solve the
+  `loo = FALSE` problem exactly at the penalties `(nλ + κ_j)/|b_j|`, with `κ_j` computed
+  exactly (`unilasso_loo_kappa`). That calibrates better than the common `2σ̂²` shift, and
+  the estimates are exactly OLS. See R's `vignette("unilasso_loo")`.
+- The general `A Y <= B/C` code (`ratio_constraints`, Phase 1) has been **removed**. The
+  uniLasso needs only the special case where every row shares one denominator `C_k(w)`, so a
+  uniLasso-specific row solver now lives in `python/lassoinf/unilasso.py` and
+  `R_pkg/R/unilasso.R`. Other data-dependent penalties give linear combinations of ratios,
+  which are not pursued.
 - Next: selected-model coefficients `e_k' Q_EE⁻¹ Z_E` (cubic rows, finding 5).
 - Deferred: misspecified `Σ` and other targets (many ratios per row), and the general
   `LassoInference` API for data-dependent penalties (Phase 2).
@@ -63,7 +71,7 @@ data-dependent case (finding 3) is deferred.
    signs in only 159 of 300 fits. With `loo = FALSE` the fit is exactly the idealized
    problem (violation 4e-15 at `thresh = 1e-14`).
 
-## Phase 1: single-ratio constraints (Python prototype) — done
+## Phase 1: single-ratio constraints (Python prototype) — done, since removed
 
 Status: implemented on this branch, with tests passing (see below). The defaults reproduce
 `get_interval` and `LassoInference` exactly. In the 1-d two-piece simulation the ratio pivot is

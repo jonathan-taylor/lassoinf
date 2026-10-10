@@ -155,3 +155,32 @@ def test_trunc_bivariate_normal_coverage_mean():
     
     assert 0.85 <= cov_rate_tbn <= 0.95, f"TBN Coverage {cov_rate_tbn} is outside bounds"
     assert 0.85 <= cov_rate_wgf <= 0.95, f"WGF Coverage {cov_rate_wgf} is outside bounds"
+
+
+def _ccdf_by_quadrature(x, mu, sig_x, sig_omega, a_coeff, intervals):
+    # P(X > x | a_coeff X + omega in the union of intervals), integrating over X
+    from scipy.integrate import quad
+    from scipy.stats import norm
+    def p_in(z):
+        lo, hi = intervals[:, 0] - a_coeff * z, intervals[:, 1] - a_coeff * z
+        return np.sum(norm.cdf(hi / sig_omega) - norm.cdf(lo / sig_omega))
+    f = lambda z: norm.pdf(z, mu, sig_x) * p_in(z)
+    num = quad(f, x, np.inf, limit=200)[0]
+    return num / (quad(f, -np.inf, x, limit=200)[0] + num)
+
+
+@pytest.mark.parametrize('intervals', [np.array([[-0.5, 1.2]]),
+                                       np.array([[-np.inf, -1.], [0.2, 0.7], [2., np.inf]]),
+                                       np.array([[-2., -1.5], [1., 3.]])])
+def test_union_of_intervals(intervals):
+    sig_x, sig_omega, a_coeff, theta = 1.3, 0.7, 0.4, 0.3
+    tbn = TruncBivariateNormal(a_coeff=a_coeff, b_coeff=1., L=intervals[:, 0], U=intervals[:, 1],
+                               sig_omega=sig_omega, sig_x=sig_x)
+    for x in [-1., 0.4, 1.5]:
+        np.testing.assert_allclose(tbn.ccdf(theta, x),
+                                   _ccdf_by_quadrature(x, theta * sig_x**2, sig_x, sig_omega, a_coeff, intervals),
+                                   rtol=1e-5, atol=1e-7)
+    if len(intervals) == 1:
+        scalar = TruncBivariateNormal(a_coeff=a_coeff, b_coeff=1., L=intervals[0, 0], U=intervals[0, 1],
+                                      sig_omega=sig_omega, sig_x=sig_x)
+        assert scalar.ccdf(theta, 0.4) == tbn.ccdf(theta, 0.4)

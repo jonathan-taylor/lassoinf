@@ -14,7 +14,6 @@ py.install_sources(
   'python/lassoinf/affine_constraints.py',
   'python/lassoinf/lasso.py',
   'python/lassoinf/custom_estimand.py',
-  'python/lassoinf/ratio_constraints.py',
   'python/lassoinf/unilasso.py',
   subdir: 'lassoinf'
 )

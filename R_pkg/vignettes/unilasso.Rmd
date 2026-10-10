@@ -35,9 +35,13 @@ line the lemma conditions on, and the truncation set is found exactly, as a fini
 intervals. We condition on the selected variables and on the signs of all the univariate
 coefficients. There is no randomization.
 
-The fit must use `loo = FALSE`. With the default `loo = TRUE`, the uniLasso regresses $y$
-on leave-one-out univariate fits instead. That is a different selection event, not covered
-here, and `unilasso_inference()` refuses such fits.
+This is exact for `loo = FALSE`. With the default `loo = TRUE`, the uniLasso regresses $y$
+on leave-one-out univariate fits instead. Its solution solves the problem above exactly
+with the penalty $n\lambda$ on feature $j$ replaced by $n\lambda + \kappa_j$, with
+$\kappa_j \approx 2\sigma^2$ computed from the data and the fit.
+`unilasso_inference()` uses those penalties for `loo = TRUE` fits. Because $\kappa_j$
+depends on the data, the result is approximate, and it warns; see
+`vignette("unilasso_loo")`.
 
 ```{r}
 library(lassoinf)

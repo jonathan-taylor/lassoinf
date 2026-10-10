@@ -227,9 +227,10 @@ that the sign constraints create.
 The selective intervals of `unilasso_inference()` take another route. They condition on
 the selection and on the signs, and they estimate the full-model coefficient by least
 squares, without the constraint and without shrinkage. That makes them exact in the
-Gaussian linear model, but they need the `loo = FALSE` problem. For `loo = TRUE` fits,
-`vignette("unilasso_loo")` shows that inference at the shifted penalty
-$n\lambda + 2\hat{\sigma}^2$ is close to calibrated, though only to first order.
+Gaussian linear model for `loo = FALSE` fits. `unilasso_inference()` also accepts
+`loo = TRUE` fits, which solve the `loo = FALSE` problem at the shifted penalties
+$(n\lambda + \kappa_j)/|b_j|$. That inference is approximate, but close to calibrated;
+see `vignette("unilasso_loo")`.
 
 ## Reference
 

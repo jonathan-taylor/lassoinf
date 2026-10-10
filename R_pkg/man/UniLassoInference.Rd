@@ -109,7 +109,8 @@ truncation set (a matrix of intervals).}
       \item{\code{beta_hat}}{The uniLasso solution for \code{Z_noisy} (e.g. from \code{unilasso_fit}).}
       \item{\code{Z_noisy}}{Selection data, \code{crossprod(x, y)} plus the randomization.}
       \item{\code{Q_hat}}{\code{crossprod(x)}, invertible.}
-      \item{\code{lam}}{The uniLasso's lambda, in the units of \code{Z_noisy}; 0 for unireg.}
+      \item{\code{lam}}{The uniLasso's lambda, in the units of \code{Z_noisy}; 0 for unireg. A
+vector gives each feature its own penalty \code{lam[j] / |C[j]|}.}
       \item{\code{Z_full}}{\code{crossprod(x, y)}.}
       \item{\code{Sigma}}{Covariance of \code{Z_full}: \code{sigma2 * crossprod(x)} in the
 well-specified model.}

@@ -15,8 +15,8 @@ unilasso_inference(
 )
 }
 \arguments{
-\item{fit}{A \code{uniLasso} or \code{uniReg} object, fitted with \code{loo = FALSE},
-the default \code{lower.limits}, \code{standardize} and family, and no weights.}
+\item{fit}{A \code{uniLasso} or \code{uniReg} object, fitted with the default
+\code{lower.limits}, \code{standardize} and family, and no weights.}
 
 \item{x, y}{The data the fit used.}
 
@@ -29,7 +29,7 @@ squares fit.}
 \item{level}{Confidence level. Default is 0.95.}
 
 \item{kkt_tol}{Warn if the fit violates the KKT conditions by more than
-\code{kkt_tol * n * lambda}. Default is \code{1e-3}.}
+\code{kkt_tol} times the penalty. Default is \code{1e-3}.}
 }
 \value{
 A \code{UniLassoInference} object; its \code{summary()} has the full-model least
@@ -38,7 +38,7 @@ A \code{UniLassoInference} object; its \code{summary()} has the full-model least
 \description{
 Selective inference after a \code{uniLasso} (or \code{uniReg}) fit from the
 \pkg{uniLasso} package, for the full-model coefficients of the selected variables, in a
-Gaussian linear model with \eqn{n > p}. The fit must use \code{loo = FALSE}.
+Gaussian linear model with \eqn{n > p}.
 
 With \code{loo = FALSE} the uniLasso solves
 \deqn{\min_{\beta_0, \beta} \frac{1}{2n} \|y - \beta_0 - X\beta\|_2^2 +
@@ -46,9 +46,16 @@ With \code{loo = FALSE} the uniLasso solves
 \mathrm{sign}(\beta_j) \in \{0, \mathrm{sign}(\hat\beta^{uni}_j)\},}
 with \eqn{\hat\beta^{uni}_j} the univariate regression slopes (with intercepts). Its
 penalty factors and sign constraints depend on the data. For the full-model coefficients,
-the truncation set is still found exactly, as a finite union of intervals. The default
-\code{loo = TRUE} regresses \code{y} on leave-one-out univariate fits instead, a
-different selection event that is not covered.
+the truncation set is still found exactly, as a finite union of intervals, and the
+inference is exact in the Gaussian linear model.
+
+With \code{loo = TRUE} (the uniLasso package's default), the uniLasso regresses \code{y} on
+leave-one-out univariate fits instead. Its solution solves, exactly, the problem above with
+the penalty \eqn{n\lambda} on feature \eqn{j} replaced by \eqn{n\lambda + \kappa_j}, for an
+explicit \eqn{\kappa_j \approx 2\sigma^2} computed from the data and the fit (see
+\code{vignette("unilasso_loo")}). The inference then uses these penalties. Because
+\eqn{\kappa_j} itself depends on the data, which the inference ignores, it is
+approximate, and a warning says so.
 
 There is no randomization: this is the polyhedral approach of Lee et al. (2016).
 }
@@ -60,6 +67,9 @@ x <- matrix(rnorm(n * p), n, p)
 y <- drop(x \%*\% c(0.4, -0.3, 0.2, rep(0, p - 3))) + rnorm(n)
 fit <- uniLasso::uniLasso(x, y, loo = FALSE, control = list(thresh = 1e-14))
 unilasso_inference(fit, x, y, s = fit$lambda[20], level = 0.9)$summary()
+# the default loo = TRUE: approximate, with a warning
+fit_loo <- uniLasso::uniLasso(x, y, control = list(thresh = 1e-14))
+unilasso_inference(fit_loo, x, y, s = fit_loo$lambda[20], level = 0.9)$summary()
 \dontshow{\}) # examplesIf}
 }
 \references{

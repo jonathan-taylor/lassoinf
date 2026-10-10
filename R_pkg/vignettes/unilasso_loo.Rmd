@@ -14,9 +14,10 @@ has_pkg <- requireNamespace("uniLasso", quietly = TRUE)
 ```
 
 By default, `uniLasso::uniLasso()` (`loo = TRUE`) fits its second-stage lasso to
-*leave-one-out* univariate fits. `unilasso_inference()` handles only `loo = FALSE`, the
-uniLasso whose penalty factors are exactly $1/|\hat{\beta}^{\text{uni}}_j|$
-(`vignette("unilasso")`). This vignette shows that the two are closely related:
+*leave-one-out* univariate fits. With `loo = FALSE`, the uniLasso's penalty factors are
+exactly $1/|\hat{\beta}^{\text{uni}}_j|$, and `unilasso_inference()` is exact
+(`vignette("unilasso")`). This vignette shows that the two are closely related, which is
+how `unilasso_inference()` handles `loo = TRUE` fits, approximately:
 
 > The `loo = TRUE` solution at $\lambda$ solves, exactly, the `loo = FALSE` problem with
 > $n\lambda$ replaced by $n\lambda + \kappa_j$ for feature $j$, with $\kappa_j$ explicit.
@@ -372,45 +373,52 @@ agreement_table
 
 ### Inference
 
-What does this mean for inference? We treat a `loo = TRUE` fit as the `loo = FALSE`
-uniLasso at the shifted penalty, with `UniLassoInference$new()`, and compute selective
-intervals for the full-model coefficients. We compare with the same at the unshifted
-$\lambda$. (`unilasso_inference()` itself refuses `loo = TRUE` fits.)
+What does this mean for inference? `unilasso_inference()` accepts `loo = TRUE` fits: it
+computes $\kappa_j$ and treats the fit as the `loo = FALSE` uniLasso with penalties
+$(n\lambda + \kappa_j)/|b_j|$, which the fit solves exactly. It warns that the result is
+approximate, because $\kappa_j$ depends on the data and the inference treats it as fixed.
+We compare its calibration for the full-model coefficients with the same inference at the
+cruder shift $n\lambda + 2\hat{\sigma}^2$, and at the unshifted $n\lambda$.
 
 ```{r}
-loo_calibration <- function(n, shift, nsim_targets = 300) {
+loo_calibration <- function(n, penalty, nsim_targets = 300) {
   beta <- c(0.5, -0.4, 0.3, 0, 0, 0) * sqrt(200 / n)
   q <- length(beta)
   pivots <- c(); cover <- c()
   while (length(pivots) < nsim_targets) {
     x <- matrix(rnorm(n * q), n, q) %*% chol(0.5 * diag(q) + 0.5)
     y <- drop(x %*% beta) + rnorm(n)
-    fit <- uniLasso::uniLasso(x, y)
+    fit <- uniLasso::uniLasso(x, y)                    # loo = TRUE
     k <- round(length(fit$lambda) * 0.4)
     b <- as.numeric(fit$beta[, k])
     if (all(b == 0)) next
-    C <- sweep(x, 2, colMeans(x)); Q <- crossprod(C); Z <- drop(crossprod(C, y - mean(y)))
-    sigma2_hat <- sum(resid(lm(y ~ x))^2) / (n - q - 1)
-    lam_Z <- n * fit$lambda[k] + if (shift) 2 * sigma2_hat else 0
-    ui <- UniLassoInference$new(b, Z, Q, lam = lam_Z, Z_full = Z, Sigma = sigma2_hat * Q,
-                                scalar_noise = 0, level = 0.9)
+    if (penalty == "n lambda + kappa_j") {
+      ui <- suppressWarnings(unilasso_inference(fit, x, y, s = fit$lambda[k], level = 0.9))
+    } else {
+      C <- sweep(x, 2, colMeans(x)); Q <- crossprod(C); Z <- drop(crossprod(C, y - mean(y)))
+      sigma2_hat <- sum(resid(lm(y ~ x))^2) / (n - q - 1)
+      lam_Z <- n * fit$lambda[k] + if (penalty == "n lambda + 2 sigma2_hat") 2 * sigma2_hat else 0
+      ui <- UniLassoInference$new(b, Z, Q, lam = lam_Z, Z_full = Z, Sigma = sigma2_hat * Q,
+                                  scalar_noise = 0, level = 0.9)
+    }
     for (j in ui$E) {
       r <- ui$results[[as.character(j)]]
       pivots <- c(pivots, ui$pivot(j, beta[j + 1]))
       cover <- c(cover, r$lower_conf <= beta[j + 1] && beta[j + 1] <= r$upper_conf)
     }
   }
-  data.frame(n = n, penalty = if (shift) "n lambda + 2 sigma2_hat" else "n lambda",
-             targets = length(pivots), ks_p_value = suppressWarnings(ks.test(pivots, "punif")$p.value),
+  data.frame(n = n, penalty = penalty, targets = length(pivots),
+             ks_p_value = suppressWarnings(ks.test(pivots, "punif")$p.value),
              coverage = mean(cover))
 }
+penalties <- c("n lambda + kappa_j", "n lambda + 2 sigma2_hat", "n lambda")
 ```
 
 ```{r, include = FALSE}
 if (rerun) {
   set.seed(4)
-  calibration_table <- do.call(rbind, lapply(c(200, 1000), function(n)
-    rbind(loo_calibration(n, TRUE), loo_calibration(n, FALSE))))
+  calibration_table <- do.call(rbind, lapply(c(100, 200, 1000), function(n)
+    do.call(rbind, lapply(penalties, function(pen) loo_calibration(n, pen)))))
   saveRDS(list(rates = rate_table, agreement = agreement_table,
                calibration = calibration_table), sims_file)
 } else {
@@ -420,20 +428,27 @@ if (rerun) {
 
 ```{r, eval = if (has_pkg) -(1:2) else FALSE}
 set.seed(4)
-calibration_table <- do.call(rbind, lapply(c(200, 1000), function(n)
-  rbind(loo_calibration(n, TRUE), loo_calibration(n, FALSE))))
+calibration_table <- do.call(rbind, lapply(c(100, 200, 1000), function(n)
+  do.call(rbind, lapply(penalties, function(pen) loo_calibration(n, pen)))))
 calibration_table
 ```
 
 At the unshifted $\lambda$ the pivots are far from uniform and the 90% intervals cover
-little more than half the time. At the shifted penalty, the pivots are much closer to
-uniform. Coverage is near nominal at $n = 1000$, but below it at $n = 200$: the shift is
-only first order. A `loo = TRUE` fit satisfies the shifted KKT conditions only to
-$O_p(n^{-1/2})$. The one-step adjustment in `UniLassoInference` absorbs the difference, so
-the reported estimates are close to, but not exactly, the full-model least squares
-coefficients. Using the exact $\kappa_j$ of the lemma in place of $2\hat{\sigma}^2$, or
-polishing the fit, may do better at small $n$. This is why `unilasso_inference()` does not
-yet accept `loo = TRUE` fits.
+little more than half the time. Both shifts restore approximate calibration. The exact
+$\kappa_j$ does better than $2\hat{\sigma}^2$, most of all at small $n$. With it, the fit
+satisfies the KKT conditions of the shifted problem to the solver's tolerance, so the
+one-step adjustment in `UniLassoInference` changes nothing and the estimates are exactly
+the full-model least squares coefficients. With $2\hat{\sigma}^2$, the fit satisfies them
+only to $O_p(n^{-1/2})$, and the adjustment moves the estimates. In both cases the
+remaining approximation is that the shift is treated as fixed, though it depends on the
+data.
+
+The proposition assumes local alternatives, $b_j = O_p(n^{-1/2})$ with $\hat{\theta}$ of
+moderate size. A strong feature, with $\sqrt{n}|b_j|$ large, can have a $B_j$ that is not
+small, particularly when a correlated weak feature has a large $\hat{\theta}_k$. At
+$n = 100$ in this design, $n\lambda + \kappa_j$ was occasionally negative for such a
+feature. The lemma holds regardless, so `unilasso_inference()` uses the exact $\kappa_j$
+whatever their size; only the $2\hat{\sigma}^2$ approximation breaks down there.
 
 ## Reference
 

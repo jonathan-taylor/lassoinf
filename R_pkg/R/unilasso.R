@@ -1,21 +1,17 @@
-# --- Selection events A Y <= B / C with a data-dependent right-hand side ---
+# --- The truncation set along the conditioning line ---
 #
-# Along the line the polyhedral lemma conditions on, each row is a quadratic inequality on
-# the interval where the conditioned signs hold, so the truncation set is a finite union of
-# intervals. Mirrors python/lassoinf/ratio_constraints.py; see
-# docs/data_dependent_penalty.md.
+# For the target of coordinate k, every constraint row reads, as a function of the scalar w
+# the selection depends on (see docs/data_dependent_penalty.md),
+#
+#     u_i + a_i w <= b0_i + m_i / C(w),   C(w) = c + gamma w,   s C(w) > 0,
+#
+# with C = C_k, the univariate coefficient of the target, and s its sign. On the half-line
+# s C(w) > 0, multiplying by C(w) gives a quadratic inequality, so each row holds on at most
+# two intervals and the truncation set is a finite union of intervals. Mirrors
+# python/lassoinf/unilasso.py.
 
 # rows with |linear coefficient| below this are treated as constant, as in get_interval
-.ratio_zero_tol <- 1e-10
-
-# {t : sign * (v0 + v1 t) > 0} for each row; rows with sign 0 are unconstrained
-.sign_interval <- function(sign, v0, v1) {
-  k <- sign * v1
-  h <- -sign * v0
-  list(lo = ifelse(k > 0, h / k, -Inf),
-       hi = ifelse(k < 0, h / k, Inf),
-       ok = !((sign != 0) & (k == 0) & (h >= 0)))
-}
+.unilasso_zero_tol <- 1e-10
 
 # {t : q2 t^2 + q1 t + q0 <= 0} for each row, as two intervals (columns lo1, hi1, lo2, hi2);
 # a missing interval has lo > hi
@@ -25,9 +21,9 @@
 
   # linear rows: q1 t + q0 <= 0
   lin <- q2 == 0
-  pos <- lin & q1 > .ratio_zero_tol
-  neg <- lin & q1 < -.ratio_zero_tol
-  feasible <- lin & !pos & !neg & q0 <= .ratio_zero_tol
+  pos <- lin & q1 > .unilasso_zero_tol
+  neg <- lin & q1 < -.unilasso_zero_tol
+  feasible <- lin & !pos & !neg & q0 <= .unilasso_zero_tol
   root <- -q0 / q1
   out[pos, "lo1"] <- -Inf
   out[pos, "hi1"] <- root[pos]
@@ -63,34 +59,32 @@
   out
 }
 
-# For each row i, the set of t with sign(b_i + beta_i t) = s_B[i] (if s_B[i] != 0),
-# sign(c_i + gamma_i t) = s_C[i] and u_i + a_i t <= (b_i + beta_i t) / (c_i + gamma_i t),
-# as an m x 4 matrix of two intervals per row (lo1, hi1, lo2, hi2).
-ratio_row_sets <- function(u, a, b, beta, c, gamma, s_B, s_C) {
-  m <- length(u)
-  s_B <- rep_len(s_B, m)
-  s_C <- rep_len(s_C, m)
-  if (any(abs(s_C) != 1)) stop("the sign of each C must be conditioned on: s_C must be +1 or -1")
-
-  sB <- .sign_interval(s_B, b, beta)
-  sC <- .sign_interval(s_C, c, gamma)
-  lo_I <- pmax(sB$lo, sC$lo)
-  hi_I <- pmin(sB$hi, sC$hi)
-  ok <- sB$ok & sC$ok
-
-  # on the sign interval, the ratio constraint is s_C * [C (u + a t) - B] <= 0
-  pieces <- .quadratic_le_zero(s_C * gamma * a,
-                               s_C * (c * a + gamma * u - beta),
-                               s_C * (c * u - b))
-  cbind(lo1 = ifelse(ok, pmax(pieces[, "lo1"], lo_I), Inf),
-        hi1 = ifelse(ok, pmin(pieces[, "hi1"], hi_I), -Inf),
-        lo2 = ifelse(ok, pmax(pieces[, "lo2"], lo_I), Inf),
-        hi2 = ifelse(ok, pmin(pieces[, "hi2"], hi_I), -Inf))
+# For each row i, the set of w with s (c + gamma w) > 0 and
+# u_i + a_i w <= b0_i + m_i / (c + gamma w), as an m x 4 matrix of two intervals per row
+# (lo1, hi1, lo2, hi2); a missing interval has lo > hi.
+.unilasso_row_sets <- function(u, a, b0, m, c, gamma, s) {
+  # the half-line where C(w) has sign s
+  k <- s * gamma
+  h <- -s * c
+  if (k > 0) {
+    lo_I <- h / k; hi_I <- Inf
+  } else if (k < 0) {
+    lo_I <- -Inf; hi_I <- h / k
+  } else if (s * c > 0) {
+    lo_I <- -Inf; hi_I <- Inf
+  } else {
+    lo_I <- Inf; hi_I <- -Inf
+  }
+  # on it, the row is s [C(w) (u_i - b0_i + a_i w) - m_i] <= 0
+  v <- u - b0
+  pieces <- .quadratic_le_zero(s * gamma * a, s * (c * a + gamma * v), s * (c * v - m))
+  cbind(lo1 = pmax(pieces[, "lo1"], lo_I), hi1 = pmin(pieces[, "hi1"], hi_I),
+        lo2 = pmax(pieces[, "lo2"], lo_I), hi2 = pmin(pieces[, "hi2"], hi_I))
 }
 
-# The intersection over rows of the unions from ratio_row_sets, as a k x 2 matrix of
+# The intersection over rows of the unions from .unilasso_row_sets, as a k x 2 matrix of
 # disjoint intervals in increasing order.
-intersect_row_sets <- function(sets) {
+.intersect_row_sets <- function(sets) {
   m <- nrow(sets)
   if (m == 0) return(matrix(c(-Inf, Inf), 1, 2))
   lo <- c(sets[, "lo1"], sets[, "lo2"])
@@ -127,29 +121,6 @@ intersect_row_sets <- function(sets) {
   }
   unname(iv)
 }
-
-# The truncation set for w (equivalently bar_omega at theta_hat = 0) of the event
-# A (Z + omega) <= B / C, sign(B) = s_B, sign(C) = s_C, along the line of a contrast.
-# B and C must be functions of the selection data; cov_BZ, cov_CZ are Cov(B, Z), Cov(C, Z)
-# (NULL for constant B or C).
-ratio_truncation_set <- function(contrast, direction, A, B, C, s_B, s_C,
-                                 cov_BZ = NULL, cov_CZ = NULL) {
-  bar_s2 <- contrast$bar_s^2
-  w_obs <- bar_s2 / contrast$naive_variance * contrast$theta_hat + contrast$bar_theta
-  # V = N_V + (k_V / bar_s^2) w with k_V = Cov(V, Z) eta
-  affine <- function(V, cov_VZ) {
-    if (is.null(cov_VZ)) return(list(intercept = V, slope = rep(0, length(V))))
-    slope <- as.vector(cov_VZ %*% direction) / bar_s2
-    list(intercept = V - slope * w_obs, slope = slope)
-  }
-  # at theta_hat = 0, A (Z + omega) = A (N_o + bar_N_o) + A bar_Gamma w
-  u <- matvec(A, contrast$n_o + contrast$bar_n_o)
-  a <- matvec(A, contrast$bar_gamma)
-  Bw <- affine(B, cov_BZ)
-  Cw <- affine(C, cov_CZ)
-  intersect_row_sets(ratio_row_sets(u, a, Bw$intercept, Bw$slope, Cw$intercept, Cw$slope, s_B, s_C))
-}
-
 
 # --- uniLasso and unireg ---
 
@@ -285,7 +256,8 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
     #' @param beta_hat The uniLasso solution for \code{Z_noisy} (e.g. from \code{unilasso_fit}).
     #' @param Z_noisy Selection data, \code{crossprod(x, y)} plus the randomization.
     #' @param Q_hat \code{crossprod(x)}, invertible.
-    #' @param lam The uniLasso's lambda, in the units of \code{Z_noisy}; 0 for unireg.
+    #' @param lam The uniLasso's lambda, in the units of \code{Z_noisy}; 0 for unireg. A
+    #'   vector gives each feature its own penalty \code{lam[j] / |C[j]|}.
     #' @param Z_full \code{crossprod(x, y)}.
     #' @param Sigma Covariance of \code{Z_full}: \code{sigma2 * crossprod(x)} in the
     #'   well-specified model.
@@ -351,21 +323,24 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
         M_k <- (b_step - self$b) / step
         b0 <- self$b - M_k * self$D[k]
         s_k <- sign(self$C[k])
+        lam_k <- if (length(lam) == 1) lam else lam[k]
         # C_k = Z_k / Q_kk, so Cov(C_k, Z) = Sigma[k, ] / Q_kk
         Sigma_k <- matvec(self$Sigma, e_k) / Q_hat[k, k]
-        m <- length(self$b)
 
         # full-model target theta_k = e_k' Q^{-1} E[Z]
         eta <- solve(Q_hat, e_k)
         contrast <- self$si$compute_contrast(eta)
-        # every row: (A Y)_i <= b0_i + M_ik lam s_k / C_k = (b0_i C_k + M_ik lam s_k) / C_k
-        S <- ratio_truncation_set(contrast, eta, self$A,
-                                  B = b0 * self$C[k] + M_k * lam * s_k,
-                                  C = rep(self$C[k], m),
-                                  s_B = rep(0, m),
-                                  s_C = rep(s_k, m),
-                                  cov_BZ = outer(b0, Sigma_k),
-                                  cov_CZ = matrix(Sigma_k, m, p, byrow = TRUE))
+        # every row: (A Y)_i <= b0_i + M_ik lam_k s_k / C_k, along the line in w; at
+        # theta_hat = 0, A Y = A (N_o + bar_N_o) + A bar_Gamma w, and C_k is affine in w with
+        # slope Cov(C_k, theta_hat) / bar_s^2
+        bar_s2 <- contrast$bar_s^2
+        w_obs <- bar_s2 / contrast$naive_variance * contrast$theta_hat + contrast$bar_theta
+        gamma <- sum(Sigma_k * eta) / bar_s2
+        S <- .intersect_row_sets(.unilasso_row_sets(
+          u = matvec(self$A, contrast$n_o + contrast$bar_n_o),
+          a = matvec(self$A, contrast$bar_gamma),
+          b0 = b0, m = M_k * lam_k * s_k,
+          c = self$C[k] - gamma * w_obs, gamma = gamma, s = s_k))
         if (nrow(S) == 0) stop("the observed data do not satisfy the selection event")
 
         variance <- contrast$naive_variance
@@ -423,7 +398,7 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
 #'
 #' @description Selective inference after a \code{uniLasso} (or \code{uniReg}) fit from the
 #' \pkg{uniLasso} package, for the full-model coefficients of the selected variables, in a
-#' Gaussian linear model with \eqn{n > p}. The fit must use \code{loo = FALSE}.
+#' Gaussian linear model with \eqn{n > p}.
 #'
 #' With \code{loo = FALSE} the uniLasso solves
 #' \deqn{\min_{\beta_0, \beta} \frac{1}{2n} \|y - \beta_0 - X\beta\|_2^2 +
@@ -431,13 +406,20 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
 #' \mathrm{sign}(\beta_j) \in \{0, \mathrm{sign}(\hat\beta^{uni}_j)\},}
 #' with \eqn{\hat\beta^{uni}_j} the univariate regression slopes (with intercepts). Its
 #' penalty factors and sign constraints depend on the data. For the full-model coefficients,
-#' the truncation set is still found exactly, as a finite union of intervals. The default
-#' \code{loo = TRUE} regresses \code{y} on leave-one-out univariate fits instead, a
-#' different selection event that is not covered.
+#' the truncation set is still found exactly, as a finite union of intervals, and the
+#' inference is exact in the Gaussian linear model.
+#'
+#' With \code{loo = TRUE} (the uniLasso package's default), the uniLasso regresses \code{y} on
+#' leave-one-out univariate fits instead. Its solution solves, exactly, the problem above with
+#' the penalty \eqn{n\lambda} on feature \eqn{j} replaced by \eqn{n\lambda + \kappa_j}, for an
+#' explicit \eqn{\kappa_j \approx 2\sigma^2} computed from the data and the fit (see
+#' \code{vignette("unilasso_loo")}). The inference then uses these penalties. Because
+#' \eqn{\kappa_j} itself depends on the data, which the inference ignores, it is
+#' approximate, and a warning says so.
 #'
 #' There is no randomization: this is the polyhedral approach of Lee et al. (2016).
-#' @param fit A \code{uniLasso} or \code{uniReg} object, fitted with \code{loo = FALSE},
-#'   the default \code{lower.limits}, \code{standardize} and family, and no weights.
+#' @param fit A \code{uniLasso} or \code{uniReg} object, fitted with the default
+#'   \code{lower.limits}, \code{standardize} and family, and no weights.
 #' @param x,y The data the fit used.
 #' @param s The value of \code{lambda} for the inference; it must be one of
 #'   \code{fit$lambda}. Default is the only one, for a \code{uniReg} fit.
@@ -445,7 +427,7 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
 #'   squares fit.
 #' @param level Confidence level. Default is 0.95.
 #' @param kkt_tol Warn if the fit violates the KKT conditions by more than
-#'   \code{kkt_tol * n * lambda}. Default is \code{1e-3}.
+#'   \code{kkt_tol} times the penalty. Default is \code{1e-3}.
 #' @return A \code{UniLassoInference} object; its \code{summary()} has the full-model least
 #'   squares coefficients of the selected variables, with selective intervals and p-values.
 #' @references
@@ -462,6 +444,9 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
 #' y <- drop(x %*% c(0.4, -0.3, 0.2, rep(0, p - 3))) + rnorm(n)
 #' fit <- uniLasso::uniLasso(x, y, loo = FALSE, control = list(thresh = 1e-14))
 #' unilasso_inference(fit, x, y, s = fit$lambda[20], level = 0.9)$summary()
+#' # the default loo = TRUE: approximate, with a warning
+#' fit_loo <- uniLasso::uniLasso(x, y, control = list(thresh = 1e-14))
+#' unilasso_inference(fit_loo, x, y, s = fit_loo$lambda[20], level = 0.9)$summary()
 #' @export
 unilasso_inference <- function(fit, x, y, s = NULL, sigma2 = NULL, level = 0.95, kkt_tol = 1e-3) {
   if (!inherits(fit, "uniLasso")) stop("fit must be a uniLasso or uniReg object")
@@ -469,10 +454,8 @@ unilasso_inference <- function(fit, x, y, s = NULL, sigma2 = NULL, level = 0.95,
     v <- fit$call[[name]]
     if (is.null(v)) default else eval(v, parent.frame(2))
   }
-  if (!isFALSE(arg("loo", TRUE))) {
-    stop("the fit must use loo = FALSE: with loo = TRUE the uniLasso regresses y on ",
-         "leave-one-out univariate fits, a selection event this does not cover")
-  }
+  loo <- arg("loo", TRUE)
+  if (!isTRUE(loo) && !isFALSE(loo)) stop("could not determine loo from the fit")
   if (!identical(arg("family", "gaussian"), "gaussian")) stop("only the gaussian family is supported")
   if (!isTRUE(all(arg("lower.limits", 0) == 0))) stop("the fit must use the default lower.limits = 0")
   if (!isFALSE(arg("standardize", FALSE))) stop("the fit must use standardize = FALSE")
@@ -488,14 +471,30 @@ unilasso_inference <- function(fit, x, y, s = NULL, sigma2 = NULL, level = 0.95,
     if (length(k) == 0) stop("s must be one of fit$lambda")
     k <- k[1]
   }
-  unilasso_inference_beta(x, y, as.numeric(fit$beta[, k]), lambdas[k], sigma2 = sigma2,
-                          level = level, kkt_tol = kkt_tol)
+  unilasso_inference_beta(x, y, as.numeric(fit$beta[, k]), lambdas[k], loo = loo,
+                          sigma2 = sigma2, level = level, kkt_tol = kkt_tol)
+}
+
+# kappa_j of vignette("unilasso_loo"): the leave-one-out uniLasso solution beta_hat solves
+# the plain uniLasso with penalty (n lambda + kappa_j) / |b_j| on feature j. x and y are
+# centered; the univariate fits have intercepts.
+unilasso_loo_kappa <- function(x, y, beta_hat) {
+  n <- nrow(x)
+  S <- colSums(x^2)
+  b <- drop(crossprod(x, y)) / S
+  h <- 1 / n + sweep(x^2, 2, S, "/")                       # leverages of the univariate fits
+  delta <- -h / (1 - h) * (y - sweep(x, 2, b, "*"))         # leave-one-out fits minus fits
+  delta <- sweep(delta, 2, colMeans(delta))
+  theta <- beta_hat / b
+  r <- y - drop(x %*% beta_hat)
+  -drop(crossprod(delta, r)) + b * drop(crossprod(x, delta %*% theta)) +
+    drop(crossprod(delta, delta %*% theta))
 }
 
 # The same from the coefficients of a fit at lam (glmnet's scaling) on (x, y), with intercept;
 # mirrors the Python lassoinf.unilasso_inference.
-unilasso_inference_beta <- function(x, y, beta_hat, lam, sigma2 = NULL, level = 0.95,
-                                    kkt_tol = 1e-3) {
+unilasso_inference_beta <- function(x, y, beta_hat, lam, loo = FALSE, sigma2 = NULL,
+                                    level = 0.95, kkt_tol = 1e-3) {
   x <- as.matrix(x)
   y <- as.vector(y)
   n <- nrow(x)
@@ -507,6 +506,15 @@ unilasso_inference_beta <- function(x, y, beta_hat, lam, sigma2 = NULL, level = 
   Q <- crossprod(x)
   Z <- drop(crossprod(x, y))
   lam_Z <- n * lam
+  if (loo) {
+    # the leave-one-out uniLasso is the plain one with penalty n lam + kappa_j on feature j
+    # (it can be negative for a strong feature at small n; the identity still holds)
+    lam_Z <- lam_Z + unilasso_loo_kappa(x, y, beta_hat)
+    warning("loo = TRUE: the fit is treated as the uniLasso with penalties ",
+            "(n * lambda + kappa_j) / |b_uni_j|, which it solves exactly; kappa_j depends on ",
+            "the data, which the inference ignores, so it is approximate. ",
+            "See vignette(\"unilasso_loo\").", call. = FALSE)
+  }
   pen <- unilasso_penalty(Z, Q, lam_Z)
   if (any(beta_hat * pen$s < 0)) {
     stop("beta_hat has a sign opposite to its univariate coefficient: it is not a uniLasso ",
@@ -516,12 +524,12 @@ unilasso_inference_beta <- function(x, y, beta_hat, lam, sigma2 = NULL, level = 
   act <- beta_hat != 0
   violation <- max(c(abs(g[act] - pen$D[act] * pen$s[act]),
                      pmax(pen$s[!act] * g[!act] - pen$D[!act], 0)), 0)
-  scale <- if (lam > 0) lam_Z else max(abs(Z))
+  scale <- if (max(abs(lam_Z)) > 0) mean(abs(lam_Z)) else max(abs(Z))
   if (violation > kkt_tol * scale) {
     warning(sprintf(paste0("the fit violates the uniLasso KKT conditions by %.1e * %s; it may ",
-                           "not solve the problem with penalty factors 1 / |b_uni| (e.g. ",
-                           "loo = TRUE), or may not have converged (tighten thresh)"),
-                    violation / scale, if (lam > 0) "n lambda" else "max |X'y|"))
+                           "not solve the uniLasso at this lambda, or may not have converged ",
+                           "(tighten thresh)"),
+                    violation / scale, if (max(abs(lam_Z)) > 0) "the penalty" else "max |X'y|"))
   }
   if (is.null(sigma2)) {
     resid <- y - drop(x %*% solve(Q, Z))
