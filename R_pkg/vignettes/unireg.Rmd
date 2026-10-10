@@ -63,6 +63,9 @@ uniLasso::ci.uniReg(d$x, d$y, B = 200, alpha = 0.1)
 In each replication we compute three sets of 90% intervals for the true coefficients:
 
 * `unilasso_inference()` after `uniReg(loo = FALSE)`, for the selected variables;
+* `unilasso_inference()` after `uniReg(loo = TRUE)`, for the selected variables. This
+  is approximate: it treats the fit as the uniLasso with penalties $\kappa_j/|b_j|$,
+  $\kappa_j \approx 2\sigma^2$ (`vignette("unilasso_loo")`);
 * `ci.uniReg()` with its default `loo = TRUE`, for every variable;
 * `ci.uniReg(loo = FALSE)`, for every variable.
 
@@ -75,6 +78,8 @@ one_replication <- function(B = 200) {
   d <- make_data()
   reg <- uniLasso::uniReg(d$x, d$y, loo = FALSE, control = list(thresh = 1e-14))
   ui <- unilasso_inference(reg, d$x, d$y, level = 0.9)
+  reg_loo <- uniLasso::uniReg(d$x, d$y, control = list(thresh = 1e-14))
+  ui_loo <- suppressWarnings(unilasso_inference(reg_loo, d$x, d$y, level = 0.9))
   # does the univariate slope have the sign of the coefficient?
   b_uni <- apply(d$x, 2, function(xj) cov(xj, d$y) / var(xj))
   sign_right <- sign(b_uni) == sign(beta)
@@ -83,11 +88,13 @@ one_replication <- function(B = 200) {
                                                control = list(thresh = 1e-14)))
   rows <- list()
   for (j in seq_len(p)) {
-    r <- ui$results[[as.character(j - 1)]]
-    if (!is.null(r)) {
-      rows[[length(rows) + 1]] <- data.frame(method = "selective", variable = j, selected = TRUE,
-        sign_right = sign_right[j],
-        cover = r$lower_conf <= beta[j] && beta[j] <= r$upper_conf, length = r$upper_conf - r$lower_conf)
+    for (sel in list(list(name = "selective", ui = ui), list(name = "selective (loo = TRUE)", ui = ui_loo))) {
+      r <- sel$ui$results[[as.character(j - 1)]]
+      if (!is.null(r)) {
+        rows[[length(rows) + 1]] <- data.frame(method = sel$name, variable = j, selected = TRUE,
+          sign_right = sign_right[j],
+          cover = r$lower_conf <= beta[j] && beta[j] <= r$upper_conf, length = r$upper_conf - r$lower_conf)
+      }
     }
     for (b in names(boot)) {
       ci <- boot[[b]]
@@ -133,6 +140,12 @@ coverage_table(results)
 
 For the selective intervals "all" and "selected" are the same: they exist only for selected
 variables. `median_length` is over selected variables.
+
+The two selective rows differ in the fit, as well as the method. uniReg with leave-one-out
+selects fewer variables, because of its implicit penalty, so it reports fewer intervals.
+Its selective intervals are approximate, but they cover close to nominal, and are about as
+long as those after `loo = FALSE`. The bootstrap after the same default fit,
+`ci.uniReg()`, covers the nonzero coefficients only a third of the time.
 
 ### When the univariate sign is wrong
 
