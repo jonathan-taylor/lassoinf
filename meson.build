@@ -15,6 +15,7 @@ py.install_sources(
   'python/lassoinf/lasso.py',
   'python/lassoinf/custom_estimand.py',
   'python/lassoinf/unilasso.py',
+  'python/lassoinf/ray_selection.py',
   subdir: 'lassoinf'
 )
 
