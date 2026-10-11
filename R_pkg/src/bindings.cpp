@@ -7,6 +7,7 @@
 #include "lassoinf/include/discrete_family.h"
 #include "lassoinf/include/gaussian_family.hpp"
 #include "lassoinf/include/custom_estimand.hpp"
+#include "lassoinf/include/unilasso.hpp"
 
 // 2. Unity build: include the C++ sources directly to avoid duplicate symbols
 //    and bypass the need for a complex Makefile to compile them individually.
@@ -15,6 +16,7 @@
 #include "lassoinf/src/discrete_family.cpp"
 #include "lassoinf/src/gaussian_family.cpp"
 #include "lassoinf/src/custom_estimand.cpp"
+#include "lassoinf/src/unilasso.cpp"
 
 using namespace Rcpp;
 
@@ -250,6 +252,51 @@ Eigen::VectorXd screened_b_screen(lassoinf::ScreenedSelection* s) { return s->b_
 SEXP screened_A(lassoinf::ScreenedSelection* s) { return wrap_operator(s->A); }
 SEXP screened_A_screen(lassoinf::ScreenedSelection* s) { return wrap_operator(s->A_screen); }
 
+// ---- uniLasso ----
+
+Rcpp::List unilasso_penalty_cpp(const Eigen::VectorXd& C, const Eigen::VectorXd& lam) {
+    auto pen = rethrow([&] { return lassoinf::unilasso_penalty(C, lam); });
+    return Rcpp::List::create(Rcpp::Named("C") = pen.C, Rcpp::Named("s") = pen.s,
+                              Rcpp::Named("D") = pen.D, Rcpp::Named("L") = pen.L,
+                              Rcpp::Named("U") = pen.U);
+}
+
+Eigen::VectorXd unilasso_fit_cpp(const Eigen::MatrixXd& Q, const Eigen::VectorXd& Z_noisy,
+                                 const Eigen::VectorXd& lam, double tol, int max_iter) {
+    return rethrow([&] { return lassoinf::unilasso_fit(Q, Z_noisy, lam, tol, max_iter); });
+}
+
+double unilasso_kkt_violation_cpp(const Eigen::VectorXd& beta_hat, const Eigen::MatrixXd& Q,
+                                  const Eigen::VectorXd& Z_noisy, const Eigen::VectorXd& lam) {
+    return rethrow([&] { return lassoinf::unilasso_kkt_violation(beta_hat, Q, Z_noisy, lam); });
+}
+
+Eigen::VectorXd unilasso_loo_kappa_cpp(const Eigen::MatrixXd& X, const Eigen::VectorXd& y,
+                                       const Eigen::VectorXd& beta_hat) {
+    return lassoinf::unilasso_loo_kappa(X, y, beta_hat);
+}
+
+Eigen::MatrixXd unilasso_row_sets_cpp(const Eigen::VectorXd& u, const Eigen::VectorXd& a,
+                                      const Eigen::VectorXd& b0, const Eigen::VectorXd& m,
+                                      double c, double gamma, double s) {
+    return lassoinf::unilasso_row_sets(u, a, b0, m, c, gamma, s);
+}
+
+Eigen::MatrixXd intersect_row_sets_cpp(const Eigen::MatrixXd& sets) {
+    return rethrow([&] { return lassoinf::intersect_row_sets(sets); });
+}
+
+Eigen::MatrixXd unilasso_truncation_set_cpp(const Eigen::VectorXd& beta_hat, const Eigen::VectorXd& G_hat,
+                                            SEXP Q, const Eigen::VectorXd& D, const Eigen::VectorXd& L,
+                                            const Eigen::VectorXd& U, int k, double lam_k, double C_k,
+                                            const Eigen::VectorXd& y0, const Eigen::VectorXd& direction,
+                                            double w_obs, double gamma, double tol) {
+    return rethrow([&] {
+        return lassoinf::unilasso_truncation_set(beta_hat, G_hat, as_operator(Q), D, L, U, k, lam_k,
+                                                 C_k, y0, direction, w_obs, gamma, tol);
+    });
+}
+
 // DiscreteFamily wrappers
 double df_cdf_wrapper(lassoinf::DiscreteFamily* df, double theta, double x, double gamma) {
     return df->cdf(theta, x, gamma);
@@ -347,6 +394,19 @@ RCPP_MODULE(lassoinf_cpp) {
         .method("A", &screened_A)
         .method("A_screen", &screened_A_screen)
         ;
+
+    function("unilasso_penalty_cpp", &unilasso_penalty_cpp, List::create(_["C"], _["lam"]));
+    function("unilasso_fit_cpp", &unilasso_fit_cpp,
+             List::create(_["Q"], _["Z_noisy"], _["lam"], _["tol"], _["max_iter"]));
+    function("unilasso_kkt_violation_cpp", &unilasso_kkt_violation_cpp,
+             List::create(_["beta_hat"], _["Q"], _["Z_noisy"], _["lam"]));
+    function("unilasso_loo_kappa_cpp", &unilasso_loo_kappa_cpp, List::create(_["X"], _["y"], _["beta_hat"]));
+    function("unilasso_row_sets_cpp", &unilasso_row_sets_cpp,
+             List::create(_["u"], _["a"], _["b0"], _["m"], _["c"], _["gamma"], _["s"]));
+    function("intersect_row_sets_cpp", &intersect_row_sets_cpp, List::create(_["sets"]));
+    function("unilasso_truncation_set_cpp", &unilasso_truncation_set_cpp,
+             List::create(_["beta_hat"], _["G_hat"], _["Q"], _["D"], _["L"], _["U"], _["k"], _["lam_k"],
+                          _["C_k"], _["y0"], _["direction"], _["w_obs"], _["gamma"], _["tol"]));
 
     function("selection_coordinates_cpp", &selection_coordinates_cpp,
              List::create(_["score"], _["Z_noisy"], _["beta_hat"], _["G_hat"], _["Q_diag"]));

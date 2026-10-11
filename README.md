@@ -63,6 +63,14 @@ rm -rf build/cp*
 
 The R package `lassoinf` requires `Rcpp`, `RcppEigen`, and `R6`. You can install the package from the terminal or directly from the source directory.
 
+**The C++ library is shared with Python and must be synced first.** The C++ sources live in `cpp/` (used by the Python extension). R CMD build and CRAN require the R package to be self-contained, so `R_pkg/src/lassoinf/` holds a copy of them that is committed to the repository. After editing anything under `cpp/`, refresh the copy before installing, building or testing the R package:
+
+```bash
+sh R_pkg/tools/sync_cpp.sh
+```
+
+Commit the updated `R_pkg/src/lassoinf/` together with the change to `cpp/`. Otherwise, the R package builds against stale C++ code.
+
 **From the terminal:**
 
 ```bash
