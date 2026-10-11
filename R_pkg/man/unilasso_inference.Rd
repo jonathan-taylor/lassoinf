@@ -16,7 +16,7 @@ unilasso_inference(
 }
 \arguments{
 \item{fit}{A \code{uniLasso} or \code{uniReg} object, fitted with the default
-\code{lower.limits}, \code{standardize} and family, and no weights.}
+\code{lower.limits}, \code{standardize}, \code{alpha = 1} and family, and no weights.}
 
 \item{x, y}{The data the fit used.}
 

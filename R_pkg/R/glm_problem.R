@@ -86,8 +86,9 @@ glmnet_scaling <- function(x, weights = rep(1, nrow(x)), standardize = TRUE) {
 #'   information at the truth and \code{Q_hat / n} understates \code{Var(Z)}; the relaxed fit
 #'   avoids this. The two agree for gaussian. \code{G_hat} is always at the LASSO solution.
 #' @return A list with \code{beta_hat}, \code{G_hat}, \code{Q_hat}, \code{D}, \code{L},
-#'   \code{U} and \code{intercept}; coordinates are \code{(intercept, coef)} when
-#'   \code{intercept = TRUE}.
+#'   \code{U}, \code{information}, \code{ridge} and \code{intercept}; coordinates are
+#'   \code{(intercept, coef)} when \code{intercept = TRUE}. \code{information} is
+#'   \code{Q_hat} without the ridge term \code{diag(ridge)} of the elastic net.
 #' @examplesIf requireNamespace("glmnet", quietly = TRUE)
 #' set.seed(1)
 #' x <- matrix(rnorm(100 * 5), 100, 5)
@@ -150,11 +151,16 @@ glmnet_problem <- function(x, y, coef, a0 = 0, lambda, family = "gaussian",
                                  which(out$beta_hat != 0 | (intercept & seq_along(out$beta_hat) == 1)),
                                  family, mv)
   }
-  out$Q_hat <- if (hessian == "dense") {
-    crossprod(X1, X1 * (w * mv$var)) + diag(ridge1, length(ridge1))
+  # Q_hat is the Hessian of the penalized smooth part; information is the same without the
+  # ridge term, the covariance of the score (up to dispersion / sum(weights))
+  if (hessian == "dense") {
+    out$information <- crossprod(X1, X1 * (w * mv$var))
+    out$Q_hat <- out$information + diag(ridge1, length(ridge1))
   } else {
-    new(LinearOp, X1, w * mv$var, ridge1)
+    out$information <- new(LinearOp, X1, w * mv$var, rep(0, length(ridge1)))
+    out$Q_hat <- new(LinearOp, X1, w * mv$var, ridge1)
   }
+  out$ridge <- ridge1
   out$intercept <- intercept
   out
 }

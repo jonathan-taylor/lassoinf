@@ -413,7 +413,9 @@ def unilasso_inference(X,
 
     with b_uni_j the univariate regression slopes of y on X_j (with intercepts if intercept),
     and the inference is exact. This is the uniLasso of the R package uniLasso, or of the
-    Python package unilasso, with loo = False; lam is its lambda.
+    Python package unilasso, with loo = False; lam is its lambda. The fit must use the
+    lasso penalty (glmnet's alpha = 1): an elastic net would add a ridge term with
+    data-dependent factors, which is not supported (the fit cannot be checked for this).
 
     With loo=True (those packages' default), the fit regresses y on leave-one-out univariate
     fits. Its solution solves the problem above with the penalty n lam on feature j replaced

@@ -138,6 +138,8 @@ test_that("unilasso_inference takes uniLasso and uniReg fits", {
   ref <- lassoinf:::unilasso_inference_beta(x, y, unilasso_beta(x, y, fit$lambda[k]), fit$lambda[k])$summary()
   expect_equal(s, ref, tolerance = 1e-6)
   expect_error(unilasso_inference(fit, x, y), "s must be given")
+  fit_enet <- uniLasso::uniLasso(x, y, loo = FALSE, alpha = 0.5)
+  expect_error(unilasso_inference(fit_enet, x, y, s = fit_enet$lambda[10]), "alpha = 1")
   expect_error(unilasso_inference(fit, x, y, s = 1.2345), "one of fit")
   # loo = TRUE: approximate, with a warning; the fit solves the shifted problem exactly,
   # so the estimates are the least squares coefficients

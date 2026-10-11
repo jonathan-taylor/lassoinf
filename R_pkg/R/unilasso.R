@@ -430,7 +430,7 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
 #'
 #' There is no randomization: this is the polyhedral approach of Lee et al. (2016).
 #' @param fit A \code{uniLasso} or \code{uniReg} object, fitted with the default
-#'   \code{lower.limits}, \code{standardize} and family, and no weights.
+#'   \code{lower.limits}, \code{standardize}, \code{alpha = 1} and family, and no weights.
 #' @param x,y The data the fit used.
 #' @param s The value of \code{lambda} for the inference; it must be one of
 #'   \code{fit$lambda}. Default is the only one, for a \code{uniReg} fit.
@@ -471,6 +471,10 @@ unilasso_inference <- function(fit, x, y, s = NULL, sigma2 = NULL, level = 0.95,
   if (!isTRUE(all(arg("lower.limits", 0) == 0))) stop("the fit must use the default lower.limits = 0")
   if (!isFALSE(arg("standardize", FALSE))) stop("the fit must use standardize = FALSE")
   if (!is.null(fit$call$weights)) stop("weights are not supported")
+  if (!isTRUE(all(arg("alpha", 1) == 1))) {
+    stop("the fit must use alpha = 1: with alpha < 1 the uniLasso has a ridge term with ",
+         "data-dependent factors 1 / b_uni_j^2, which is not supported")
+  }
   if (!isTRUE(arg("intercept", TRUE))) stop("the fit must have an intercept")
 
   lambdas <- fit$lambda
