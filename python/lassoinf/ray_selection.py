@@ -26,13 +26,17 @@ Anything the event depends on, such as penalty factors computed from the data, m
 function of the selection data Y (plus independent noise). Otherwise the event depends on
 (theta_hat, bar_omega) through more than w. The uniLasso has a closed form for its
 truncation set (lassoinf.unilasso), which this module does not replace.
+
+The root finding and the lasso event are in the C++ library (cpp/src/ray_selection.cpp),
+shared with the R package.
 """
 from dataclasses import dataclass
 
 import numpy as np
 
+import lassoinf_cpp as _cpp
+
 from .bivariate_normal import TruncBivariateNormal
-from .lasso import lasso_post_selection_constraints
 
 
 def ray_scale(contrast):
@@ -40,11 +44,8 @@ def ray_scale(contrast):
     The observed w and the standard deviation of w along the ray of an
     AffineConstraintsContrast.
     """
-    bar_s2 = float(contrast.bar_s)**2
-    variance = float(contrast.naive_variance)
-    w_obs = bar_s2 / variance * float(contrast.theta_hat) + float(contrast.bar_theta)
-    sd_w = np.sqrt(bar_s2**2 / variance + bar_s2)
-    return w_obs, sd_w
+    return _cpp.ray_scale(float(contrast.bar_s), float(contrast.naive_variance),
+                          float(contrast.theta_hat), float(contrast.bar_theta))
 
 
 def ray_point(contrast, w):
@@ -58,7 +59,8 @@ def find_truncation_set(event, contrast, n_sd=10., n_grid=2001, tol=1e-10):
     The truncation set {w : event(Y(w))} along the ray of a contrast, as an array (k, 2) of
     disjoint intervals in increasing order.
 
-    event : function of the selection data Y, True on the selection event
+    event : function of the selection data Y, True on the selection event, or a
+        lassoinf_cpp.RayEvent such as the one lasso_event returns (evaluated in C++)
     n_sd, n_grid : the event is evaluated on n_grid equally spaced points within n_sd standard
         deviations of the observed w, and assumed constant beyond them (where the Gaussian
         has negligible mass)
@@ -70,35 +72,10 @@ def find_truncation_set(event, contrast, n_sd=10., n_grid=2001, tol=1e-10):
     e / (bar_s sqrt(2 pi)).
     """
     w_obs, sd_w = ray_scale(contrast)
-    member = lambda w: bool(event(ray_point(contrast, w)))
-    if not member(w_obs):
-        raise ValueError('the observed data are not in the selection event')
-    grid = w_obs + np.linspace(-n_sd, n_sd, n_grid) * sd_w
-    inside = np.array([member(w) for w in grid])
-
-    def boundary(lo, hi, lo_inside):
-        # the change between lo and hi, where member(lo) == lo_inside != member(hi)
-        while hi - lo > tol * sd_w:
-            mid = 0.5 * (lo + hi)
-            if member(mid) == lo_inside:
-                lo = mid
-            else:
-                hi = mid
-        return 0.5 * (lo + hi)
-
-    intervals = []
-    start = -np.inf if inside[0] else None
-    for i in range(1, n_grid):
-        if inside[i] != inside[i - 1]:
-            b = boundary(grid[i - 1], grid[i], inside[i - 1])
-            if inside[i]:
-                start = b
-            else:
-                intervals.append((start, b))
-                start = None
-    if start is not None:
-        intervals.append((start, np.inf))
-    return np.array(intervals, dtype=float).reshape(-1, 2)
+    y0 = np.ravel(np.atleast_1d(contrast.n_o) + np.atleast_1d(contrast.bar_n_o)).astype(float)
+    direction = np.ravel(np.atleast_1d(contrast.bar_gamma)).astype(float)
+    return _cpp.find_truncation_set(event, y0, direction, w_obs, sd_w, float(n_sd), int(n_grid),
+                                    float(tol))
 
 
 @dataclass
@@ -149,27 +126,28 @@ def lasso_event(beta_hat, G_hat, Q, penalty, tol=1e-6, slack=1e-9):
 
     The lasso solves minimize 1/2 beta' Q beta - beta' Y + sum_j D_j |beta_j| subject to
     L <= beta <= U, with (D, L, U) = penalty(Y). penalty returns None where Y is outside the
-    conditioning event for the penalties (for example, where a conditioned sign is wrong).
+    conditioning event for the penalties (for example, where a conditioned sign is wrong);
+    L or U may be None for no bounds.
 
     beta_hat, G_hat : the solution and the gradient Q beta_hat - Y at the observed Y; they
         fix the active set, signs and bound activations
     slack : the constraints A Y <= b are checked to slack * (1 + |b|)
 
-    Returns event(Y) -> bool.
+    Returns a lassoinf_cpp.RayEvent: event(Y) -> bool, with the constraints built and checked
+    in C++ (penalty is still called in Python).
     """
-    beta_hat = np.asarray(beta_hat, dtype=float)
-    G_hat = np.asarray(G_hat, dtype=float)
+    def pen(Y):
+        out = penalty(Y)
+        if out is None:
+            return None
+        D, L, U = out
+        p = len(Y)
+        as_vec = lambda v: None if v is None else np.broadcast_to(np.asarray(v, dtype=float), (p,)).copy()
+        return as_vec(D), as_vec(L), as_vec(U)
 
-    def event(Y):
-        pen = penalty(Y)
-        if pen is None:
-            return False
-        D, L, U = pen
-        A, b = lasso_post_selection_constraints(beta_hat, G_hat, Q, D, L, U, tol=tol)[:2]
-        AY = np.ravel(A @ Y)
-        return bool(np.all(AY <= b + slack * (1 + np.abs(b))))
-
-    return event
+    Q = Q if isinstance(Q, _cpp.LinearOperator) else np.asarray(Q, dtype=float)
+    return _cpp.LassoRayEvent(np.asarray(beta_hat, dtype=float), np.asarray(G_hat, dtype=float),
+                              Q, pen, tol, slack)
 
 
 __all__ = ['find_truncation_set', 'ray_contrast_inference', 'lasso_event', 'ray_point',

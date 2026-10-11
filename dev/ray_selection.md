@@ -1,5 +1,12 @@
 # Selection events along the conditioning ray (`lassoinf.ray_selection`)
 
+The root finding (`find_truncation_set`) and the lasso event (`LassoRayEvent`) are in the
+C++ library, in `cpp/src/ray_selection.cpp`. Python (`lassoinf.ray_selection`) and R
+(`find_truncation_set()`, `lasso_event()` and `ray_contrast_inference()`) call it. An event
+can be a C++ `lasso_event`, which is evaluated in C++ with only `penalty(Y)` called back,
+or any Python or R function. The pure-Python versions are test references, in
+`tests/ray_selection_reference.py`.
+
 For a contrast, the selection data move along the ray `Y(w) = N_o + bar_N_o + bar_Gamma w`.
 If the selection event has an explicit characterization `event(Y)`, the truncation set
 `{w : event(Y(w))}` can be found numerically, by a grid over `w_obs +- n_sd sd(w)` and
@@ -15,7 +22,10 @@ uniLasso and uniReg keep their closed form in `lassoinf.unilasso` and do not use
 - `lasso_event(beta_hat, G_hat, Q, penalty)`: the lasso KKT event at the observed active set
   and signs, with `(D, L, U) = penalty(Y)`, or `None` outside the conditioning event.
 
-## Checks (`tests/test_ray_selection.py`)
+## Checks (`tests/test_ray_selection*.py`, `R_pkg/tests/testthat/test_ray_selection.R`)
+
+- The C++ results match the pure-Python reference: the event is identical along the ray,
+  and the truncation sets agree to 1e-9 sd.
 
 - With fixed penalties it reproduces the polyhedral interval (`get_interval`).
 - For the uniLasso it reproduces the closed-form truncation sets.
@@ -40,5 +50,9 @@ All truncation sets were single intervals. Each inference takes about 0.15 s wit
   `brentq` on the sign changes of each row, and use the degree bound to check that no
   pieces are missed.
 - Other targets: selected-model coefficients (`W Z_E`), and inactive variables.
-- The R port, and a vignette, e.g. the adaptive lasso.
+- A vignette, e.g. the adaptive lasso.
+- Speed at large p. Per evaluation, the C++ event still rebuilds the constraints: an
+  `|E|^3` inverse and `Q` matvecs. It is 15x faster than Python at p = 10, but only 1.6x at
+  p = 160 (|E| = 35). Precompute the affine structure along the ray: `A Y(w) = u + a w`, and
+  `b = b0 + M D(w)`, so that only `D(w)` is evaluated per point.
 - Designs where sets have several pieces (strong correlation, small n), to test the grid.

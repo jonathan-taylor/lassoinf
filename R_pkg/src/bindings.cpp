@@ -8,6 +8,7 @@
 #include "lassoinf/include/gaussian_family.hpp"
 #include "lassoinf/include/custom_estimand.hpp"
 #include "lassoinf/include/unilasso.hpp"
+#include "lassoinf/include/ray_selection.hpp"
 
 // 2. Unity build: include the C++ sources directly to avoid duplicate symbols
 //    and bypass the need for a complex Makefile to compile them individually.
@@ -17,6 +18,7 @@
 #include "lassoinf/src/gaussian_family.cpp"
 #include "lassoinf/src/custom_estimand.cpp"
 #include "lassoinf/src/unilasso.cpp"
+#include "lassoinf/src/ray_selection.cpp"
 
 using namespace Rcpp;
 
@@ -297,6 +299,49 @@ Eigen::MatrixXd unilasso_truncation_set_cpp(const Eigen::VectorXd& beta_hat, con
     });
 }
 
+// ---- ray selection ----
+
+// penalty(Y) returns NULL or list(D, L, U), with L or U NULL for no bounds
+lassoinf::LassoRayEvent* create_lasso_ray_event(Eigen::VectorXd beta_hat, Eigen::VectorXd G_hat, SEXP Q,
+                                                Rcpp::Function penalty, double tol, double slack) {
+    auto pen = [penalty](const Eigen::VectorXd& Y) {
+        SEXP out = penalty(Rcpp::wrap(Y));
+        lassoinf::RayPenalty r{false, Eigen::VectorXd(), Eigen::VectorXd(), Eigen::VectorXd()};
+        if (Rf_isNull(out)) return r;
+        Rcpp::List l(out);
+        if (l.size() != 3) Rcpp::stop("penalty must return NULL or list(D, L, U)");
+        r.valid = true;
+        r.D = Rcpp::as<Eigen::VectorXd>(l[0]);
+        if (!Rf_isNull(l[1])) r.L = Rcpp::as<Eigen::VectorXd>(l[1]);
+        if (!Rf_isNull(l[2])) r.U = Rcpp::as<Eigen::VectorXd>(l[2]);
+        return r;
+    };
+    return new lassoinf::LassoRayEvent(std::move(beta_hat), std::move(G_hat), as_operator(Q), pen, tol, slack);
+}
+
+bool lasso_ray_event_call(lassoinf::LassoRayEvent* e, const Eigen::VectorXd& Y) { return (*e)(Y); }
+
+Rcpp::NumericVector ray_scale_cpp(double bar_s, double variance, double theta_hat, double bar_theta) {
+    auto r = lassoinf::ray_scale(bar_s, variance, theta_hat, bar_theta);
+    return Rcpp::NumericVector::create(r.first, r.second);
+}
+
+// event: an R function of Y returning TRUE / FALSE, or a LassoRayEventCpp
+Eigen::MatrixXd find_truncation_set_cpp(SEXP event, const Eigen::VectorXd& y0, const Eigen::VectorXd& direction,
+                                        double w_obs, double sd_w, double n_sd, int n_grid, double tol) {
+    return rethrow([&] {
+        if (Rf_isFunction(event)) {
+            Rcpp::Function f(event);
+            lassoinf::FunctionRayEvent e([f](const Eigen::VectorXd& Y) {
+                return Rcpp::as<bool>(f(Rcpp::wrap(Y)));
+            });
+            return lassoinf::find_truncation_set(e, y0, direction, w_obs, sd_w, n_sd, n_grid, tol);
+        }
+        auto* e = unwrap_cpp_object<lassoinf::LassoRayEvent>(event, "Rcpp_LassoRayEventCpp");
+        return lassoinf::find_truncation_set(*e, y0, direction, w_obs, sd_w, n_sd, n_grid, tol);
+    });
+}
+
 // DiscreteFamily wrappers
 double df_cdf_wrapper(lassoinf::DiscreteFamily* df, double theta, double x, double gamma) {
     return df->cdf(theta, x, gamma);
@@ -407,6 +452,14 @@ RCPP_MODULE(lassoinf_cpp) {
     function("unilasso_truncation_set_cpp", &unilasso_truncation_set_cpp,
              List::create(_["beta_hat"], _["G_hat"], _["Q"], _["D"], _["L"], _["U"], _["k"], _["lam_k"],
                           _["C_k"], _["y0"], _["direction"], _["w_obs"], _["gamma"], _["tol"]));
+
+    class_<lassoinf::LassoRayEvent>("LassoRayEventCpp")
+        .factory<Eigen::VectorXd, Eigen::VectorXd, SEXP, Rcpp::Function, double, double>(&create_lasso_ray_event)
+        .method("call", &lasso_ray_event_call)
+        ;
+    function("ray_scale_cpp", &ray_scale_cpp, List::create(_["bar_s"], _["variance"], _["theta_hat"], _["bar_theta"]));
+    function("find_truncation_set_cpp", &find_truncation_set_cpp,
+             List::create(_["event"], _["y0"], _["direction"], _["w_obs"], _["sd_w"], _["n_sd"], _["n_grid"], _["tol"]));
 
     function("selection_coordinates_cpp", &selection_coordinates_cpp,
              List::create(_["score"], _["Z_noisy"], _["beta_hat"], _["G_hat"], _["Q_diag"]));
