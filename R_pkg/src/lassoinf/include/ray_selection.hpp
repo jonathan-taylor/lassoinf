@@ -24,6 +24,10 @@ class RayEvent {
 public:
     virtual ~RayEvent() = default;
     virtual bool operator()(const Eigen::VectorXd& Y) const = 0;
+    // The event along the ray y0 + direction w, as a function of w. The default evaluates
+    // operator() at each point; events with structure along a ray override it. The returned
+    // function may refer to this event, which must outlive it.
+    virtual std::function<bool(double)> along(const Eigen::VectorXd& y0, const Eigen::VectorXd& direction) const;
 };
 
 // An event given by a function
@@ -52,6 +56,12 @@ struct RayPenalty {
 // L <= beta <= U, with (D, L, U) = penalty(Y). beta_hat and G_hat (the gradient
 // Q beta_hat - Y at the observed Y) fix the active set, signs and bound activations. The
 // constraints A Y <= b are checked to slack * (1 + |b|).
+//
+// Along a ray, A depends only on the active set, signs and bound activations (fixed by
+// beta_hat and which bounds are finite), and b is affine in (D, L, U): with A Y(w) = u + a w
+// computed once and Q_{E,E}^{-1}, Q_{E^c,E} cached, each point costs penalty(Y(w)) and
+// O(|E| p) instead of a rebuild of the constraints. The structure is cached for each pattern
+// of bound activations met along the ray, so the event is the same as operator().
 class LassoRayEvent : public RayEvent {
 public:
     LassoRayEvent(Eigen::VectorXd beta_hat, Eigen::VectorXd G_hat, std::shared_ptr<LinearOperator> Q,
@@ -61,6 +71,7 @@ public:
           penalty_(std::move(penalty)), tol_(tol), slack_(slack) {}
 
     bool operator()(const Eigen::VectorXd& Y) const override;
+    std::function<bool(double)> along(const Eigen::VectorXd& y0, const Eigen::VectorXd& direction) const override;
 
 private:
     Eigen::VectorXd beta_hat_;

@@ -44,6 +44,27 @@ uniLasso and uniReg keep their closed form in `lassoinf.unilasso` and do not use
 All truncation sets were single intervals. Each inference takes about 0.15 s with an
 801-point grid.
 
+## Speed: the structure along the ray
+
+`A` depends only on the active set, signs and bound activations, and `b` is affine in
+`(D, L, U)`. Along a ray (`RayEvent::along`), `LassoRayEvent` computes `A Y(w) = u + a w`
+once, and caches `Q_{E,E}^{-1}`, `Q_{E^c,E}` and the columns of `Q` at nonzero bounds. Each
+point then costs `penalty(Y(w))` and `O(|E| p)`, instead of a rebuild of the constraints
+(`|E|` matvecs and an `|E|^3` inverse). The structure is cached for each pattern of bound
+activations met along the ray, so the event is unchanged. A coordinate at a bound that
+moves with `Y` leaves it just off `w_obs`, which changes the pattern.
+
+One truncation set of an adaptive lasso, default 2001-point grid (`penalty` in Python):
+
+| p | active | Python reference | C++, rebuilding | C++, along the ray |
+|---|---|---|---|---|
+| 10 | 5 | 0.30 s | 0.02 s | 0.01 s |
+| 40 | 11 | 0.34 s | 0.03 s | 0.02 s |
+| 160 | 35 | 0.40 s | 0.26 s | 0.02 s |
+| 640 | 164 | 0.89 s | 12.5 s | 0.08 s |
+
+At p = 640, about a third of the remaining time is the Python `penalty` calls.
+
 ## Next
 
 - Use the per-row structure: return the slack of each row instead of a boolean, use
@@ -51,8 +72,4 @@ All truncation sets were single intervals. Each inference takes about 0.15 s wit
   pieces are missed.
 - Other targets: selected-model coefficients (`W Z_E`), and inactive variables.
 - A vignette, e.g. the adaptive lasso.
-- Speed at large p. Per evaluation, the C++ event still rebuilds the constraints: an
-  `|E|^3` inverse and `Q` matvecs. It is 15x faster than Python at p = 10, but only 1.6x at
-  p = 160 (|E| = 35). Precompute the affine structure along the ray: `A Y(w) = u + a w`, and
-  `b = b0 + M D(w)`, so that only `D(w)` is evaluated per point.
 - Designs where sets have several pieces (strong correlation, small n), to test the grid.

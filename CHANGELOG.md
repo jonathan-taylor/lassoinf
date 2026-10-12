@@ -13,8 +13,9 @@ Changes to the Python package `lassoinf`. The R package's changes are in
 - Experimental: `lassoinf.ray_selection` finds the truncation set of an explicit selection
   event numerically along the conditioning ray, for example a lasso with penalties that are
   functions of the data, such as the adaptive lasso. The root finding and the lasso event
-  are in C++ (`cpp/src/ray_selection.cpp`). It is not used by the uniLasso, which keeps its
-  closed form.
+  are in C++ (`cpp/src/ray_selection.cpp`); along the ray the lasso event reuses its
+  constraints, so each point costs `O(|E| p)`. It is not used by the uniLasso, which keeps
+  its closed form.
 
 ## 0.2.0
 
