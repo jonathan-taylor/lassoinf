@@ -9,9 +9,9 @@
 
 namespace lassoinf {
 
-namespace {
+using detail::kInf;
 
-const double kInf = std::numeric_limits<double>::infinity();
+namespace {
 
 // rows with |linear coefficient| below this are treated as constant, as in
 // AffineConstraintsContrast::get_interval

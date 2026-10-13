@@ -9,6 +9,7 @@
 
 namespace lassoinf {
 
+using detail::kInf;
 using detail::take;
 
 std::function<bool(double)> RayEvent::along(const Eigen::VectorXd& y0, const Eigen::VectorXd& direction) const {
@@ -16,8 +17,6 @@ std::function<bool(double)> RayEvent::along(const Eigen::VectorXd& y0, const Eig
 }
 
 namespace {
-
-const double kInf = std::numeric_limits<double>::infinity();
 
 double bound(const Eigen::VectorXd& v, int j, double none) { return v.size() > 0 ? v(j) : none; }
 
