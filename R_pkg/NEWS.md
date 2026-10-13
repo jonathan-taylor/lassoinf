@@ -1,3 +1,14 @@
+# lassoinf (development version)
+
+* Experimental: `find_truncation_set()`, `lasso_event()` and `ray_contrast_inference()`
+  find the truncation set of an explicit selection event numerically along the
+  conditioning ray. An example is a lasso with penalties that are functions of the data,
+  such as the adaptive lasso. They use the same C++ code as Python's
+  `lassoinf.ray_selection`. `unilasso_inference()` keeps its closed form.
+  `lasso_event()` uses the same scale-relative active-set tolerance as
+  `LassoInference`, and checks `AY <= b` to
+  `slack * (|b_i| + |(AY)_i|)`, so rescaling the response rescales the truncation sets.
+
 # lassoinf 0.2.1
 
 * The active set is now found with a tolerance relative to the scale of the fit:
@@ -11,11 +22,6 @@
   truncation sets) are now in the shared C++ library, which the Python package also uses.
   Results are unchanged, except that truncation-set pieces of rounding width (about 1e-16)
   are dropped.
-* Experimental: `find_truncation_set()`, `lasso_event()` and `ray_contrast_inference()`
-  find the truncation set of an explicit selection event numerically along the
-  conditioning ray. An example is a lasso with penalties that are functions of the data,
-  such as the adaptive lasso. They use the same C++ code as Python's
-  `lassoinf.ray_selection`. `unilasso_inference()` keeps its closed form.
 
 # lassoinf 0.2.0
 

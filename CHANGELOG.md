@@ -3,6 +3,18 @@
 Changes to the Python package `lassoinf`. The R package's changes are in
 [`R_pkg/NEWS.md`](R_pkg/NEWS.md).
 
+## Unreleased
+
+- Experimental: `lassoinf.ray_selection` finds the truncation set of an explicit selection
+  event numerically along the conditioning ray, for example a lasso with penalties that are
+  functions of the data, such as the adaptive lasso. The root finding and the lasso event
+  are in C++ (`cpp/src/ray_selection.cpp`); along the ray the lasso event reuses its
+  constraints, so each point costs `O(|E| p)`. It is not used by the uniLasso, which keeps
+  its closed form.
+  The lasso event uses the same scale-relative active-set tolerance as
+  `lasso_post_selection_constraints`, and checks `A Y <= b` to `slack * (|b_i| + |(A Y)_i|)`,
+  so rescaling the response rescales the truncation sets.
+
 ## 0.2.1
 
 - The active set is now found with a tolerance relative to the scale of the fit:
@@ -17,12 +29,6 @@ Changes to the Python package `lassoinf`. The R package's changes are in
   `lassoinf.unilasso` calls them through `lassoinf_cpp`. Results are unchanged, except that
   truncation-set pieces of rounding width (about 1e-16) are dropped. The pure-Python
   versions are kept as test references in `tests/unilasso_reference.py`.
-- Experimental: `lassoinf.ray_selection` finds the truncation set of an explicit selection
-  event numerically along the conditioning ray, for example a lasso with penalties that are
-  functions of the data, such as the adaptive lasso. The root finding and the lasso event
-  are in C++ (`cpp/src/ray_selection.cpp`); along the ray the lasso event reuses its
-  constraints, so each point costs `O(|E| p)`. It is not used by the uniLasso, which keeps
-  its closed form.
 
 ## 0.2.0
 
