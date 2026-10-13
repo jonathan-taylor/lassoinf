@@ -10,6 +10,7 @@ namespace py = pybind11;
 
 void init_discrete_family(py::module_ &m);
 void init_gaussian_family(py::module_ &m);
+void init_unilasso(py::module_ &m);
 
 // Pybind11 trampoline class for LinearOperator
 class PyLinearOperator : public lassoinf::LinearOperator {
@@ -38,6 +39,7 @@ PYBIND11_MODULE(lassoinf_cpp, m) {
 
     init_discrete_family(m);
     init_gaussian_family(m);
+    init_unilasso(m);
 
     py::class_<lassoinf::AffineConstraintsContrast>(m, "AffineConstraintsContrast")
         .def_readonly("gamma", &lassoinf::AffineConstraintsContrast::gamma)
