@@ -55,7 +55,8 @@ find_truncation_set <- function(event, contrast, n_sd = 10, n_grid = 2001, tol =
 #'   \code{U} \code{NULL} for no bounds), or \code{NULL} where \code{Y} is outside the
 #'   conditioning event for the penalties (for example, where a conditioned sign is wrong).
 #' @param tol Tolerance for the active set.
-#' @param slack The constraints \eqn{AY \le b} are checked to \code{slack * (1 + |b|)}.
+#' @param slack The constraints \eqn{AY \le b} are checked to
+#'   \code{slack * (|b_i| + |(AY)_i|)}, relative to the scale of the problem.
 #' @return An event, evaluated in C++ (\code{penalty} is called in R); \code{event$call(Y)}
 #'   evaluates it at \code{Y}.
 #' @export

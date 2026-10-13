@@ -55,7 +55,8 @@ struct RayPenalty {
 // The lasso solves minimize 1/2 beta' Q beta - beta' Y + sum_j D_j |beta_j| subject to
 // L <= beta <= U, with (D, L, U) = penalty(Y). beta_hat and G_hat (the gradient
 // Q beta_hat - Y at the observed Y) fix the active set, signs and bound activations. The
-// constraints A Y <= b are checked to slack * (1 + |b|).
+// constraints A Y <= b are checked to slack * (|b_i| + |(A Y)_i|), relative to the scale of
+// the problem.
 //
 // Along a ray, A depends only on the active set, signs and bound activations (fixed by
 // beta_hat and which bounds are finite), and b is affine in (D, L, U): with A Y(w) = u + a w

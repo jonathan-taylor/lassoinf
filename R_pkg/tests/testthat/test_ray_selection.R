@@ -46,6 +46,34 @@ test_that("with fixed penalties the truncation set is the polyhedral lemma's int
   }
 })
 
+test_that("rescaling the response rescales the truncation sets", {
+  # the ray's patterns use the same scale-relative tolerance as the constraints; finite
+  # bounds, not binding, add rows for the active coordinates that the pattern must find
+  set.seed(0)
+  n <- 100; p <- 6
+  x <- design(n, p)
+  Q <- crossprod(x)
+  Z <- drop(crossprod(x, x[, 1:2] %*% c(0.3, -0.2) + rnorm(n)))
+  Y <- Z + drop(t(chol(0.5 * Q)) %*% rnorm(p))
+  D <- rep(15, p)
+  b <- weighted_lasso(Q, Y, D)
+  G <- drop(Q %*% b) - Y
+  for (k in c(1e-8, 1e8)) {
+    for (bound in c(Inf, 100)) {
+      L <- rep(-k * bound, p); U <- rep(k * bound, p)
+      cons <- lassoinf:::lasso_post_selection_constraints(k * b, k * G, Q, k * D, L, U, 1e-6)
+      expect_gt(length(cons$E), 0)
+      si <- new(AffineConstraints, k * Z, k * Y, k^2 * Q, NULL, 0.5)
+      event <- lasso_event(k * b, k * G, Q, function(Y) list(k * D, L, U))
+      for (j in cons$E + 1) {
+        contrast <- si$compute_contrast(solve(Q, replace(rep(0, p), j, 1)))
+        S <- find_truncation_set(event, contrast)
+        expect_equal(drop(S), contrast$get_interval(0, cons$A, cons$b), tolerance = 1e-6)
+      }
+    }
+  }
+})
+
 test_that("an R function event and the C++ event agree", {
   set.seed(1)
   n <- 100; p <- 5

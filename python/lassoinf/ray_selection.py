@@ -131,7 +131,8 @@ def lasso_event(beta_hat, G_hat, Q, penalty, tol=1e-6, slack=1e-9):
 
     beta_hat, G_hat : the solution and the gradient Q beta_hat - Y at the observed Y; they
         fix the active set, signs and bound activations
-    slack : the constraints A Y <= b are checked to slack * (1 + |b|)
+    slack : the constraints A Y <= b are checked to slack * (|b_i| + |(A Y)_i|), relative to
+        the scale of the problem
 
     Returns a lassoinf_cpp.RayEvent: event(Y) -> bool, with the constraints built and checked
     in C++ (penalty is still called in Python).

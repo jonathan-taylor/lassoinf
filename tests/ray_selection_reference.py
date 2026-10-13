@@ -52,6 +52,8 @@ def find_truncation_set(event, contrast, n_sd=10., n_grid=2001, tol=1e-10):
         # the change between lo and hi, where member(lo) == lo_inside != member(hi)
         while hi - lo > tol * sd_w:
             mid = 0.5 * (lo + hi)
+            if not lo < mid < hi:
+                break
             if member(mid) == lo_inside:
                 lo = mid
             else:
@@ -84,7 +86,7 @@ def lasso_event(beta_hat, G_hat, Q, penalty, tol=1e-6, slack=1e-9):
 
     beta_hat, G_hat : the solution and the gradient Q beta_hat - Y at the observed Y; they
         fix the active set, signs and bound activations
-    slack : the constraints A Y <= b are checked to slack * (1 + |b|)
+    slack : the constraints A Y <= b are checked to slack * (|b_i| + |(A Y)_i|)
 
     Returns event(Y) -> bool.
     """
@@ -98,6 +100,6 @@ def lasso_event(beta_hat, G_hat, Q, penalty, tol=1e-6, slack=1e-9):
         D, L, U = pen
         A, b = lasso_post_selection_constraints(beta_hat, G_hat, Q, D, L, U, tol=tol)[:2]
         AY = np.ravel(A @ Y)
-        return bool(np.all(AY <= b + slack * (1 + np.abs(b))))
+        return bool(np.all(AY <= b + slack * (np.abs(b) + np.abs(AY))))
 
     return event

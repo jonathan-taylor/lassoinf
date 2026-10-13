@@ -19,7 +19,8 @@ conditioning event for the penalties (for example, where a conditioned sign is w
 
 \item{tol}{Tolerance for the active set.}
 
-\item{slack}{The constraints \eqn{AY \le b} are checked to \code{slack * (1 + |b|)}.}
+\item{slack}{The constraints \eqn{AY \le b} are checked to
+\code{slack * (|b_i| + |(AY)_i|)}, relative to the scale of the problem.}
 }
 \value{
 An event, evaluated in C++ (\code{penalty} is called in R); \code{event$call(Y)}

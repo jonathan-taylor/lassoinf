@@ -20,21 +20,30 @@ namespace {
 
 double bound(const Eigen::VectorXd& v, int j, double none) { return v.size() > 0 ? v(j) : none; }
 
+// AY <= b, each row to slack * (|b_i| + |(AY)_i|): relative to the scale of the problem, so
+// rescaling Y rescales the event.
+bool within(const Eigen::VectorXd& AY, const Eigen::VectorXd& b, double slack) {
+    for (Eigen::Index i = 0; i < AY.size(); ++i) {
+        if (!(AY(i) <= b(i) + slack * (std::abs(b(i)) + std::abs(AY(i))))) return false;
+    }
+    return true;
+}
+
 // The active set, signs and bound activations of beta_hat under (L, U), as in
-// lasso_post_selection_constraints, with which bounds give constraints: this fixes A and the
-// layout of b. One character per coordinate.
+// lasso_post_selection_constraints (tol is its coordinate_tolerance), with which bounds give
+// constraints: this fixes A and the layout of b. One character per coordinate.
 std::string lasso_pattern(const Eigen::VectorXd& beta, const Eigen::VectorXd& L, const Eigen::VectorXd& U,
-                          double tol) {
+                          const Eigen::VectorXd& tol) {
     std::string code(beta.size(), ' ');
     for (Eigen::Index j = 0; j < beta.size(); ++j) {
         double Lj = bound(L, j, -kInf), Uj = bound(U, j, kInf);
-        bool at_L = beta(j) <= Lj + tol;
-        bool at_U = beta(j) >= Uj - tol;
-        bool at_0 = std::abs(beta(j)) <= tol;
+        bool at_L = beta(j) <= Lj + tol(j);
+        bool at_U = beta(j) >= Uj - tol(j);
+        bool at_0 = std::abs(beta(j)) <= tol(j);
         if (!at_L && !at_U && !at_0) {
             code[j] = beta(j) > 0 ? (Uj < kInf ? 'P' : 'p') : (Lj > -kInf ? 'N' : 'n');
         } else if (at_0) {
-            code[j] = static_cast<char>('0' + (Lj < -tol) + 2 * (Uj > tol));
+            code[j] = static_cast<char>('0' + (Lj < -tol(j)) + 2 * (Uj > tol(j)));
         } else {
             code[j] = at_U ? 'U' : 'L';
         }
@@ -126,21 +135,18 @@ bool LassoRayEvent::operator()(const Eigen::VectorXd& Y) const {
     if (!pen.valid) return false;
     LassoConstraints cons = lasso_post_selection_constraints(beta_hat_, G_hat_, Q_, pen.D, pen.L,
                                                              pen.U, tol_);
-    Eigen::VectorXd AY = cons.A->multiply(Y);
-    for (Eigen::Index i = 0; i < AY.size(); ++i) {
-        if (!(AY(i) <= cons.b(i) + slack_ * (1 + std::abs(cons.b(i))))) return false;
-    }
-    return true;
+    return within(cons.A->multiply(Y), cons.b, slack_);
 }
 
 std::function<bool(double)> LassoRayEvent::along(const Eigen::VectorXd& y0,
                                                  const Eigen::VectorXd& direction) const {
     auto cache = std::make_shared<std::map<std::string, RayConstraints>>();
-    return [this, y0, direction, cache](double w) {
+    const Eigen::VectorXd tol_j = coordinate_tolerance(beta_hat_, Q_, tol_);
+    return [this, y0, direction, cache, tol_j](double w) {
         Eigen::VectorXd Y = y0 + direction * w;
         RayPenalty pen = penalty_(Y);
         if (!pen.valid) return false;
-        std::string code = lasso_pattern(beta_hat_, pen.L, pen.U, tol_);
+        std::string code = lasso_pattern(beta_hat_, pen.L, pen.U, tol_j);
         auto it = cache->find(code);
         if (it == cache->end()) {
             LassoConstraints cons = lasso_post_selection_constraints(beta_hat_, G_hat_, Q_, pen.D, pen.L,
@@ -148,11 +154,7 @@ std::function<bool(double)> LassoRayEvent::along(const Eigen::VectorXd& y0,
             it = cache->emplace(code, ray_constraints(cons, *Q_, code, y0, direction)).first;
         }
         const RayConstraints& rc = it->second;
-        Eigen::VectorXd b = ray_offsets(rc, code, pen);
-        for (Eigen::Index i = 0; i < b.size(); ++i) {
-            if (!(rc.u(i) + rc.a(i) * w <= b(i) + slack_ * (1 + std::abs(b(i))))) return false;
-        }
-        return true;
+        return within(rc.u + rc.a * w, ray_offsets(rc, code, pen), slack_);
     };
 }
 
@@ -190,6 +192,7 @@ Eigen::MatrixXd find_truncation_set(const RayEvent& event,
     auto boundary = [&](double lo, double hi, bool lo_inside) {
         while (hi - lo > tol * sd_w) {
             double mid = 0.5 * (lo + hi);
+            if (mid <= lo || mid >= hi) break;  // tol below the spacing of doubles
             if (member(mid) == lo_inside) {
                 lo = mid;
             } else {

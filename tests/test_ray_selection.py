@@ -47,6 +47,46 @@ def test_fixed_penalty_is_the_polyhedral_lemma():
         np.testing.assert_allclose(S, [contrast.get_interval(0., LI.A, LI.b)], rtol=1e-7, atol=1e-7)
 
 
+@pytest.mark.parametrize('bound', [np.inf, 100.])
+@pytest.mark.parametrize('k', [1e-8, 1e8])
+def test_response_scale(k, bound):
+    # the ray's patterns use the same scale-relative tolerance as the constraints: rescaling
+    # the response rescales the truncation sets (finite bounds, not binding, add rows for
+    # the active coordinates that the pattern must find)
+    rng = np.random.default_rng(0)
+    n, p = 100, 6
+    X = _design(rng, n, p)
+    Q, Z = X.T @ X, X.T @ (X[:, :2] @ np.r_[0.3, -0.2] + rng.standard_normal(n))
+    Y = Z + np.linalg.cholesky(0.5 * Q) @ rng.standard_normal(p)
+    D = np.full(p, 15.)
+    b = _weighted_lasso(Q, Y, D)
+    LI = LassoInference(beta_hat=k * b, G_hat=k * (Q @ b - Y), Q_hat=Q, D=k * D,
+                        L=np.full(p, -k * bound), U=np.full(p, k * bound), Z_full=k * Z,
+                        Sigma=k**2 * Q, scalar_noise=0.5)
+    event = lasso_event(LI.beta_hat, LI.G_hat, Q, lambda Y: (k * D, LI.L, LI.U))
+    assert len(LI.E) > 0
+    for j, contrast in LI._contrasts.items():
+        S = find_truncation_set(event, contrast)
+        np.testing.assert_allclose(S, [contrast.get_interval(0., LI.A, LI.b)], rtol=1e-6)
+
+
+def test_tol_below_double_precision():
+    # a tol finer than the spacing of doubles near w ends the bisection instead of looping
+    rng = np.random.default_rng(0)
+    n, p = 100, 6
+    X = _design(rng, n, p)
+    Q, Z = X.T @ X, X.T @ (X[:, :2] @ np.r_[0.3, -0.2] + rng.standard_normal(n))
+    Y = Z + np.linalg.cholesky(0.5 * Q) @ rng.standard_normal(p)
+    D = np.full(p, 15.)
+    b = _weighted_lasso(Q, Y, D)
+    LI = LassoInference(beta_hat=b, G_hat=Q @ b - Y, Q_hat=Q, D=D, L=np.full(p, -np.inf),
+                        U=np.full(p, np.inf), Z_full=Z, Sigma=Q, scalar_noise=0.5)
+    event = lasso_event(LI.beta_hat, LI.G_hat, Q, lambda Y: (D, LI.L, LI.U))
+    for j, contrast in LI._contrasts.items():
+        S = find_truncation_set(event, contrast, tol=1e-30)
+        np.testing.assert_allclose(S, [contrast.get_interval(0., LI.A, LI.b)], rtol=1e-7)
+
+
 def test_matches_the_unilasso_closed_form():
     # the uniLasso's truncation sets, found along the ray, match its closed form
     rng = np.random.default_rng(1)
