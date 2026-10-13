@@ -409,7 +409,7 @@ LassoInference <- R6::R6Class("LassoInference",
     #'   polyhedral lemma, with \code{Z_full} equal to the selection score
     #'   \code{-G_hat + Q_hat beta_hat}); as in the Python package, values below 0.001 are
     #'   raised to 0.001 for numerical stability. Default is \code{NaN}.
-    #' @param tol Tolerance for active set and KKT conditions. Default is \code{1e-6}.
+    #' @param tol Tolerance for the active set, relative to the scale of the fit: coordinate j counts as 0 (or at a bound) within \code{tol * max_k |beta_k| s_k / s_j}, with \code{s_j = sqrt(Q_jj)} for a dense \code{Q_hat} (1 otherwise), and for the KKT check. Default is \code{1e-6}.
     #' @param level Confidence level. Default is 0.95.
     initialize = function(beta_hat, G_hat, Q_hat, D, L=NULL, U=NULL, Z_full, Sigma, Sigma_noise=NULL, scalar_noise=NaN, tol = 1e-6, level = 0.95) {
       self$beta_hat <- beta_hat

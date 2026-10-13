@@ -252,6 +252,15 @@ struct LassoConstraints {
     Eigen::MatrixXd W;  // Q_{E,E}^{-1}
 };
 
+// Per-coordinate tolerances for the active set, relative to the scale of the fit:
+// tol * max_k |beta_k| s_k / s_j with s_j = sqrt(Q_jj) for a DenseOperator Q
+// (s = 1 otherwise), so that rescaling a feature or the response leaves the
+// active set unchanged.
+Eigen::VectorXd coordinate_tolerance(const Eigen::VectorXd& beta_hat,
+                                     const std::shared_ptr<LinearOperator>& Q,
+                                     double tol);
+
+// A coordinate is at 0 or at a bound when within coordinate_tolerance(beta_hat, Q, tol).
 LassoConstraints lasso_post_selection_constraints(
     const Eigen::VectorXd& beta_hat,
     const Eigen::VectorXd& G,

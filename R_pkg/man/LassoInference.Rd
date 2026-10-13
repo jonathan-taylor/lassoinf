@@ -146,7 +146,7 @@ with randomization. \emph{Biometrika}, 111(4), 1109--1127.
 polyhedral lemma, with \code{Z_full} equal to the selection score
 \code{-G_hat + Q_hat beta_hat}); as in the Python package, values below 0.001 are
 raised to 0.001 for numerical stability. Default is \code{NaN}.}
-      \item{\code{tol}}{Tolerance for active set and KKT conditions. Default is \code{1e-6}.}
+      \item{\code{tol}}{Tolerance for the active set, relative to the scale of the fit: coordinate j counts as 0 (or at a bound) within \code{tol * max_k |beta_k| s_k / s_j}, with \code{s_j = sqrt(Q_jj)} for a dense \code{Q_hat} (1 otherwise), and for the KKT check. Default is \code{1e-6}.}
       \item{\code{level}}{Confidence level. Default is 0.95.}
     }
     \if{html}{\out{</div>}}
