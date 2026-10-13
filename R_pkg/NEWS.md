@@ -1,4 +1,4 @@
-# lassoinf (development version)
+# lassoinf 0.2.1
 
 * The active set is now found with a tolerance relative to the scale of the fit:
   coordinate j counts as 0 (or at a bound) within `tol * max_k |beta_k| s_k / s_j`, with
