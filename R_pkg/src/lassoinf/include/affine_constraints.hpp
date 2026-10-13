@@ -137,6 +137,10 @@ private:
 
 namespace detail {
 
+// shared by the .cpp files, which the R package compiles as one translation unit
+// (src/bindings.cpp), so file-local copies would be redefinitions
+constexpr double kInf = std::numeric_limits<double>::infinity();
+
 inline Eigen::VectorXd embed(Eigen::Index n, const std::vector<int>& idx, const Eigen::VectorXd& vals) {
     Eigen::VectorXd z = Eigen::VectorXd::Zero(n);
     for (size_t i = 0; i < idx.size(); ++i) z(idx[i]) = vals(i);
