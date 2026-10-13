@@ -4,10 +4,9 @@ import numpy as np
 import pytest
 from scipy.stats import kstest
 
+import lassoinf_cpp
 from lassoinf.lasso import lasso_post_selection_constraints
 from lassoinf.unilasso import (UniLassoInference,
-                               _intersect,
-                               _row_sets,
                                unilasso_inference,
                                unilasso_fit,
                                unilasso_loo_kappa,
@@ -214,7 +213,18 @@ def test_loo_calibration():
     assert kstest(pivots, 'uniform').pvalue > 1e-3
 
 
-# ---- the row solver ----
+# ---- the row solver (C++) ----
+
+def _row_sets(u, a, b0, m, c, gamma, s):
+    # as an array (rows, 2, 2) of two intervals per row
+    sets = lassoinf_cpp.unilasso_row_sets(np.atleast_1d(np.asarray(u, float)), np.atleast_1d(np.asarray(a, float)),
+                                          np.atleast_1d(np.asarray(b0, float)), np.atleast_1d(np.asarray(m, float)),
+                                          c, gamma, s)
+    return sets.reshape(-1, 2, 2)
+
+
+def _intersect(sets):
+    return lassoinf_cpp.intersect_row_sets(np.asarray(sets, float).reshape(-1, 4))
 
 def test_row_two_pieces():
     # 3 - w <= 1 / w on w > 0: u = 3, a = -1, b0 = 0, m = 1, C(w) = w

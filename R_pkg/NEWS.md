@@ -8,6 +8,10 @@
   `glmnet_problem_from_fit()` now also return `information` (`Q_hat` without the ridge
   term) and `ridge`.
 * `unilasso_inference()` refuses fits with `alpha != 1`.
+* The uniLasso computations (`unilasso_fit()`, the KKT check, `kappa_j` and the
+  truncation sets) are now in the shared C++ library, which the Python package also uses.
+  Results are unchanged, except that truncation-set pieces of rounding width (about 1e-16)
+  are dropped.
 
 # lassoinf 0.2.0
 

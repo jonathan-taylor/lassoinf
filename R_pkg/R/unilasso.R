@@ -10,117 +10,21 @@
 # two intervals and the truncation set is a finite union of intervals. Mirrors
 # python/lassoinf/unilasso.py.
 
-# rows with |linear coefficient| below this are treated as constant, as in get_interval
-.unilasso_zero_tol <- 1e-10
-
-# {t : q2 t^2 + q1 t + q0 <= 0} for each row, as two intervals (columns lo1, hi1, lo2, hi2);
-# a missing interval has lo > hi
-.quadratic_le_zero <- function(q2, q1, q0) {
-  m <- length(q2)
-  out <- cbind(lo1 = rep(Inf, m), hi1 = rep(-Inf, m), lo2 = rep(Inf, m), hi2 = rep(-Inf, m))
-
-  # linear rows: q1 t + q0 <= 0
-  lin <- q2 == 0
-  pos <- lin & q1 > .unilasso_zero_tol
-  neg <- lin & q1 < -.unilasso_zero_tol
-  feasible <- lin & !pos & !neg & q0 <= .unilasso_zero_tol
-  root <- -q0 / q1
-  out[pos, "lo1"] <- -Inf
-  out[pos, "hi1"] <- root[pos]
-  out[neg, "lo1"] <- root[neg]
-  out[neg, "hi1"] <- Inf
-  out[feasible, "lo1"] <- -Inf
-  out[feasible, "hi1"] <- Inf
-
-  # quadratic rows, roots in the numerically stable form
-  quad <- !lin
-  disc <- q1^2 - 4 * q2 * q0
-  real <- quad & disc >= 0
-  sq <- sqrt(pmax(disc, 0))
-  w <- -0.5 * (q1 + ifelse(q1 >= 0, sq, -sq))
-  ra <- w / q2
-  rb <- ifelse(w != 0, q0 / w, ra)
-  r1 <- pmin(ra, rb)
-  r2 <- pmax(ra, rb)
-
-  up <- real & q2 > 0        # between the roots
-  out[up, "lo1"] <- r1[up]
-  out[up, "hi1"] <- r2[up]
-
-  down <- real & q2 < 0      # outside the roots
-  out[down, "lo1"] <- -Inf
-  out[down, "hi1"] <- r1[down]
-  out[down, "lo2"] <- r2[down]
-  out[down, "hi2"] <- Inf
-
-  everywhere <- quad & !real & q2 < 0
-  out[everywhere, "lo1"] <- -Inf
-  out[everywhere, "hi1"] <- Inf
-  out
-}
+# The computations are in the C++ library (cpp/src/unilasso.cpp), shared with Python.
 
 # For each row i, the set of w with s (c + gamma w) > 0 and
 # u_i + a_i w <= b0_i + m_i / (c + gamma w), as an m x 4 matrix of two intervals per row
 # (lo1, hi1, lo2, hi2); a missing interval has lo > hi.
 .unilasso_row_sets <- function(u, a, b0, m, c, gamma, s) {
-  # the half-line where C(w) has sign s
-  k <- s * gamma
-  h <- -s * c
-  if (k > 0) {
-    lo_I <- h / k; hi_I <- Inf
-  } else if (k < 0) {
-    lo_I <- -Inf; hi_I <- h / k
-  } else if (s * c > 0) {
-    lo_I <- -Inf; hi_I <- Inf
-  } else {
-    lo_I <- Inf; hi_I <- -Inf
-  }
-  # on it, the row is s [C(w) (u_i - b0_i + a_i w) - m_i] <= 0
-  v <- u - b0
-  pieces <- .quadratic_le_zero(s * gamma * a, s * (c * a + gamma * v), s * (c * v - m))
-  cbind(lo1 = pmax(pieces[, "lo1"], lo_I), hi1 = pmin(pieces[, "hi1"], hi_I),
-        lo2 = pmax(pieces[, "lo2"], lo_I), hi2 = pmin(pieces[, "hi2"], hi_I))
+  out <- unilasso_row_sets_cpp(as.numeric(u), as.numeric(a), as.numeric(b0), as.numeric(m),
+                               c, gamma, s)
+  colnames(out) <- c("lo1", "hi1", "lo2", "hi2")
+  out
 }
 
 # The intersection over rows of the unions from .unilasso_row_sets, as a k x 2 matrix of
 # disjoint intervals in increasing order.
-.intersect_row_sets <- function(sets) {
-  m <- nrow(sets)
-  if (m == 0) return(matrix(c(-Inf, Inf), 1, 2))
-  lo <- c(sets[, "lo1"], sets[, "lo2"])
-  hi <- c(sets[, "hi1"], sets[, "hi2"])
-  keep <- lo < hi
-  lo <- lo[keep]
-  hi <- hi[keep]
-  if (length(lo) == 0) return(matrix(numeric(0), 0, 2))
-
-  # sweep over the endpoints counting covering rows (each row's pieces are disjoint);
-  # at ties, closing before opening drops zero-length pieces
-  pos <- c(lo, hi)
-  delta <- c(rep(1, length(lo)), rep(-1, length(hi)))
-  o <- order(pos, delta)
-  pos <- pos[o]
-  delta <- delta[o]
-  count <- cumsum(delta)
-  n <- length(pos)
-  seg <- which(count[-n] == m & pos[-n] < pos[-1])
-  iv <- cbind(pos[seg], pos[seg + 1])
-
-  # merge touching segments
-  if (nrow(iv) > 1) {
-    merged <- iv[1, , drop = FALSE]
-    for (r in 2:nrow(iv)) {
-      last <- nrow(merged)
-      if (iv[r, 1] <= merged[last, 2]) {
-        merged[last, 2] <- max(merged[last, 2], iv[r, 2])
-      } else {
-        merged <- rbind(merged, iv[r, ])
-      }
-    }
-    iv <- merged
-  }
-  unname(iv)
-}
+.intersect_row_sets <- function(sets) unname(intersect_row_sets_cpp(unname(as.matrix(sets))))
 
 # --- uniLasso and unireg ---
 
@@ -139,10 +43,8 @@
 #' @keywords internal
 unilasso_penalty <- function(Z_noisy, Q, lam, C = NULL) {
   if (is.null(C)) C <- as.vector(Z_noisy) / diag(Q)
-  s <- sign(C)
-  if (any(s == 0)) stop("a univariate coefficient is exactly zero")
-  list(C = C, s = s, D = lam / abs(C),
-       L = ifelse(s > 0, 0, -Inf), U = ifelse(s > 0, Inf, 0))
+  if (!(length(lam) %in% c(1, length(C)))) stop("lam must have length 1 or length(C)")
+  unilasso_penalty_cpp(as.numeric(C), as.numeric(lam))
 }
 
 #' Fit the uniLasso
@@ -165,23 +67,7 @@ unilasso_penalty <- function(Z_noisy, Q, lam, C = NULL) {
 #' unilasso_fit(crossprod(x), drop(crossprod(x, y)), lam = 5)
 #' @export
 unilasso_fit <- function(Q, Z_noisy, lam, tol = 1e-12, max_iter = 100000) {
-  Q <- as.matrix(Q)
-  Y <- as.vector(Z_noisy)
-  pen <- unilasso_penalty(Y, Q, lam)
-  dq <- diag(Q)
-  beta <- rep(0, length(Y))
-  for (it in seq_len(max_iter)) {
-    delta <- 0
-    for (j in seq_along(Y)) {
-      r <- Y[j] - sum(Q[j, ] * beta) + dq[j] * beta[j]
-      new <- sign(r) * max(abs(r) - pen$D[j], 0) / dq[j]
-      new <- min(max(new, pen$L[j]), pen$U[j])
-      delta <- max(delta, abs(new - beta[j]) * sqrt(dq[j]))
-      beta[j] <- new
-    }
-    if (delta < tol) break
-  }
-  beta
+  unilasso_fit_cpp(as.matrix(Q), as.numeric(Z_noisy), as.numeric(lam), tol, as.integer(max_iter))
 }
 
 #' UniLassoInference Class
@@ -327,13 +213,6 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
         k <- k0 + 1
         e_k <- replace(rep(0, p), k, 1)
 
-        # b is affine in D: its coefficient on D_k (any step works; D_k = 0 for unireg)
-        step <- if (self$D[k] > 0) self$D[k] else 1
-        b_step <- lasso_post_selection_constraints(self$beta_hat, self$G_hat, Q_hat,
-                                                   self$D + step * e_k, self$L, self$U, tol)$b
-        M_k <- (b_step - self$b) / step
-        b0 <- self$b - M_k * self$D[k]
-        s_k <- sign(self$C[k])
         lam_k <- if (length(lam) == 1) lam else lam[k]
         # C_k is approximately Z_k / C_scale[k], so Cov(C_k, Z) = Sigma[k, ] / C_scale[k]
         Sigma_k <- matvec(self$Sigma, e_k) / self$C_scale[k]
@@ -341,17 +220,17 @@ UniLassoInference <- R6::R6Class("UniLassoInference",
         # full-model target theta_k = e_k' Q^{-1} E[Z]
         eta <- solve(Q_hat, e_k)
         contrast <- self$si$compute_contrast(eta)
-        # every row: (A Y)_i <= b0_i + M_ik lam_k s_k / C_k, along the line in w; at
-        # theta_hat = 0, A Y = A (N_o + bar_N_o) + A bar_Gamma w, and C_k is affine in w with
-        # slope Cov(C_k, theta_hat) / bar_s^2
+        # along the line in w, at theta_hat = 0 the selection data are
+        # Y(w) = N_o + bar_N_o + bar_Gamma w, and C_k is affine in w with slope
+        # Cov(C_k, theta_hat) / bar_s^2. b is affine in D, and only D_k moves, so every row
+        # is (A Y)_i <= b0_i + M_ik lam_k s_k / C_k.
         bar_s2 <- contrast$bar_s^2
         w_obs <- bar_s2 / contrast$naive_variance * contrast$theta_hat + contrast$bar_theta
         gamma <- sum(Sigma_k * eta) / bar_s2
-        S <- .intersect_row_sets(.unilasso_row_sets(
-          u = matvec(self$A, contrast$n_o + contrast$bar_n_o),
-          a = matvec(self$A, contrast$bar_gamma),
-          b0 = b0, m = M_k * lam_k * s_k,
-          c = self$C[k] - gamma * w_obs, gamma = gamma, s = s_k))
+        S <- unilasso_truncation_set_cpp(
+          self$beta_hat, self$G_hat, Q_hat, self$D, self$L, self$U, k0, lam_k, self$C[k],
+          y0 = contrast$n_o + contrast$bar_n_o, direction = contrast$bar_gamma,
+          w_obs = w_obs, gamma = gamma, tol = tol)
         if (nrow(S) == 0) stop("the observed data do not satisfy the selection event")
 
         variance <- contrast$naive_variance
@@ -494,16 +373,7 @@ unilasso_inference <- function(fit, x, y, s = NULL, sigma2 = NULL, level = 0.95,
 # the plain uniLasso with penalty (n lambda + kappa_j) / |b_j| on feature j. x and y are
 # centered; the univariate fits have intercepts.
 unilasso_loo_kappa <- function(x, y, beta_hat) {
-  n <- nrow(x)
-  S <- colSums(x^2)
-  b <- drop(crossprod(x, y)) / S
-  h <- 1 / n + sweep(x^2, 2, S, "/")                       # leverages of the univariate fits
-  delta <- -h / (1 - h) * (y - sweep(x, 2, b, "*"))         # leave-one-out fits minus fits
-  delta <- sweep(delta, 2, colMeans(delta))
-  theta <- beta_hat / b
-  r <- y - drop(x %*% beta_hat)
-  -drop(crossprod(delta, r)) + b * drop(crossprod(x, delta %*% theta)) +
-    drop(crossprod(delta, delta %*% theta))
+  unilasso_loo_kappa_cpp(as.matrix(x), as.numeric(y), as.numeric(beta_hat))
 }
 
 # The same from the coefficients of a fit at lam (glmnet's scaling) on (x, y), with intercept;
@@ -535,10 +405,7 @@ unilasso_inference_beta <- function(x, y, beta_hat, lam, loo = FALSE, sigma2 = N
     stop("beta_hat has a sign opposite to its univariate coefficient: it is not a uniLasso ",
          "fit for these data")
   }
-  g <- Z - drop(Q %*% beta_hat)    # minus the gradient
-  act <- beta_hat != 0
-  violation <- max(c(abs(g[act] - pen$D[act] * pen$s[act]),
-                     pmax(pen$s[!act] * g[!act] - pen$D[!act], 0)), 0)
+  violation <- unilasso_kkt_violation_cpp(beta_hat, Q, Z, as.numeric(lam_Z))
   scale <- if (max(abs(lam_Z)) > 0) mean(abs(lam_Z)) else max(abs(Z))
   if (violation > kkt_tol * scale) {
     warning(sprintf(paste0("the fit violates the uniLasso KKT conditions by %.1e * %s; it may ",
