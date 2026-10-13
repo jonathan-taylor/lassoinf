@@ -7,6 +7,10 @@
   small scale (a large coefficient) or a large one (a small, still active, coefficient)
   could be misclassified, and rescaling a feature or the response could change the
   selected set.
+* The uniLasso computations (`unilasso_fit()`, the KKT check, `kappa_j` and the
+  truncation sets) are now in the shared C++ library, which the Python package also uses.
+  Results are unchanged, except that truncation-set pieces of rounding width (about 1e-16)
+  are dropped.
 
 # lassoinf 0.2.0
 

@@ -12,6 +12,11 @@ Changes to the Python package `lassoinf`. The R package's changes are in
   small scale (a large coefficient) or a large one (a small, still active, coefficient)
   could be misclassified, and rescaling a feature or the response could change the
   selected set.
+- The uniLasso computations (the fit, the KKT check, `kappa_j` and the truncation sets) are
+  now in the C++ library (`cpp/src/unilasso.cpp`), shared with the R package;
+  `lassoinf.unilasso` calls them through `lassoinf_cpp`. Results are unchanged, except that
+  truncation-set pieces of rounding width (about 1e-16) are dropped. The pure-Python
+  versions are kept as test references in `tests/unilasso_reference.py`.
 
 ## 0.2.0
 
