@@ -1,5 +1,12 @@
 # lassoinf (development version)
 
+* The active set is now found with a tolerance relative to the scale of the fit:
+  coordinate j counts as 0 (or at a bound) within `tol * max_k |beta_k| s_k / s_j`, with
+  `s_j = sqrt(Q_jj)` when `Q_hat` is a dense matrix (1 for a matrix-free `Q_hat`, to avoid matvecs). The
+  default `tol = 1e-6` was an absolute tolerance on the coefficients, so a variable on a
+  small scale (a large coefficient) or a large one (a small, still active, coefficient)
+  could be misclassified, and rescaling a feature or the response could change the
+  selected set.
 * The uniLasso computations (`unilasso_fit()`, the KKT check, `kappa_j` and the
   truncation sets) are now in the shared C++ library, which the Python package also uses.
   Results are unchanged, except that truncation-set pieces of rounding width (about 1e-16)

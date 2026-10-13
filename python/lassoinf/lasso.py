@@ -267,11 +267,50 @@ def largest_eigenvalue_bound_Q(Q, num_iters=4):
     
     return upper_bound, mu
 
+def _Q_diagonal(Q):
+    """The diagonal of Q if it is available without matvecs (dense, sparse, or a
+    ``diagonal()`` method), else None."""
+    if isinstance(Q, np.ndarray):
+        return np.diag(Q)
+    if sp.issparse(Q):
+        return Q.diagonal()
+    diagonal = getattr(Q, 'diagonal', None)
+    if callable(diagonal):
+        try:
+            return np.asarray(diagonal(), dtype=float)
+        except (TypeError, NotImplementedError):
+            return None
+    return None
+
+
+def coordinate_tolerance(beta_hat, Q, tol=1e-6):
+    """
+    Per-coordinate tolerances for the active set, relative to the scale of the fit.
+
+    With s_j = sqrt(Q_jj) (1 for every coordinate when the diagonal of Q is not available
+    without matvecs), coordinate j is within tolerance of a value when it is within
+
+        tol * max_k |beta_k| s_k / s_j,
+
+    so ``tol`` is relative to the largest standardized coefficient |beta_k| s_k, and the
+    tolerance does not change when a feature, or the response, is rescaled.
+    """
+    beta_hat = np.asarray(beta_hat, dtype=float)
+    diag = _Q_diagonal(Q)
+    s = np.ones_like(beta_hat) if diag is None else np.sqrt(np.maximum(np.asarray(diag, float), 0))
+    s = np.where(s > 0, s, 1.)
+    ref = np.max(np.abs(beta_hat) * s, initial=0.)
+    return tol * (ref if ref > 0 else 1.) / s
+
+
 def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol=1e-6):
     """
     Derives the linear constraints AZ <= b characterizing the polytope where
     the active set, signs, and bound-activations of the Lasso remain constant.
     Returns A as a LassoConstraintOperator: matrix-free, applied with one Q matvec.
+
+    A coordinate is at 0 or at a bound when it is within ``tol`` of it relative to the
+    scale of the fit (see :func:`coordinate_tolerance`).
     """
 
     beta_hat = np.asarray(beta_hat, dtype=float)
@@ -279,6 +318,7 @@ def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol
     L_bound = np.full(n, -np.inf) if L is None else np.asarray(L, dtype=float)
     U_bound = np.full(n, np.inf) if U is None else np.asarray(U, dtype=float)
     D_diag = np.broadcast_to(np.asarray(D_diag, dtype=float), (n,))
+    tol = coordinate_tolerance(beta_hat, Q, tol)
 
     at_L = beta_hat <= L_bound + tol
     at_U = beta_hat >= U_bound - tol
@@ -295,8 +335,8 @@ def lasso_post_selection_constraints(beta_hat, G, Q, D_diag, L=None, U=None, tol
     d_Ec = D_diag[E_c]
     g_min = np.full(len(E_c), -np.inf)
     g_max = np.full(len(E_c), np.inf)
-    g_min = np.where(a0 & (L_bound[E_c] < -tol), -d_Ec, g_min)
-    g_max = np.where(a0 & (U_bound[E_c] > tol), d_Ec, g_max)
+    g_min = np.where(a0 & (L_bound[E_c] < -tol[E_c]), -d_Ec, g_min)
+    g_max = np.where(a0 & (U_bound[E_c] > tol[E_c]), d_Ec, g_max)
     g_min = np.where(~a0 & aU, d_Ec, g_min)
     g_max = np.where(~a0 & ~aU & aL, -d_Ec, g_max)
 
