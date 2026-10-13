@@ -3,7 +3,10 @@
 Changes to the Python package `lassoinf`. The R package's changes are in
 [`R_pkg/NEWS.md`](R_pkg/NEWS.md).
 
-## Unreleased
+## 0.2.1
+
+0.2.0 was not released on PyPI; 0.2.1 is the first release there since 0.1.4 and
+includes the changes listed under 0.2.0.
 
 - The active set is now found with a tolerance relative to the scale of the fit:
   coordinate j counts as 0 (or at a bound) within `tol * max_k |beta_k| s_k / s_j`, with
