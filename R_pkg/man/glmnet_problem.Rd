@@ -80,8 +80,9 @@ avoids this. The two agree for gaussian. \code{G_hat} is always at the LASSO sol
 }
 \value{
 A list with \code{beta_hat}, \code{G_hat}, \code{Q_hat}, \code{D}, \code{L},
-  \code{U} and \code{intercept}; coordinates are \code{(intercept, coef)} when
-  \code{intercept = TRUE}.
+  \code{U}, \code{information}, \code{ridge} and \code{intercept}; coordinates are
+  \code{(intercept, coef)} when \code{intercept = TRUE}. \code{information} is
+  \code{Q_hat} without the ridge term \code{diag(ridge)} of the elastic net.
 }
 \description{
 Gradient and Hessian of the smooth part at the solution, penalty

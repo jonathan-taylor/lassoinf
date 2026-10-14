@@ -1,3 +1,14 @@
+# lassoinf (development version)
+
+* `glmnet_inference()` with an elastic net (`alpha < 1`): `Sigma`, the covariance of the
+  score, no longer includes the ridge term. The ridge term is in the Hessian `Q_hat` but is
+  not random, so including it overstated the variance; intervals overcovered, by up to
+  0.97 at nominal 0.9 in simulations where the ridge was about 30% of the information.
+  Results for `alpha = 1` are unchanged. `glmnet_problem()` and
+  `glmnet_problem_from_fit()` now also return `information` (`Q_hat` without the ridge
+  term) and `ridge`.
+* `unilasso_inference()` refuses fits with `alpha != 1`.
+
 # lassoinf 0.2.1
 
 * The active set is now found with a tolerance relative to the scale of the fit:

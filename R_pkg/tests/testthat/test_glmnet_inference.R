@@ -68,7 +68,10 @@ test_that("weights, offset and the ridge term enter the full-data score", {
   ridge <- c(0, 0.05 * 0.5 * glmnet_scaling(x[rows, ], w[rows])^2)   # pf = 1, y_scale = 1
   G_full <- drop(crossprod(X1, wn * (exp(o + drop(X1 %*% b)) - y))) + ridge * b
   expect_equal(li$Z_full, -G_full + drop(prob$Q_hat %*% b), tolerance = 1e-8)
-  expect_equal(li$Sigma, prob$Q_hat / sum(w))
+  # the ridge term of the elastic net is not random: Var(Z) is the information without it
+  expect_equal(li$Sigma, prob$information / sum(w))
+  expect_equal(prob$Q_hat - prob$information, diag(prob$ridge))
+  expect_true(all(prob$ridge[-1] > 0))
 })
 
 test_that("gaussian dispersion is the least squares residual variance", {
@@ -105,4 +108,31 @@ test_that("LinearOp$scaled shares the operator", {
   v <- rnorm(p)
   expect_equal(Q$scaled(2.5)$multiply(v), 2.5 * Q$multiply(v))
   expect_equal(Q$scaled(2.5)$diagonal(), 2.5 * Q$diagonal())
+})
+
+test_that("elastic net: pivots at the targets are uniform (a check against gross errors)", {
+  skip_on_cran()
+  set.seed(11)
+  n <- 200; p <- 10; alpha <- 0.1; lam <- 0.5
+  beta <- c(0.5, 0.3, -0.3, rep(0, p - 3))
+  lam_path <- lam * exp(seq(log(10), 0, length.out = 25))
+  pivots <- c()
+  while (length(pivots) < 300) {
+    x <- matrix(rnorm(n * p), n, p) %*% chol(0.5 * diag(p) + 0.5)
+    y <- drop(x %*% beta) + rnorm(n)
+    fit <- glmnet::glmnet(x, y, alpha = alpha, lambda = lam_path, control = list(thresh = 1e-14))
+    li <- glmnet_inference(fit, x, y, s = lam)
+    # the target eta' E[Z], E[Z] = X1' X1 (0, beta) / n
+    X1 <- cbind(1, x)
+    EZ <- drop(crossprod(X1, X1 %*% c(0, beta))) / n
+    for (j in setdiff(li$E, 0)) {
+      con <- li$si$compute_contrast(li$contrasts[[as.character(j)]])
+      iv <- con$get_interval(0, li$A, li$b)
+      v <- con$naive_variance
+      tbn <- TruncBivariateNormal$new(a_coeff = con$bar_s^2 / v, b_coeff = 1, L = iv[1], U = iv[2],
+                                      sig_omega = con$bar_s, sig_x = sqrt(v))
+      pivots <- c(pivots, tbn$cdf(theta = sum(li$contrasts[[as.character(j)]] * EZ) / v, x = con$theta_hat))
+    }
+  }
+  expect_gt(suppressWarnings(ks.test(pivots, "punif")$p.value), 1e-3)
 })
