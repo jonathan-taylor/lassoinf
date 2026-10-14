@@ -121,7 +121,7 @@ well-specified model.}
       \item{\code{Sigma_noise}}{Covariance of the randomization. Default is \code{NULL}.}
       \item{\code{scalar_noise}}{If \code{Sigma_noise} is \code{NULL}, the randomization covariance
 is \code{scalar_noise * Sigma}, as for \code{LassoInference}. Default is \code{NaN}.}
-      \item{\code{tol}}{Tolerance for the active set. Default is \code{1e-6}.}
+      \item{\code{tol}}{Tolerance for the active set, relative to the scale of the fit: coordinate j counts as 0 (or at a bound) within \code{tol * max_k |beta_k| s_k / s_j}, with \code{s_j = sqrt(Q_jj)} for a dense \code{Q_hat} (1 otherwise). Default is \code{1e-6}.}
       \item{\code{level}}{Confidence level. Default is 0.95.}
       \item{\code{C}}{The univariate coefficients. Default \code{Z_noisy / diag(Q_hat)}, the
 gaussian univariate slopes; for a GLM, the slopes of the univariate fits.}

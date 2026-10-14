@@ -5,6 +5,19 @@ Changes to the Python package `lassoinf`. The R package's changes are in
 
 ## Unreleased
 
+- `unilasso_inference`: the docstring states that the fit must use the lasso penalty
+  (glmnet's `alpha = 1`); an elastic net would add a ridge term with data-dependent
+  factors, which is not supported.
+
+## 0.2.1
+
+- The active set is now found with a tolerance relative to the scale of the fit:
+  coordinate j counts as 0 (or at a bound) within `tol * max_k |beta_k| s_k / s_j`, with
+  `s_j = sqrt(Q_jj)` when `Q` is dense, sparse or has a `diagonal()` (1 for a matrix-free `Q`, to avoid matvecs). The
+  default `tol = 1e-6` was an absolute tolerance on the coefficients, so a variable on a
+  small scale (a large coefficient) or a large one (a small, still active, coefficient)
+  could be misclassified, and rescaling a feature or the response could change the
+  selected set.
 - The uniLasso computations (the fit, the KKT check, `kappa_j` and the truncation sets) are
   now in the C++ library (`cpp/src/unilasso.cpp`), shared with the R package;
   `lassoinf.unilasso` calls them through `lassoinf_cpp`. Results are unchanged, except that

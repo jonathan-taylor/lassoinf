@@ -100,6 +100,22 @@ Eigen::VectorXd VStackOperator::multiply_transpose(const Eigen::VectorXd& y) con
 
 // ---- constraints ----
 
+Eigen::VectorXd coordinate_tolerance(const Eigen::VectorXd& beta_hat,
+                                     const std::shared_ptr<LinearOperator>& Q,
+                                     double tol) {
+    // s_j = sqrt(Q_jj) when Q is dense (1 otherwise, to stay matrix-free):
+    // coordinate j is within tol * max_k |beta_k| s_k / s_j of a value.
+    Eigen::Index n = beta_hat.size();
+    Eigen::VectorXd s = Eigen::VectorXd::Ones(n);
+    if (auto dense = dynamic_cast<const DenseOperator*>(Q.get())) {
+        s = dense->mat().diagonal().cwiseMax(0.0).cwiseSqrt();
+        for (Eigen::Index j = 0; j < n; ++j) if (!(s(j) > 0)) s(j) = 1.0;
+    }
+    double ref = n > 0 ? (beta_hat.cwiseAbs().cwiseProduct(s)).maxCoeff() : 0.0;
+    if (!(ref > 0)) ref = 1.0;
+    return (tol * ref) * s.cwiseInverse();
+}
+
 LassoConstraints lasso_post_selection_constraints(
     const Eigen::VectorXd& beta_hat,
     const Eigen::VectorXd& G,
@@ -113,6 +129,7 @@ LassoConstraints lasso_post_selection_constraints(
     Eigen::Index n = Q->rows();
     Eigen::VectorXd L_bound = L.size() > 0 ? L : Eigen::VectorXd::Constant(n, -inf);
     Eigen::VectorXd U_bound = U.size() > 0 ? U : Eigen::VectorXd::Constant(n, inf);
+    const Eigen::VectorXd tol_j = coordinate_tolerance(beta_hat, Q, tol);
 
     std::vector<int> E;
     std::vector<int> E_c;
@@ -123,9 +140,9 @@ LassoConstraints lasso_post_selection_constraints(
 
     for (int j = 0; j < n; ++j) {
         double beta_val = beta_hat(j);
-        bool at_L = (beta_val <= L_bound(j) + tol);
-        bool at_U = (beta_val >= U_bound(j) - tol);
-        bool at_0 = (std::abs(beta_val) <= tol);
+        bool at_L = (beta_val <= L_bound(j) + tol_j(j));
+        bool at_U = (beta_val >= U_bound(j) - tol_j(j));
+        bool at_0 = (std::abs(beta_val) <= tol_j(j));
 
         if (!at_L && !at_U && !at_0) {
             E.push_back(j);
@@ -142,8 +159,8 @@ LassoConstraints lasso_post_selection_constraints(
             double gmin = -inf;
             double gmax = inf;
             if (at_0) {
-                if (L_bound(j) < -tol) gmin = -dj;
-                if (U_bound(j) > tol) gmax = dj;
+                if (L_bound(j) < -tol_j(j)) gmin = -dj;
+                if (U_bound(j) > tol_j(j)) gmax = dj;
             } else if (at_U) {
                 gmin = dj;
             } else if (at_L) {
