@@ -1,4 +1,4 @@
-# lassoinf (development version)
+# lassoinf 0.3.1
 
 * `glmnet_inference()` with an elastic net (`alpha < 1`): `Sigma`, the covariance of the
   score, no longer includes the ridge term. The ridge term is in the Hessian `Q_hat` but is

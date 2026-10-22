@@ -1,16 +1,17 @@
 ## Submission
 
-This is an update of lassoinf (0.1.0 on CRAN) to 0.3.0. It adds selective inference after
+This is an update of lassoinf (0.1.0 on CRAN) to 0.3.1. It adds selective inference after
 the uniLasso and uniReg (`unilasso_inference()`), and after a randomized lasso in
 covariance form from an estimate and its covariance (`covariance_lasso_inference()`), with
-vignettes for each. Versions 0.2.0 and 0.2.1 were not submitted to CRAN; their changes are
-in NEWS.md.
+vignettes for each, and fixes the score covariance for elastic-net fits in
+`glmnet_inference()`. Versions 0.2.0, 0.2.1 and 0.3.0 were not submitted to CRAN; their
+changes are in NEWS.md.
 
 ## Test environments
 
 * local macOS (aarch64), R 4.5.3
 * TODO before submitting: GitHub Actions (macOS, Windows, Ubuntu devel/release/oldrel-1)
-  and win-builder (R-devel) for 0.3.0
+  and win-builder (R-devel) for 0.3.1
 
 ## R CMD check results
 
