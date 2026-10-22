@@ -59,7 +59,8 @@ doc = [
     "jupyter-book",
     "matplotlib",
     "rpy2",
-    "cvxpy"
+    "cvxpy",
+    "statsmodels"
 ]
 
 

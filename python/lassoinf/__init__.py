@@ -13,6 +13,10 @@ except PackageNotFoundError:
 from .lasso import LassoInference
 from .affine_constraints import AffineConstraints
 from .unilasso import UniLassoInference, unilasso_inference, unilasso_fit
+from .covariance_lasso import (covariance_lasso_inference,
+                               CovarianceLassoResult,
+                               box_lasso_fit,
+                               selective_mle)
 from .custom_estimand import (SelectionCoordinates,
                               ScreenedSelection,
                               ContrastEstimand,

@@ -15,6 +15,7 @@ py.install_sources(
   'python/lassoinf/lasso.py',
   'python/lassoinf/custom_estimand.py',
   'python/lassoinf/unilasso.py',
+  'python/lassoinf/covariance_lasso.py',
   subdir: 'lassoinf'
 )
 
@@ -35,9 +36,11 @@ py.extension_module(
   'cpp/src/gaussian_family.cpp',
   'cpp/src/custom_estimand.cpp',
   'cpp/src/unilasso.cpp',
+  'cpp/src/box_lasso.cpp',
   'python/discrete_family_py.cpp',
   'python/gaussian_family_py.cpp',
   'python/unilasso_py.cpp',
+  'python/box_lasso_py.cpp',
   'python/lassoinf_py.cpp',
   include_directories: include_directories('cpp/include', 'subprojects/eigen'),
   dependencies: [pybind11_dep],

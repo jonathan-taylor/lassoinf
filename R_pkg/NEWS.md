@@ -6,8 +6,25 @@
   0.97 at nominal 0.9 in simulations where the ridge was about 30% of the information.
   Results for `alpha = 1` are unchanged. `glmnet_problem()` and
   `glmnet_problem_from_fit()` now also return `information` (`Q_hat` without the ridge
-  term) and `ridge`.
-* `unilasso_inference()` refuses fits with `alpha != 1`.
+  term) and `ridge` (#26).
+* `unilasso_inference()` refuses fits with `alpha != 1` (#26).
+
+# lassoinf 0.3.0
+
+* `covariance_lasso_inference()`: selection and inference from an estimate and its
+  covariance alone, e.g. a GLM's coefficients and `vcov()`. It selects with the lasso in
+  covariance form, randomized to mimic selecting on a fraction `prop_select` of the data,
+  with a penalty that standardizes the score `Sigma^-1 beta`, the analog of glmnet's
+  standardized `X'y`, at a multiple of its expected largest entry under the
+  global null. For the selected coefficients it returns selective p-values, confidence
+  intervals and MLEs, for the coefficients of the selected model or of the full model. It
+  takes `exclude` and `penalty_factor` as in `glmnet`, and the randomization can be a given
+  draw, such as a bootstrap replicate minus the bootstrap mean.
+  `vignette("bootstrap_covariance_lasso")` uses it with a pairs-bootstrap covariance and
+  randomization for an overdispersed Poisson regression and for a robust (bisquare
+  `MASS::rlm()`) regression with a misspecified mean and heteroskedastic errors.
+* `box_lasso_fit()`: the lasso with box constraints for a quadratic loss, by coordinate
+  descent in the shared C++ library.
 
 # lassoinf 0.2.1
 

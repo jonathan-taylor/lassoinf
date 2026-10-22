@@ -7,7 +7,24 @@ Changes to the Python package `lassoinf`. The R package's changes are in
 
 - `unilasso_inference`: the docstring states that the fit must use the lasso penalty
   (glmnet's `alpha = 1`); an elastic net would add a ridge term with data-dependent
-  factors, which is not supported.
+  factors, which is not supported (#26).
+
+## 0.3.0
+
+- `covariance_lasso_inference(beta_hat, cov_beta, prop_select=0.8, exclude=None,
+  penalty_factor=None, ...)`: selection and inference from an estimate and its covariance
+  alone, e.g. a GLM's coefficients and `cov_params()`. It selects with the lasso in
+  covariance form, randomized to mimic selecting on a fraction `prop_select` of the data,
+  with a penalty that standardizes the score `Sigma^-1 beta`, the analog of glmnet's
+  standardized `X'y`, at a multiple of its expected largest entry under the
+  global null. For the selected coefficients it returns selective p-values, confidence
+  intervals and MLEs (`target='selected'` or `'full'`), and the estimates independent of
+  the selection. The randomization can be a given draw (`perturbation`), such as a
+  bootstrap replicate minus the bootstrap mean. See `docs/covariance_lasso.md`.
+- `box_lasso_fit`: the lasso with box constraints for a quadratic loss, by coordinate
+  descent in the C++ library (`cpp/src/box_lasso.cpp`), shared with the R package.
+- `LassoInference.truncated_family(v, variance)`: the `TruncBivariateNormal` law of
+  `v' Z_full` given the selection.
 
 ## 0.2.1
 
