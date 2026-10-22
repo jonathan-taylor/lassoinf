@@ -4,7 +4,9 @@
 # With the LASSO problem (beta_hat, G, Q_hat) on the rows used for selection
 # (glmnet_problem_from_fit; Q_hat at the one-step relaxed fit by default), the
 # selection score is Z_noisy = -G + Q_hat beta_hat, and
-#   Var(Z_full) = dispersion * Q_hat / sum(weights).
+#   Var(Z_full) = dispersion * information / sum(weights),
+# with information the Hessian Q_hat without the ridge term of the elastic net (the ridge
+# term is not random; for alpha = 1 the two agree).
 # Without held-out data Z_full = Z_noisy (scalar_noise = 0). With held-out data, selecting
 # on a proportion pi = sum(weights[rows]) / sum(weights) is randomization with
 # scalar_noise = (1 - pi) / pi, and Z_full linearizes the full-data gradient at one
@@ -73,7 +75,8 @@
 #'
 #' The selection score is \code{Z_noisy = -G + Q_hat beta_hat} from
 #' \code{glmnet_problem_from_fit} on the selection rows, and
-#' \code{Sigma = dispersion * Q_hat / sum(weights)}. Without held-out data
+#' \code{Sigma = dispersion * information / sum(weights)}, with \code{information} the
+#' Hessian without the elastic net's ridge term. Without held-out data
 #' \code{Z_full = Z_noisy}. With held-out data, \code{Z_full = -G_full(beta_tilde) +
 #' Q_hat beta_tilde}, with \code{G_full} the full-data gradient and \code{beta_tilde} one
 #' Newton step for the full-data loss on the selected coordinates from \code{beta_hat}. Weights are
@@ -166,6 +169,6 @@ glmnet_inference <- function(fit, x, y, s = NULL, selection_rows = NULL, weights
   }
   LassoInference$new(b, prob$G_hat, Q, prob$D, prob$L, prob$U,
                      Z_full = Z_full,
-                     Sigma = .scale_operator(Q, dispersion / sum(weights)),
+                     Sigma = .scale_operator(prob$information, dispersion / sum(weights)),
                      Sigma_noise = NULL, scalar_noise = scalar_noise, level = level)
 }

@@ -57,7 +57,8 @@ is randomization with \code{scalar_noise = (1 - pi) / pi}.
 
 The selection score is \code{Z_noisy = -G + Q_hat beta_hat} from
 \code{glmnet_problem_from_fit} on the selection rows, and
-\code{Sigma = dispersion * Q_hat / sum(weights)}. Without held-out data
+\code{Sigma = dispersion * information / sum(weights)}, with \code{information} the
+Hessian without the elastic net's ridge term. Without held-out data
 \code{Z_full = Z_noisy}. With held-out data, \code{Z_full = -G_full(beta_tilde) +
 Q_hat beta_tilde}, with \code{G_full} the full-data gradient and \code{beta_tilde} one
 Newton step for the full-data loss on the selected coordinates from \code{beta_hat}. Weights are

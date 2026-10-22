@@ -3,6 +3,12 @@
 Changes to the Python package `lassoinf`. The R package's changes are in
 [`R_pkg/NEWS.md`](R_pkg/NEWS.md).
 
+## Unreleased
+
+- `unilasso_inference`: the docstring states that the fit must use the lasso penalty
+  (glmnet's `alpha = 1`); an elastic net would add a ridge term with data-dependent
+  factors, which is not supported (#26).
+
 ## 0.3.0
 
 - `covariance_lasso_inference(beta_hat, cov_beta, prop_select=0.8, exclude=None,
