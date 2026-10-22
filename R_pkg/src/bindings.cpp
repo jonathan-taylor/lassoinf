@@ -8,6 +8,7 @@
 #include "lassoinf/include/gaussian_family.hpp"
 #include "lassoinf/include/custom_estimand.hpp"
 #include "lassoinf/include/unilasso.hpp"
+#include "lassoinf/include/box_lasso.hpp"
 
 // 2. Unity build: include the C++ sources directly to avoid duplicate symbols
 //    and bypass the need for a complex Makefile to compile them individually.
@@ -17,6 +18,7 @@
 #include "lassoinf/src/gaussian_family.cpp"
 #include "lassoinf/src/custom_estimand.cpp"
 #include "lassoinf/src/unilasso.cpp"
+#include "lassoinf/src/box_lasso.cpp"
 
 using namespace Rcpp;
 
@@ -252,6 +254,21 @@ Eigen::VectorXd screened_b_screen(lassoinf::ScreenedSelection* s) { return s->b_
 SEXP screened_A(lassoinf::ScreenedSelection* s) { return wrap_operator(s->A); }
 SEXP screened_A_screen(lassoinf::ScreenedSelection* s) { return wrap_operator(s->A_screen); }
 
+// ---- the lasso with box constraints ----
+
+Eigen::VectorXd box_lasso_fit_cpp(const Eigen::MatrixXd& Q, const Eigen::VectorXd& Y,
+                                  const Eigen::VectorXd& D, const Eigen::VectorXd& L,
+                                  const Eigen::VectorXd& U, const Eigen::VectorXd& beta0,
+                                  double tol, int max_iter) {
+    return rethrow([&] { return lassoinf::box_lasso_fit(Q, Y, D, L, U, beta0, tol, max_iter); });
+}
+
+double box_lasso_kkt_violation_cpp(const Eigen::VectorXd& beta_hat, const Eigen::MatrixXd& Q,
+                                   const Eigen::VectorXd& Y, const Eigen::VectorXd& D,
+                                   const Eigen::VectorXd& L, const Eigen::VectorXd& U) {
+    return rethrow([&] { return lassoinf::box_lasso_kkt_violation(beta_hat, Q, Y, D, L, U); });
+}
+
 // ---- uniLasso ----
 
 Rcpp::List unilasso_penalty_cpp(const Eigen::VectorXd& C, const Eigen::VectorXd& lam) {
@@ -395,6 +412,10 @@ RCPP_MODULE(lassoinf_cpp) {
         .method("A_screen", &screened_A_screen)
         ;
 
+    function("box_lasso_fit_cpp", &box_lasso_fit_cpp,
+             List::create(_["Q"], _["Y"], _["D"], _["L"], _["U"], _["beta0"], _["tol"], _["max_iter"]));
+    function("box_lasso_kkt_violation_cpp", &box_lasso_kkt_violation_cpp,
+             List::create(_["beta_hat"], _["Q"], _["Y"], _["D"], _["L"], _["U"]));
     function("unilasso_penalty_cpp", &unilasso_penalty_cpp, List::create(_["C"], _["lam"]));
     function("unilasso_fit_cpp", &unilasso_fit_cpp,
              List::create(_["Q"], _["Z_noisy"], _["lam"], _["tol"], _["max_iter"]));
