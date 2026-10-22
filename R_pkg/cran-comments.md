@@ -9,12 +9,15 @@ in NEWS.md.
 ## Test environments
 
 * local macOS (aarch64), R 4.5.3
-* GitHub Actions: macOS (release), Windows (release), Ubuntu (devel, release, oldrel-1)
-* win-builder (R-devel)
+* TODO before submitting: GitHub Actions (macOS, Windows, Ubuntu devel/release/oldrel-1)
+  and win-builder (R-devel) for 0.3.0
 
 ## R CMD check results
 
 0 errors | 0 warnings | 0 notes
+
+(Local `R CMD check --as-cran` on 2026-10-21 also gave "Days since last update: 1", which
+no longer applies at submission, and a note that the local HTML Tidy is too old.)
 
 ## Notes for the reviewers
 
