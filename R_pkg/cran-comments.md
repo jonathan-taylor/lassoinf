@@ -3,7 +3,7 @@
 This is an update of lassoinf (0.1.0 on CRAN) to 0.3.0. It adds selective inference after
 the uniLasso and uniReg (`unilasso_inference()`), and after a randomized lasso in
 covariance form from an estimate and its covariance (`covariance_lasso_inference()`), with
-two new vignettes. Versions 0.2.0 and 0.2.1 were not submitted to CRAN; their changes are
+vignettes for each. Versions 0.2.0 and 0.2.1 were not submitted to CRAN; their changes are
 in NEWS.md.
 
 ## Test environments
