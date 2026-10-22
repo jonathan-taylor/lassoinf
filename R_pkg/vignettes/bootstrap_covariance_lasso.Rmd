@@ -1,0 +1,576 @@
+---
+title: "Selection with a bootstrap covariance"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Selection with a bootstrap covariance}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6.5, fig.height = 4.2)
+library(lassoinf)
+```
+
+`covariance_lasso_inference()` needs only an estimate $\hat\beta$ and its covariance
+$\Sigma$, with $\hat\beta \approx N(\beta, \Sigma)$. It selects with the randomized lasso in
+covariance form,
+
+$$
+\hat b = \mathop{\mathrm{argmin}}_b \ \frac{1}{2}(\hat\beta^* - b)'\Sigma^{-1}(\hat\beta^* - b)
++ \sum_j D_j |b_j|, \qquad
+\hat\beta^* = \hat\beta + \sqrt{\frac{1-\pi}{\pi}}\ \omega,
+$$
+
+where $\omega$ is a draw with covariance $\Sigma$, independent of $\hat\beta$. Then
+$\hat\beta^*$ has the variance $\Sigma/\pi$ of an estimate computed on a fraction
+$\pi$ (`prop_select`) of the data, so the selection imitates a split without holding any
+data out. Given the selection it reports p-values, confidence intervals and selective
+MLEs for the selected coefficients.
+
+Here both ingredients come from a pairs bootstrap, with no model for the variance:
+
+* $\Sigma$ is the bootstrap covariance of $\hat\beta$;
+* $\omega$ is one more bootstrap replicate minus the bootstrap mean,
+  $\hat\beta^*_{B+1} - \bar\beta^*$. Given the data it is independent of $\hat\beta$, with
+  covariance approximately $\Sigma$; this is data fission with resampled data (Fry,
+  Panigrahi and Taylor, 2025).
+
+Because the selection is a lasso on $(\hat\beta, \Sigma)$, nothing has to be refit with a
+perturbed score or a linear term: the randomization is a perturbation of $\hat\beta$.
+
+## Overdispersed counts
+
+We simulate counts that are negative binomial, so a Poisson regression has the right mean
+but too small a variance. There are 40 features: 4 strong effects, 12 small ones and 24
+nulls.
+
+```{r}
+set.seed(1)
+n <- 1500
+p <- 40
+names_x <- paste0("x", 1:p)
+beta <- c(0.25, -0.2, 0.2, -0.15, sample(c(-1, 1), 12, TRUE) * runif(12, 0.03, 0.07),
+          rep(0, 24))
+names(beta) <- names_x
+signal <- setNames(rep(c("strong", "small", "null"), c(4, 12, 24)), names_x)
+
+sim_data <- function(n) {
+  X <- matrix(rnorm(n * p), n, dimnames = list(NULL, names_x))
+  y <- rnbinom(n, mu = exp(0.5 + drop(X %*% beta)), size = 2)
+  list(X = X, y = y)
+}
+d <- sim_data(n)
+fit <- glm(d$y ~ d$X, family = poisson())
+beta_hat <- setNames(coef(fit)[-1], names_x)
+```
+
+## The pairs bootstrap
+
+Each replicate refits the Poisson regression to a resample of the rows. We keep the slopes;
+leaving the intercept out of $\hat\beta$ and $\Sigma$ profiles it out.
+
+```{r}
+boot_coefs <- function(X, y, B, start) {
+  X1 <- cbind(1, X)
+  t(replicate(B, {
+    i <- sample(nrow(X1), replace = TRUE)
+    glm.fit(X1[i, ], y[i], family = poisson(), start = start)$coefficients[-1]
+  }))
+}
+B <- 1000
+boot <- boot_coefs(d$X, d$y, B + 1, start = coef(fit))
+colnames(boot) <- names_x
+cov_boot <- cov(boot[1:B, ])
+omega <- boot[B + 1, ] - colMeans(boot[1:B, ])
+```
+
+The bootstrap standard errors are about $\sqrt{\phi}$ times the Poisson ones, with $\phi$
+the overdispersion:
+
+```{r}
+summary(sqrt(diag(cov_boot)) / sqrt(diag(vcov(fit))[-1]))
+```
+
+## Selection and inference
+
+```{r}
+res <- covariance_lasso_inference(beta_hat, cov_boot, prop_select = 0.8,
+                                  perturbation = omega, target = "full", level = 0.9)
+res$threshold
+cbind(round(res$summary, 3), truth = beta[res$selected], signal = signal[res$selected])
+```
+
+`estimate` and `std_err` are $\hat\beta_j$ and its bootstrap standard error, `mle` the
+selective MLE, and `lower_conf`, `upper_conf` and `p_value` the selective interval and
+p-value, which account for the selection. `res$splitting` has the estimate that is
+independent of the selection, with $1/(1-\pi)$ times the variance: the analog of
+estimating on the held-out fifth of a split.
+
+```{r}
+round(res$splitting, 3)
+```
+
+With the default `target = "selected"` the targets are instead the coefficients of the
+model of the selected variables, in the $\Sigma^{-1}$ metric.
+
+## The matrices, by hand
+
+`covariance_lasso_inference()` is a thin layer over `LassoInference`. In its score
+coordinates the problem is
+
+$$
+Q = \Sigma^{-1}, \qquad Z = \Sigma^{-1}\hat\beta, \qquad \mathrm{Var}(Z) = \Sigma^{-1},
+\qquad Z^* = \Sigma^{-1}\hat\beta^* = Z + \Sigma^{-1}\sqrt{\tfrac{1-\pi}{\pi}}\,\omega,
+$$
+
+so the randomization $Z^* - Z$ has covariance $\frac{1-\pi}{\pi}\mathrm{Var}(Z)$:
+`scalar_noise` $= (1-\pi)/\pi$. The penalty standardizes the score $Z^*$, whose covariance
+is $\Sigma^{-1}/\pi$: $D_j = t \sqrt{(\Sigma^{-1})_{jj}/\pi}$. Nothing is selected exactly
+when every standardized score $Z^*_j / \sqrt{(\Sigma^{-1})_{jj}/\pi}$ is at most $t$ in
+absolute value, and the default $t$ is the expected largest of them under the global
+null.
+
+```{r}
+pi_sel <- 0.8
+Q <- solve(cov_boot)
+beta_star <- beta_hat + sqrt((1 - pi_sel) / pi_sel) * omega
+D <- res$threshold * sqrt(diag(Q) / pi_sel)
+b <- box_lasso_fit(Q, drop(Q %*% beta_star), D)
+by_hand <- LassoInference$new(beta_hat = b, G_hat = drop(Q %*% (b - beta_star)), Q_hat = Q,
+                              D = D, Z_full = drop(Q %*% beta_hat), Sigma = Q,
+                              scalar_noise = (1 - pi_sel) / pi_sel, level = 0.9)
+names_x[by_hand$E + 1]
+```
+
+`by_hand$summary()` has the intervals for the default target, the coefficients of the
+selected model.
+
+## Calibration
+
+We repeat the experiment, each time with a fresh bootstrap, and compare, for nominal 90%
+intervals for the full-model coefficients of the selected variables:
+
+* **selective**: `covariance_lasso_inference()` with the bootstrap covariance;
+* **selective, Poisson covariance**: the same with `vcov()` of the Poisson fit, which
+  ignores the overdispersion;
+* **naive**: $\hat\beta_j \pm 1.645\,\mathrm{SE}_{\text{boot}}(\hat\beta_j)$ after the same
+  selection.
+
+```{r}
+one_replication <- function(B = 300) {
+  d <- sim_data(n)
+  fit <- glm(d$y ~ d$X, family = poisson())
+  beta_hat <- setNames(coef(fit)[-1], names_x)
+  boot <- boot_coefs(d$X, d$y, B + 1, start = coef(fit))
+  cov_boot <- cov(boot[1:B, ])
+  omega <- boot[B + 1, ] - colMeans(boot[1:B, ])
+  out <- list()
+  record <- function(method, res, lower, upper) {
+    j <- res$selected
+    if (length(j) == 0) return(NULL)
+    data.frame(method = method, signal = signal[j], covered = lower <= beta[j] & beta[j] <= upper,
+               length = upper - lower, mle_error = sign(res$summary$estimate) *
+                 (res$summary$mle - beta[j]),
+               raw_error = sign(res$summary$estimate) * (res$summary$estimate - beta[j]))
+  }
+  res <- covariance_lasso_inference(beta_hat, cov_boot, prop_select = 0.8,
+                                    perturbation = omega, target = "full", level = 0.9)
+  s <- res$summary
+  q <- qnorm(0.95)
+  # the same randomization, scaled to the Poisson covariance
+  cov_pois <- vcov(fit)[-1, -1]
+  omega_pois <- drop(t(chol(cov_pois)) %*% solve(t(chol(cov_boot)), omega))
+  res_pois <- covariance_lasso_inference(beta_hat, cov_pois, prop_select = 0.8,
+                                         perturbation = omega_pois, target = "full",
+                                         level = 0.9)
+  rbind(record("selective", res, s$lower_conf, s$upper_conf),
+        record("naive", res, s$estimate - q * s$std_err, s$estimate + q * s$std_err),
+        record("selective, Poisson covariance", res_pois, res_pois$summary$lower_conf,
+               res_pois$summary$upper_conf))
+}
+
+coverage_table <- function(results) {
+  by_group <- split(results, list(results$method, results$signal), drop = TRUE)
+  out <- do.call(rbind, lapply(by_group, function(r) {
+    data.frame(method = r$method[1], signal = r$signal[1], intervals = nrow(r),
+               coverage = round(mean(r$covered), 3), mean_length = round(mean(r$length), 3))
+  }))
+  rownames(out) <- NULL
+  out
+}
+
+simulate <- function(nsim, seed = 2) {
+  set.seed(seed)
+  do.call(rbind, replicate(nsim, one_replication(), simplify = FALSE))
+}
+```
+
+```{r, include = FALSE}
+# The simulation results are saved in bootstrap_covariance_lasso_sims.rds (simulate() sets
+# its own seed, so they are the same). Set LASSOINF_RERUN_SIMS=true and rebuild the vignette
+# to recompute.
+sims_file <- "bootstrap_covariance_lasso_sims.rds"
+if (!file.exists(sims_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")) {
+  saveRDS(simulate(nsim = 200), sims_file)
+}
+results <- readRDS(sims_file)
+```
+
+```{r, eval = -1}
+results <- simulate(nsim = 200)
+results$signal <- factor(results$signal, c("strong", "small", "null"))
+coverage_table(results)
+```
+
+The naive intervals undercover badly for the nulls that were selected: they were selected
+because their estimates happened to be large. The selective intervals with the bootstrap
+covariance are close to the nominal 90% for all three kinds of variable, somewhat below it
+for the small effects. With the Poisson covariance the selection and the intervals both use
+too small a variance, about $1/\sqrt{2}$ of the true one here, and the intervals
+undercover everywhere.
+
+The selective MLE also removes most of the bias that selection puts into the estimates.
+Signed by the sign of the estimate, so that a positive error is a bias away from zero:
+
+```{r}
+sel <- results[results$method == "selective", ]
+aggregate(cbind(unadjusted = raw_error, selective_mle = mle_error) ~ signal, sel,
+          function(x) round(mean(x), 4))
+```
+
+## Robust regression with a misspecified mean
+
+The same recipe works for any estimator we can bootstrap. Here it is a robust regression,
+the M-estimator with Tukey's bisquare $\psi$ from `MASS::rlm()`, for heavy-tailed errors.
+The linear model is misspecified in two ways:
+
+$$
+y = 0.5 + x'\beta + \sum_j |x_j \beta_j| + \sigma(x)\,\varepsilon, \qquad
+\sigma(x) = \frac{0.3 + |x_1| + |x_5| + |x_{21}|}{3}, \qquad \varepsilon \sim t_3.
+$$
+
+* The mean has a piecewise-linear term, which bends each effect at 0 but has no curvature
+  away from it. A linear fit estimates the projection parameter $\beta^\circ$, the
+  population value of the bisquare M-estimator for this distribution of $(x, y)$. The
+  term is an even function of $x$, nearly uncorrelated with the linear part, so
+  $\beta^\circ$ stays close to $\beta$: the misspecification does not change what the
+  coefficients mean much.
+* The errors are heteroskedastic, with a scale that depends on a strong effect ($x_1$), a
+  small one ($x_5$) and a null ($x_{21}$).
+
+The covariance from the `rlm` fit assumes the linear model with homoskedastic errors. The
+pairs bootstrap does not.
+
+```{r}
+has_mass <- requireNamespace("MASS", quietly = TRUE)
+```
+
+```{r, eval = has_mass}
+n_rlm <- 1000
+R_x <- chol(0.3^abs(outer(1:p, 1:p, "-")))
+sim_rlm <- function(n) {
+  X <- matrix(rnorm(n * p), n, dimnames = list(NULL, names_x)) %*% R_x
+  colnames(X) <- names_x
+  scale <- (0.3 + abs(X[, "x1"]) + abs(X[, "x5"]) + abs(X[, "x21"])) / 3
+  y <- 0.5 + drop(X %*% beta) + drop(abs(X) %*% abs(beta)) + scale * rt(n, df = 3)
+  list(X = X, y = y)
+}
+rlm_coefs <- function(X, y, start = "ls") {
+  fit <- MASS::rlm(cbind(1, X), y, psi = MASS::psi.bisquare, init = start, maxit = 100)
+  fit$coefficients
+}
+```
+
+We approximate $\beta^\circ$ by fitting to one large sample from the population.
+
+```{r, eval = has_mass}
+set.seed(3)
+pop <- sim_rlm(200000)
+beta_proj <- setNames(rlm_coefs(pop$X, pop$y)[-1], names_x)
+round(cbind(beta = beta, projection = beta_proj)[c(1:6, 21:22), ], 3)
+```
+
+One data set, with the bootstrap as before. For $x_1$, $x_5$ and $x_{21}$ the bootstrap
+standard errors are well above the model-based ones:
+
+```{r, eval = has_mass}
+boot_rlm <- function(X, y, B, start) {
+  t(replicate(B, {
+    i <- sample(nrow(X), replace = TRUE)
+    rlm_coefs(X[i, ], y[i], start = start)[-1]
+  }))
+}
+d <- sim_rlm(n_rlm)
+coef_rlm <- rlm_coefs(d$X, d$y)
+beta_hat <- setNames(coef_rlm[-1], names_x)
+B <- 500
+boot <- boot_rlm(d$X, d$y, B + 1, start = coef_rlm)
+cov_boot <- cov(boot[1:B, ])
+omega <- boot[B + 1, ] - colMeans(boot[1:B, ])
+fit <- MASS::rlm(cbind(1, d$X), d$y, psi = MASS::psi.bisquare, init = coef_rlm, maxit = 100)
+se_ratio <- sqrt(diag(cov_boot)) / sqrt(diag(vcov(fit))[-1])
+round(se_ratio[c("x1", "x5", "x21")], 2)
+summary(se_ratio[!(names_x %in% c("x1", "x5", "x21"))])
+res <- covariance_lasso_inference(beta_hat, cov_boot, prop_select = 0.8,
+                                  perturbation = omega, target = "full", level = 0.9)
+cbind(round(res$summary, 3), projection = round(beta_proj[res$selected], 3),
+      signal = signal[res$selected])
+```
+
+### Calibration
+
+We compare, for nominal 90% intervals for $\beta^\circ_j$ of the selected variables:
+
+* **selective**: `covariance_lasso_inference()` with the bootstrap covariance;
+* **selective, rlm covariance**: the same with the model-based covariance of the `rlm`
+  fit;
+* **naive**: $\hat\beta_j \pm 1.645\,\mathrm{SE}_{\text{boot}}(\hat\beta_j)$ after the same
+  selection.
+
+```{r, eval = has_mass}
+one_rlm_replication <- function(B = 300) {
+  d <- sim_rlm(n_rlm)
+  coef_rlm <- rlm_coefs(d$X, d$y)
+  beta_hat <- setNames(coef_rlm[-1], names_x)
+  boot <- boot_rlm(d$X, d$y, B + 1, start = coef_rlm)
+  cov_boot <- cov(boot[1:B, ])
+  omega <- boot[B + 1, ] - colMeans(boot[1:B, ])
+  fit <- MASS::rlm(cbind(1, d$X), d$y, psi = MASS::psi.bisquare, init = coef_rlm,
+                   maxit = 100)
+  cov_model <- vcov(fit)[-1, -1]
+  record <- function(method, res, lower, upper) {
+    j <- res$selected
+    if (length(j) == 0) return(NULL)
+    target <- beta_proj[j]
+    data.frame(method = method, signal = signal[j], variable = j,
+               covered = lower <= target & target <= upper, length = upper - lower,
+               mle_error = sign(res$summary$estimate) * (res$summary$mle - target),
+               raw_error = sign(res$summary$estimate) * (res$summary$estimate - target))
+  }
+  res <- covariance_lasso_inference(beta_hat, cov_boot, prop_select = 0.8,
+                                    perturbation = omega, target = "full", level = 0.9)
+  s <- res$summary
+  q <- qnorm(0.95)
+  # the same randomization, scaled to the model-based covariance
+  omega_model <- drop(t(chol(cov_model)) %*% solve(t(chol(cov_boot)), omega))
+  res_model <- covariance_lasso_inference(beta_hat, cov_model, prop_select = 0.8,
+                                          perturbation = omega_model, target = "full",
+                                          level = 0.9)
+  rbind(record("selective", res, s$lower_conf, s$upper_conf),
+        record("naive", res, s$estimate - q * s$std_err, s$estimate + q * s$std_err),
+        record("selective, rlm covariance", res_model, res_model$summary$lower_conf,
+               res_model$summary$upper_conf))
+}
+
+simulate_rlm <- function(nsim, seed = 4) {
+  set.seed(seed)
+  do.call(rbind, replicate(nsim, one_rlm_replication(), simplify = FALSE))
+}
+```
+
+```{r, include = FALSE, eval = has_mass}
+# Saved like the simulation above; LASSOINF_RERUN_SIMS=true recomputes.
+sims_file <- "bootstrap_covariance_lasso_rlm_sims.rds"
+if (!file.exists(sims_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")) {
+  saveRDS(simulate_rlm(nsim = 200), sims_file)
+}
+results_rlm <- readRDS(sims_file)
+```
+
+```{r, eval = if (has_mass) -1 else FALSE}
+results_rlm <- simulate_rlm(nsim = 200)
+results_rlm$signal <- factor(results_rlm$signal, c("strong", "small", "null"))
+coverage_table(results_rlm)
+```
+
+The table pools all the variables. The difference between the two covariances is in the
+three with heteroskedastic errors, for which the model-based standard errors are too
+small:
+
+```{r, eval = has_mass}
+het <- results_rlm[results_rlm$variable %in% c("x1", "x5", "x21"), ]
+het$signal <- paste(het$variable, het$signal)
+coverage_table(het)
+```
+
+With the model-based covariance the intervals for these variables are too short and
+undercover. The bootstrap covariance keeps them close to the nominal level (there are few
+intervals for the null $x_{21}$, which is rarely selected).
+The selective MLE again removes most of the selection bias:
+
+```{r, eval = has_mass}
+sel <- results_rlm[results_rlm$method == "selective", ]
+aggregate(cbind(unadjusted = raw_error, selective_mle = mle_error) ~ signal, sel,
+          function(x) round(mean(x), 4))
+```
+
+## Mismatched penalties: the OLS lasso under misspecification
+
+With the model-based covariance $\hat\sigma^2(X'X)^{-1}$ of least squares, the lasso in
+covariance form is the OLS lasso: $\Sigma^{-1} = X'X/\hat\sigma^2$, so
+$\frac{1}{2}(\hat\beta^* - b)'\Sigma^{-1}(\hat\beta^* - b) = \|y^* - Xb\|^2 / (2\hat\sigma^2)$
+up to a constant, and the standardized score is the marginal $z$-statistic
+$x_j'y^* / (\hat\sigma \|x_j\|)$. The OLS lasso's penalty thus assumes that the score
+$x_j'(y - X\beta^\circ)$ has variance $\sigma^2 x_j'x_j$, with $\beta^\circ$ the
+projection parameter. When the linear model is misspecified that can be far off, and then
+the penalty is mismatched: some variables are penalized too little and others too much,
+whatever $\lambda$ is.
+
+We build such a mismatch. The mean has the piecewise-linear term again, and the errors
+are heteroskedastic:
+
+$$
+y = 0.5 + x'\beta + \sum_j |x_j\beta_j| + \sigma(x)\,\varepsilon, \qquad
+\sigma(x) = (0.3 + |x_{21}| + |x_{22}|)\, e^{-0.6(|x_5| + |x_6|)}, \qquad
+\varepsilon \sim N(0, 1).
+$$
+
+The noise is large where $|x_{21}|$ or $|x_{22}|$ is large, which inflates the variance of
+the scores of these two nulls, and small where $|x_5|$ or $|x_6|$ is large, which deflates
+it for these two small effects.
+
+```{r}
+cls <- signal
+cls[c("x5", "x6")] <- "small, quiet"
+cls[c("x21", "x22")] <- "null, noisy"
+R_x <- chol(0.3^abs(outer(1:p, 1:p, "-")))
+sim_ols <- function(n) {
+  X <- matrix(rnorm(n * p), n) %*% R_x
+  colnames(X) <- names_x
+  scale <- (0.3 + abs(X[, "x21"]) + abs(X[, "x22"])) * exp(-0.6 * (abs(X[, "x5"]) + abs(X[, "x6"])))
+  y <- 0.5 + drop(X %*% beta) + drop(abs(X) %*% abs(beta)) + scale * rnorm(n)
+  list(X = X, y = y)
+}
+```
+
+On one large sample, the ratio of the variance of each score $x_j'(y - X\beta^\circ)$ to
+the model-based $\hat\sigma^2 x_j'x_j$, averaged over each kind of variable:
+
+```{r}
+set.seed(5)
+pop <- sim_ols(200000)
+X1 <- cbind(1, pop$X)
+fit_pop <- lm.fit(X1, pop$y)
+r <- fit_pop$residuals
+score_ratio <- colMeans(X1^2 * r^2)[-1] / (mean(r^2) * colMeans(X1^2)[-1])
+round(tapply(score_ratio, cls, mean), 2)
+# the projection parameter, and the sandwich covariance of the least squares estimate
+beta_ols <- setNames(fit_pop$coefficients[-1], names_x)
+A <- crossprod(X1) / nrow(X1)
+sandwich <- (solve(A) %*% (crossprod(X1 * r) / nrow(X1)) %*% solve(A))[-1, -1]
+```
+
+We compare four ways to select, all at the default threshold, with the same randomization
+(one pairs-bootstrap replicate minus the bootstrap mean, mapped to each covariance):
+
+* **OLS lasso**: the model-based covariance $\hat\sigma^2(X'X)^{-1}$;
+* **bootstrap, marginal SE**: the bootstrap covariance, with `penalty_factor` set so that
+  the penalty uses the marginal standard errors of $\hat\beta_j$,
+  $D_j = t / (\sqrt\pi\,\mathrm{SE}(\hat\beta_j))$, instead of those of the score. This is
+  mismatched whenever the estimates are correlated;
+* **bootstrap**: the bootstrap covariance with the standardized score;
+* **oracle**: the population sandwich covariance divided by $n$.
+
+```{r}
+n_ols <- 1000
+one_ols_replication <- function(B = 2000) {
+  d <- sim_ols(n_ols)
+  X1 <- cbind(1, d$X)
+  fit <- lm.fit(X1, d$y)
+  beta_hat <- setNames(fit$coefficients[-1], names_x)
+  sigma2 <- sum(fit$residuals^2) / (n_ols - p - 1)
+  cov_model <- sigma2 * chol2inv(qr.R(fit$qr))[-1, -1]
+  boot <- t(replicate(B + 1, {
+    i <- sample(n_ols, replace = TRUE)
+    lm.fit(X1[i, ], d$y[i])$coefficients[-1]
+  }))
+  cov_boot <- cov(boot[1:B, ])
+  # the randomization, standardized by the bootstrap covariance, then mapped to each one
+  z <- solve(t(chol(cov_boot)), boot[B + 1, ] - colMeans(boot[1:B, ]))
+  run <- function(method, cov, penalty_factor = NULL, threshold = NULL) {
+    res <- covariance_lasso_inference(beta_hat, cov, prop_select = 0.8,
+                                      perturbation = drop(t(chol(cov)) %*% z),
+                                      penalty_factor = penalty_factor, threshold = threshold,
+                                      target = "full", level = 0.9)
+    j <- res$selected
+    covered <- rep(NA, p)
+    names(covered) <- names_x
+    covered[j] <- res$summary$lower_conf <= beta_ols[j] & beta_ols[j] <= res$summary$upper_conf
+    data.frame(method = method, variable = names_x, class = cls,
+               selected = names_x %in% j, covered = covered)
+  }
+  # the old marginal-SE rule: D_j = t / (sqrt(pi) SE_j) with t = E max |beta_hat_j / SE_j|
+  marginal_pf <- 1 / sqrt(diag(cov_boot) * diag(solve(cov_boot)))
+  marginal_t <- lassoinf:::expected_max_abs(cov_boot)
+  rbind(run("OLS lasso", cov_model),
+        run("bootstrap, marginal SE", cov_boot, marginal_pf, marginal_t),
+        run("bootstrap", cov_boot),
+        run("oracle", sandwich / n_ols))
+}
+
+simulate_ols <- function(nsim, seed = 6) {
+  set.seed(seed)
+  do.call(rbind, replicate(nsim, one_ols_replication(), simplify = FALSE))
+}
+
+selection_table <- function(results) {
+  methods <- unique(results$method)
+  classes <- c("strong", "small", "small, quiet", "null", "null, noisy")
+  rate <- function(column) {
+    sapply(methods, function(m) sapply(classes, function(k) {
+      x <- results[results$method == m & results$class == k, column]
+      round(mean(x, na.rm = TRUE), 3)
+    }))
+  }
+  list(selected = rate("selected"), coverage = rate("covered"))
+}
+```
+
+```{r, include = FALSE}
+# Saved like the simulations above; LASSOINF_RERUN_SIMS=true recomputes.
+sims_file <- "bootstrap_covariance_lasso_ols_sims.rds"
+if (!file.exists(sims_file) || identical(Sys.getenv("LASSOINF_RERUN_SIMS"), "true")) {
+  saveRDS(simulate_ols(nsim = 200), sims_file)
+}
+results_ols <- readRDS(sims_file)
+```
+
+```{r, eval = -1}
+results_ols <- simulate_ols(nsim = 200)
+tables <- selection_table(results_ols)
+tables$selected
+```
+
+The oracle shows what a matched penalty does. It selects the noisy nulls no more often
+than the other nulls, and it finds the quiet effects more often than the other small
+effects, since their estimates are more precise. The OLS lasso does the opposite: it
+selects the noisy nulls several times as often as the other nulls, and it finds the quiet
+effects less often than the other small effects. Its penalty is too light for $x_{21}$ and
+$x_{22}$ and too heavy for $x_5$ and $x_6$, and no choice of $\lambda$ fixes that.
+
+The bootstrap covariance brings the selection close to the oracle's: the quiet effects are
+found about as often, and the noisy nulls much less often than with the OLS lasso. It is
+looser than the oracle overall, selecting more of every kind of variable, because the
+covariance and its inverse are estimated with noise from $n = 1000$ observations of 40
+coefficients; a larger `lambda_mult` tightens it. The marginal-SE penalty, which ignores
+the correlation of the estimates, is looser still and does not separate the quiet effects
+from the noisy nulls as well.
+
+Conditional on what was selected, the selective intervals are valid for every rule whose
+covariance is right; the model-based covariance is wrong for the noisy nulls and the quiet
+effects. Coverage of the selected coefficients' projection parameters $\beta^\circ_j$:
+
+```{r}
+tables$coverage
+```
+
+Coverage is close to nominal for all four rules here: once a variable is selected, the
+mismatch in this example changes its interval less than it changes which variables are
+selected. The cost of the OLS lasso's mismatched penalty is in the quality of the
+selection.
+
+## Reference
+
+Fry, K., Panigrahi, S. and Taylor, J. (2025). Assumption-lean data fission with resampled
+data. *Journal of the American Statistical Association*, 120(549).

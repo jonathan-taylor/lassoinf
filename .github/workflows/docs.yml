@@ -56,7 +56,7 @@ jobs:
           pip install --upgrade pip
           pip install meson-python ninja meson pybind11 setuptools_scm
           pip install .[test]
-          pip install "jupyter-book>=2" ipykernel matplotlib
+          pip install "jupyter-book>=2" ipykernel matplotlib statsmodels
 
       - name: Build HTML
         run: |

@@ -1,6 +1,6 @@
 Package: lassoinf
 Title: Selective Inference for the Randomized Lasso
-Version: 0.2.1
+Version: 0.3.0
 Authors@R: c(
     person("Jonathan", "Taylor", email = "jtaylo@stanford.edu",
            role = c("aut", "cre", "cph")),
@@ -27,6 +27,6 @@ Encoding: UTF-8
 Depends: R (>= 3.5.0)
 LinkingTo: Rcpp, RcppEigen
 Imports: methods, mvtnorm, R6, Rcpp, stats
-Suggests: glmnet (>= 5.1), knitr, rmarkdown, testthat, uniLasso
+Suggests: glmnet (>= 5.1), knitr, MASS, reticulate, rmarkdown, testthat, uniLasso
 VignetteBuilder: knitr
 Config/roxygen2/version: 8.1.0

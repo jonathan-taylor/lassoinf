@@ -188,29 +188,39 @@ class LassoInference:
         else:
             self.summary_ = pd.DataFrame(columns=['beta_hat', 'lower_conf', 'upper_conf', 'p_value', 'index']).set_index('index')
 
-    def _compute_inference(self, v, theta_hat, variance, inference_method=None):
-        sigma = np.sqrt(variance)
-        contrast = self.si.compute_contrast(v)
+    def truncated_family(self, v, variance, contrast=None):
+        """
+        The law of theta_hat = v' Z_full given the selection, as a TruncBivariateNormal
+        whose natural parameter theta is the target divided by ``variance``.
+
+        Returns the family and the contrast for v.
+        """
+        if contrast is None:
+            contrast = self.si.compute_contrast(v)
         bar_s = float(contrast.bar_s)
-        
+
         # Get the interval bounds at theta_hat = 0
         L_0, U_0 = contrast.get_interval(0.0, self.A, self.b)
-        
+
         c1 = float(variance)
         c2 = bar_s**2
-        
+
         # The constraint is L_0 <= (c2/c1) * theta_hat + bar_theta <= U_0
-        a_coeff = c2 / c1
-        b_coeff = 1.0
+        tbn = TruncBivariateNormal(
+            a_coeff=c2 / c1, b_coeff=1.0,
+            L=L_0, U=U_0,
+            sig_omega=bar_s,
+            sig_x=np.sqrt(variance)
+        )
+        return tbn, contrast
+
+    def _compute_inference(self, v, theta_hat, variance, inference_method=None):
+        contrast = self.si.compute_contrast(v)
+        c1 = float(variance)
 
         if inference_method is None or inference_method == "bivariate_normal":
-            tbn = TruncBivariateNormal(
-                a_coeff=a_coeff, b_coeff=b_coeff, 
-                L=L_0, U=U_0, 
-                sig_omega=bar_s, 
-                sig_x=sigma
-            )
-            
+            tbn, _ = self.truncated_family(v, variance, contrast)
+
             # Compute the 95% confidence interval (in natural parameter space)
             L_theta, U_theta = tbn.equal_tailed_interval(float(theta_hat), alpha=1-self.level)
             lower, upper = L_theta * c1, U_theta * c1
@@ -223,6 +233,7 @@ class LassoInference:
             return lower, upper, p_val, contrast
         else:
             if callable(inference_method):
+                L_0, U_0 = contrast.get_interval(0.0, self.A, self.b)
                 return inference_method(
                     v=v, 
                     theta_hat=float(theta_hat), 
